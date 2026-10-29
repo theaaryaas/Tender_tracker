@@ -1,0 +1,29 @@
+{
+  "company_name": "BitVivid Solutions Private Limited",
+  "msme_status": "Micro Enterprise - Services (verify current Udyam certificate)",
+  "udyam_registered": true,
+  "dpiit_startup_recognised": true,
+  "gem_registered": true,
+  "known_certifications": [
+    "ISO 9001:2015",
+    "ISO 27001:2013",
+    "ISO 90003:2018",
+    "CMMI Maturity Level 5 (certificate shown in company profile as valid until 08-Nov-2026; verify current status before relying on it)"
+  ],
+  "known_project_experience": [
+    "MP Police ITMS across 8 cities",
+    "Magh Mela 2026 surveillance and crowd analytics",
+    "Prayagraj Smart City surveillance and analytics",
+    "Ghaziabad Safe City surveillance",
+    "Bhopal ITMS",
+    "Land Ports Authority of India multi-language ANPR",
+    "Cotton Corporation of India centralized CCTV",
+    "Kumbh 2019 AI crowd surveillance"
+  ],
+  "average_annual_turnover_inr": null,
+  "net_worth_inr": null,
+  "blacklisting_status_confirmed": false,
+  "current_mafs_and_oem_authorisations": "Verify case by case",
+  "direct_bidder_type": "Software/product OEM and solution provider; verify exact tender's bidder definition",
+  "notes": "Known company facts are prefilled from previously provided company materials. Fill financial values only from current CA-certified documents. Never treat this profile as a substitute for the tender PDF, ATC, corrigenda or bid-specific legal review."
+}

@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bitvivid-tender-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - tender_data:/app/data
+      - ./backend:/app/backend
+      - ./company_profile.json:/app/company_profile.json
+      - ./BitVivid_Tender_Tracker_GeM.csv:/app/BitVivid_Tender_Tracker_GeM.csv
+      - ./bitvivid_tender_tracker.py:/app/bitvivid_tender_tracker.py
+    environment:
+      - DATABASE_URL=sqlite:////app/data/tenders.db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bitvivid-tender-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  tender_data:
