@@ -181,3 +181,8 @@ backend/tenders.db
 Thumbs.db
 .vscode/
 .idea/
+
+# Vite build directories
+build/
+frontend/build/
+frontend/dist/

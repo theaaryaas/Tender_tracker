@@ -8,6 +8,14 @@
   }
 }
 
+/* Tactical Command Grid & Ambient Mesh */
+.bg-command-canvas {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(rgba(100, 116, 139, 0.22) 1.25px, transparent 1.25px);
+  background-size: 24px 24px;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -22,5 +30,31 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* 🇮🇳 Pan-India States Infinite Marquee Animation */
+@keyframes panIndiaMarquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-pan-india-marquee {
+  display: flex;
+  width: max-content;
+  animation: panIndiaMarquee 38s linear infinite;
+  will-change: transform;
+}
+
+.animate-pan-india-marquee:hover {
+  animation-play-state: paused;
+}
+
+.mask-fade-edges {
+  mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
 }
 

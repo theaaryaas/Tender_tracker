@@ -26,7 +26,12 @@ class Tender(Base):
     emd_exemption = Column(String(100), default="Verify MSME / Startup rules")
     epbg_required = Column(String(100), default="Check tender PDF / ATC")
     turnover_required = Column(String(100), default="Check tender PDF / ATC")
+    bidder_turnover = Column(String(120), nullable=True)
+    oem_turnover = Column(String(120), nullable=True)
     experience_required = Column(Text, default="Check tender PDF / ATC")
+    experience_years = Column(String(120), nullable=True)
+    mse_relaxation = Column(String(120), default="Check tender PDF / ATC")
+    startup_relaxation = Column(String(120), default="Check tender PDF / ATC")
     scope_summary = Column(Text, nullable=True)
     extracted_pdf_text = Column(Text, nullable=True)
     

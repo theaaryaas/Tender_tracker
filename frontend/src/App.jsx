@@ -9,33 +9,42 @@ import { SyncCenterView } from './features/sync/SyncCenterView';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { SettingsView } from './features/settings/SettingsView';
 import { TenderDrawer } from './features/tenders/TenderDrawer';
+import { CommandPalette } from './components/common/CommandPalette';
+import { TenderBackground } from './components/common/TenderBackground';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 export const App = () => {
   const { currentTab, notification } = useApp();
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
+    <div className="min-h-screen bg-[#eef3f8] flex flex-col font-sans text-slate-800">
       {/* Top Navigation */}
       <Navbar />
 
       {/* Main Container */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 relative items-start">
         <Sidebar />
 
-        {/* Content Area */}
-        <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
-          {currentTab === 'dashboard' && <DashboardView />}
-          {currentTab === 'tenders' && <TendersView />}
-          {currentTab === 'kanban' && <KanbanView />}
-          {currentTab === 'sync' && <SyncCenterView />}
-          {currentTab === 'analytics' && <AnalyticsView />}
-          {currentTab === 'settings' && <SettingsView />}
-        </main>
+        {/* Content Area with Blueprint Truss & Contract Background */}
+        <div className="flex-1 relative overflow-hidden flex flex-col min-w-0">
+          <TenderBackground />
+
+          <main className="flex-1 p-5 pb-6 max-w-7xl mx-auto w-full relative z-10">
+            {currentTab === 'dashboard' && <DashboardView />}
+            {currentTab === 'tenders' && <TendersView />}
+            {currentTab === 'kanban' && <KanbanView />}
+            {currentTab === 'sync' && <SyncCenterView />}
+            {currentTab === 'analytics' && <AnalyticsView />}
+            {currentTab === 'settings' && <SettingsView />}
+          </main>
+        </div>
       </div>
 
       {/* Tender Details Slide-over Drawer */}
       <TenderDrawer />
+
+      {/* Global Command Palette (Ctrl + K) */}
+      <CommandPalette />
 
       {/* Global Notification Toast */}
       {notification && (
@@ -59,4 +68,3 @@ export const App = () => {
 };
 
 export default App;
-

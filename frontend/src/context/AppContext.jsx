@@ -9,7 +9,24 @@ export const AppProvider = ({ children }) => {
   const [syncState, setSyncState] = useState({ is_running: false, progress: 0, current_task: 'Idle' });
   const [selectedTender, setSelectedTender] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [tenderFilter, setTenderFilter] = useState('');
+
+  // Global Ctrl+K / Cmd+K keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsCommandPaletteOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchStats = async () => {
     try {
@@ -71,6 +88,10 @@ export const AppProvider = ({ children }) => {
         openTenderDrawer,
         closeTenderDrawer,
         isDrawerOpen,
+        isCommandPaletteOpen,
+        setIsCommandPaletteOpen,
+        tenderFilter,
+        setTenderFilter,
         notification,
         showNotification,
       }}
