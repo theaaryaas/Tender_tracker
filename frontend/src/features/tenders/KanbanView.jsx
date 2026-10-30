@@ -12,7 +12,7 @@ const COLUMNS = [
 ];
 
 export const KanbanView = () => {
-  const { openTenderDrawer, showNotification } = useApp();
+  const { openTenderDrawer, showNotification, refreshStats } = useApp();
   const [tenders, setTenders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,13 +33,31 @@ export const KanbanView = () => {
     fetchKanbanTenders();
   }, []);
 
+  // Real-time synchronization when tender is updated from drawer
+  useEffect(() => {
+    const handleUpdate = (e) => {
+      const updated = e.detail;
+      if (updated?.id) {
+        setTenders((prev) =>
+          prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+        );
+      }
+    };
+    window.addEventListener('tender:updated', handleUpdate);
+    return () => window.removeEventListener('tender:updated', handleUpdate);
+  }, []);
+
   const moveTender = async (e, tenderId, nextStatus) => {
     e.stopPropagation();
     try {
-      await tenderApi.updateTender(tenderId, { status: nextStatus });
+      const res = await tenderApi.updateTender(tenderId, { status: nextStatus });
       setTenders((prev) =>
         prev.map((t) => (t.id === tenderId ? { ...t, status: nextStatus } : t))
       );
+      window.dispatchEvent(new CustomEvent('tender:updated', { detail: res.data }));
+      if (refreshStats) {
+        refreshStats();
+      }
       showNotification(`Moved to ${nextStatus}`, 'success');
     } catch (e) {
       showNotification('Failed to update tender stage', 'error');

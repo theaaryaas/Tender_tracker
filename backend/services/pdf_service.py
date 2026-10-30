@@ -64,11 +64,25 @@ class PDFService:
                 result["scope_summary"] = "PDF document contains scanned images without text layer."
                 return result
 
-            # Clean readable text for user inspection in UI drawer
-            clean_excerpt = "\n\n--- PAGE EXCERPT ---\n\n".join(
+            # Clean readable text for user inspection in UI drawer (filter out Devanagari noise & control chars)
+            raw_excerpt = "\n\n--- PAGE EXCERPT ---\n\n".join(
                 p.strip() for p in pages_text[:4] if p.strip()
             )
-            result["extracted_pdf_text"] = clean_excerpt[:6000]
+            clean_t = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', raw_excerpt)
+            clean_t = re.sub(r'[\u0900-\u097F]+', '', clean_t)
+            filtered_lines = []
+            for line in clean_t.split('\n'):
+                l = re.sub(r'^[\s/:\-]+|[\s/:\-]+$', '', line).strip()
+                if not l:
+                    continue
+                if len(l) <= 2 and not l.isalpha():
+                    continue
+                if re.match(r'^[0-9\W]+$', l) and len(l) <= 3:
+                    continue
+                if filtered_lines and filtered_lines[-1].lower() == l.lower():
+                    continue
+                filtered_lines.append(l)
+            result["extracted_pdf_text"] = "\n".join(filtered_lines)[:6000]
 
             # 1. EMD Amount & Exemption Parsing (GeM & general)
             emd_section = re.search(r"/(?:EMD Detail|ईएमड[\s\S]*?ववरण)[\s\S]{1,150}?(?:आवPयकता|Required)[\s\S]{1,40}?(No|Yes)", full_text, re.I)
@@ -91,18 +105,15 @@ class PDFService:
                     result["emd_amount"] = f"₹ {amt_match.group(1).strip()}"
 
             # 2. ePBG / Performance Bank Guarantee
+            epbg_pct = re.search(r"ePBG\s+Percentage\s*(?:\(%?\))?\s*[\r\n\s]*([0-9.]+)", full_text, re.I)
             epbg_section = re.search(r"/(?:ePBG Detail|ईपीबीजी[\s\S]*?ववरण)[\s\S]{1,150}?(?:आवPयकता|Required)[\s\S]{1,40}?(No|Yes)", full_text, re.I)
-            if epbg_section:
+            if epbg_pct and float(epbg_pct.group(1)) > 0:
+                result["epbg_required"] = f"Required ({epbg_pct.group(1)}%)"
+            elif epbg_section:
                 epbg_val = epbg_section.group(1).strip().capitalize()
                 result["epbg_required"] = "Not Required" if epbg_val == "No" else "Required (Performance Security)"
-                if epbg_val == "No":
-                    result["epbg_required"] = "Not Required"
-                else:
-                    epbg_pct = re.search(r"ePBG\s+Percentage[\s\S]{1,40}?([0-9.]+)\s*%", full_text, re.I)
-                    if epbg_pct:
-                        result["epbg_required"] = f"Required ({epbg_pct.group(1)}% Performance Security)"
-                    else:
-                        result["epbg_required"] = "Required (Performance Security)"
+            else:
+                result["epbg_required"] = "Not Required"
 
             # 3. Startup & MSE Relaxations
             mse_match = re.search(r"MSE\s+Relaxation(?:\s+for\s+Years\s+of\s+Experience\s+and\s+Turnover)?[\s\S]{1,80}?\n\s*(Yes|No)", full_text, re.I)
