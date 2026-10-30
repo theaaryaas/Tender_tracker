@@ -19,7 +19,12 @@ class TenderBase(BaseModel):
     emd_exemption: Optional[str] = "Verify MSME / Startup rules"
     epbg_required: Optional[str] = "Check tender PDF / ATC"
     turnover_required: Optional[str] = "Check tender PDF / ATC"
+    bidder_turnover: Optional[str] = None
+    oem_turnover: Optional[str] = None
     experience_required: Optional[str] = "Check tender PDF / ATC"
+    experience_years: Optional[str] = None
+    mse_relaxation: Optional[str] = "Check tender PDF / ATC"
+    startup_relaxation: Optional[str] = "Check tender PDF / ATC"
     scope_summary: Optional[str] = None
     extracted_pdf_text: Optional[str] = None
     eligibility_assessment: Optional[str] = "Potential direct fit — verify tender clauses"

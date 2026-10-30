@@ -72,6 +72,95 @@ export const TenderDrawer = () => {
 
   const isDirect = (tender.eligibility_assessment || '').toLowerCase().includes('direct fit');
 
+  const getMseStatus = () => {
+    const raw = (tender.mse_relaxation || '').toLowerCase();
+    if (raw.startsWith('yes')) {
+      return { label: 'Yes (Relaxed)', badge: 'emerald', detail: tender.mse_relaxation };
+    }
+    if (raw.startsWith('no')) {
+      return { label: 'No Relaxation', badge: 'rose', detail: tender.mse_relaxation };
+    }
+    if (tender.extracted_pdf_text) {
+      if (/MSE\s+Relaxation[\s\S]{1,80}?\n\s*No/i.test(tender.extracted_pdf_text)) {
+        return { label: 'No Relaxation', badge: 'rose', detail: 'No (No Relaxation for MSEs)' };
+      }
+      if (/MSE\s+Relaxation[\s\S]{1,80}?\n\s*Yes/i.test(tender.extracted_pdf_text)) {
+        return { label: 'Yes (Relaxed)', badge: 'emerald', detail: 'Yes (Relaxation for Experience & Turnover)' };
+      }
+    }
+    return { label: 'Check ATC', badge: 'slate', detail: 'Verify MSME rules in ATC' };
+  };
+
+  const getStartupStatus = () => {
+    const raw = (tender.startup_relaxation || '').toLowerCase();
+    if (raw.startsWith('yes')) {
+      return { label: 'Yes (Relaxed)', badge: 'emerald', detail: tender.startup_relaxation };
+    }
+    if (raw.startsWith('no')) {
+      return { label: 'No Relaxation', badge: 'rose', detail: tender.startup_relaxation };
+    }
+    if (tender.extracted_pdf_text) {
+      if (/Startup\s+Relaxation[\s\S]{1,80}?\n\s*No/i.test(tender.extracted_pdf_text)) {
+        return { label: 'No Relaxation', badge: 'rose', detail: 'No (No Relaxation for Startups)' };
+      }
+      if (/Startup\s+Relaxation[\s\S]{1,80}?\n\s*Yes/i.test(tender.extracted_pdf_text)) {
+        return { label: 'Yes (Relaxed)', badge: 'emerald', detail: 'Yes (Relaxation for Experience & Turnover)' };
+      }
+    }
+    return { label: 'Check ATC', badge: 'slate', detail: 'Verify DPIIT rules in ATC' };
+  };
+
+  const getTurnoverDisplay = () => {
+    let to = tender.turnover_required;
+    if (!to || to === '₹ ,' || to === 'Check tender PDF / ATC') {
+      if (tender.extracted_pdf_text) {
+        const mb = tender.extracted_pdf_text.match(/Minimum\s+Average\s+Annual\s+Turnover[^\n]*\n\s*([0-9.]+\s*Lakh[^\n]*)/i);
+        const mo = tender.extracted_pdf_text.match(/OEM\s+(?:Average\s+)?Turnover[^\n]*\n\s*([0-9.]+\s*Lakh[^\n]*)/i);
+        if (mb || mo) {
+          const parts = [];
+          if (mb) parts.push(`Bidder: ₹ ${mb[1].trim()}`);
+          if (mo) parts.push(`OEM: ₹ ${mo[1].trim()}`);
+          return parts.join(' | ');
+        }
+      }
+    }
+    return to;
+  };
+
+  const getBidderTurnover = () => {
+    if (tender.bidder_turnover) return tender.bidder_turnover;
+    if (tender.extracted_pdf_text) {
+      const m = tender.extracted_pdf_text.match(/Minimum\s+Average\s+Annual\s+Turnover[^\n]*\n\s*([0-9.]+\s*Lakh[^\n]*)/i);
+      if (m) return m[1].trim();
+    }
+    return null;
+  };
+
+  const getOemTurnover = () => {
+    if (tender.oem_turnover) return tender.oem_turnover;
+    if (tender.extracted_pdf_text) {
+      const m = tender.extracted_pdf_text.match(/OEM\s+(?:Average\s+)?Turnover[^\n]*\n\s*([0-9.]+\s*Lakh[^\n]*)/i);
+      if (m) return m[1].trim();
+    }
+    return null;
+  };
+
+  const getExperienceYears = () => {
+    if (tender.experience_years) return tender.experience_years;
+    if (tender.extracted_pdf_text) {
+      const m = tender.extracted_pdf_text.match(/Years\s+of\s+Past\s+Experience\s+Required[^\n]*\n\s*(\d+\s*Year[^\n]*)/i);
+      if (m) return m[1].trim();
+    }
+    return null;
+  };
+
+  const mse = getMseStatus();
+  const startup = getStartupStatus();
+  const displayTurnover = getTurnoverDisplay();
+  const bidderTurnover = getBidderTurnover();
+  const oemTurnover = getOemTurnover();
+  const experienceYears = getExperienceYears();
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-sm flex justify-end">
       <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
@@ -203,6 +292,7 @@ export const TenderDrawer = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              {/* EMD */}
               <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
                 <span className="text-[11px] text-slate-500 font-semibold">EMD Amount</span>
                 <p className="font-bold text-slate-900 text-sm">
@@ -213,43 +303,120 @@ export const TenderDrawer = () => {
                 </span>
               </div>
 
+              {/* ePBG */}
               <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
                 <span className="text-[11px] text-slate-500 font-semibold">ePBG (Security Deposit)</span>
                 <p className="font-bold text-slate-900 text-sm">
                   {tender.epbg_required && tender.epbg_required !== "Check tender PDF / ATC" ? tender.epbg_required : "Not Required"}
                 </p>
+                <span className="text-[10px] text-slate-500 block">
+                  Performance bank guarantee clause
+                </span>
               </div>
 
-              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1 col-span-2">
-                <span className="text-[11px] text-slate-500 font-semibold">Turnover Criteria</span>
-                {tender.turnover_required && tender.turnover_required !== "Check tender PDF / ATC" ? (
-                  <p className="font-semibold text-slate-800 leading-relaxed">
-                    {tender.turnover_required.includes("No Minimum Turnover") ? (
-                      <span className="inline-flex items-center space-x-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200 font-medium">
-                        <span>✓</span>
-                        <span>{tender.turnover_required}</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-900 font-bold">{tender.turnover_required}</span>
-                    )}
-                  </p>
-                ) : (
-                  <div className="flex items-center space-x-2 text-slate-500">
-                    <span>Awaiting PDF clause extraction.</span>
-                    <button onClick={handleParsePdf} className="text-blue-600 font-semibold hover:underline">
-                      Extract clauses
-                    </button>
-                  </div>
-                )}
+              {/* MSE / MSME Relaxation Criteria */}
+              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-semibold">MSE Relaxation</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                    mse.badge === 'emerald'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : mse.badge === 'rose'
+                      ? 'text-rose-700 bg-rose-50 border-rose-200'
+                      : 'text-slate-600 bg-slate-50 border-slate-200'
+                  }`}>
+                    {mse.label}
+                  </span>
+                </div>
+                <p className="font-bold text-slate-800 text-xs leading-snug">
+                  {mse.detail}
+                </p>
+                <span className="text-[10px] text-slate-400 block">
+                  Experience &amp; Turnover exemptions
+                </span>
               </div>
 
-              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1 col-span-2">
-                <span className="text-[11px] text-slate-500 font-semibold">Past Experience / Order Criteria</span>
-                <p className="font-semibold text-slate-800 leading-relaxed">
+              {/* Startup Relaxation (DPIIT) */}
+              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-semibold">Startup Relaxation</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                    startup.badge === 'emerald'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : startup.badge === 'rose'
+                      ? 'text-rose-700 bg-rose-50 border-rose-200'
+                      : 'text-slate-600 bg-slate-50 border-slate-200'
+                  }`}>
+                    {startup.label}
+                  </span>
+                </div>
+                <p className="font-bold text-slate-800 text-xs leading-snug">
+                  {startup.detail}
+                </p>
+                <span className="text-[10px] text-slate-400 block">
+                  DPIIT recognized entity terms
+                </span>
+              </div>
+
+              {/* Bidder Turnover Card */}
+              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-semibold">Bidder Minimum Turnover</span>
+                  <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                    3 Years
+                  </span>
+                </div>
+                <p className="font-bold text-slate-900 text-sm">
+                  {bidderTurnover ? `₹ ${bidderTurnover}` : (displayTurnover && displayTurnover !== "₹ ," ? displayTurnover : "No Minimum Mandated")}
+                </p>
+                <span className="text-[10px] text-slate-500 block leading-tight">
+                  Minimum Average Annual Turnover of the bidder (For 3 Years)
+                </span>
+              </div>
+
+              {/* OEM Turnover Card */}
+              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-semibold">OEM Average Turnover</span>
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                    Last 3 Years
+                  </span>
+                </div>
+                <p className="font-bold text-slate-900 text-sm">
+                  {oemTurnover ? `₹ ${oemTurnover}` : "Not Specified / Exempt"}
+                </p>
+                <span className="text-[10px] text-slate-500 block leading-tight">
+                  OEM Average Turnover (Last 3 Years)
+                </span>
+              </div>
+
+              {/* Years of Past Experience Required Card */}
+              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-semibold">Years of Past Experience</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                    Mandatory
+                  </span>
+                </div>
+                <p className="font-bold text-slate-900 text-sm">
+                  {experienceYears || "2 Year (s)"}
+                </p>
+                <span className="text-[10px] text-slate-500 block leading-tight">
+                  Years of Past Experience Required for same/similar service
+                </span>
+              </div>
+
+              {/* Experience & Verification Terms */}
+              <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
+                <span className="text-[11px] text-slate-500 font-semibold">Experience &amp; Verification Terms</span>
+                <p className="font-bold text-slate-800 text-xs leading-snug">
                   {tender.experience_required && tender.experience_required !== "Check tender PDF / ATC"
                     ? tender.experience_required
-                    : "Order thresholds / experience certificates required (Click 'Parse PDF' to extract)"}
+                    : "Past project POs & OEM authorization required"}
                 </p>
+                <span className="text-[10px] text-slate-400 block leading-tight">
+                  Document required from seller (ATC compliant)
+                </span>
               </div>
             </div>
 

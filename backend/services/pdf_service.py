@@ -13,18 +13,17 @@ class PDFService:
         Returns: { estimated_value, emd_amount, emd_exemption, epbg_required, turnover_required, experience_required, scope_summary, extracted_pdf_text }
         """
         result = {
-            "estimated_value": "Not disclosed in listing",
-            "emd_amount": "Check tender PDF / ATC",
-            "emd_exemption": "Verify MSME / Startup rules",
-            "epbg_required": "Check tender PDF / ATC",
-            "turnover_required": "Check tender PDF / ATC",
-            "experience_required": "Check tender PDF / ATC",
             "estimated_value": "Not Disclosed by Buyer on GeM",
             "emd_amount": "Nil / Not Required",
             "emd_exemption": "EMD not required for this bid",
             "epbg_required": "Not Required",
             "turnover_required": "No Minimum Turnover Mandated",
+            "bidder_turnover": None,
+            "oem_turnover": None,
             "experience_required": "Relevant past project experience certificates required",
+            "experience_years": None,
+            "mse_relaxation": "Verify in ATC / Standard MSME rules",
+            "startup_relaxation": "Verify in ATC / DPIIT certificate required",
             "scope_summary": "",
             "extracted_pdf_text": ""
         }
@@ -105,10 +104,35 @@ class PDFService:
                     else:
                         result["epbg_required"] = "Required (Performance Security)"
 
-            # 3. Estimated Tender Value & Order Criteria
             # 3. Startup & MSE Relaxations
-            startup_rel = bool(re.search(r"Startup\s+Relaxation[\s\S]{1,120}?\n\s*Yes", full_text, re.I))
-            mse_rel = bool(re.search(r"MSE\s+Relaxation[\s\S]{1,120}?\n\s*Yes", full_text, re.I))
+            mse_match = re.search(r"MSE\s+Relaxation(?:\s+for\s+Years\s+of\s+Experience\s+and\s+Turnover)?[\s\S]{1,80}?\n\s*(Yes|No)", full_text, re.I)
+            if mse_match:
+                mse_val = mse_match.group(1).strip().capitalize()
+                if mse_val == "Yes":
+                    result["mse_relaxation"] = "Yes (Relaxation for Experience & Turnover)"
+                else:
+                    result["mse_relaxation"] = "No (No Relaxation for MSEs)"
+            elif re.search(r"Purchase\s+preference\s+to\s+Micro\s+and\s+Small\s+Enterprises[\s\S]{1,60}?(Yes|No)", full_text, re.I):
+                pref_m = re.search(r"Purchase\s+preference\s+to\s+Micro\s+and\s+Small\s+Enterprises[\s\S]{1,60}?(Yes|No)", full_text, re.I)
+                if pref_m.group(1).strip().capitalize() == "Yes":
+                    result["mse_relaxation"] = "Yes (MSE Purchase Preference applicable)"
+                else:
+                    result["mse_relaxation"] = "No (Purchase preference not applicable)"
+            else:
+                result["mse_relaxation"] = "Verify in ATC / Standard MSME rules"
+
+            startup_match = re.search(r"Startup\s+Relaxation(?:\s+for\s+Years\s+of\s+Experience\s+and\s+Turnover)?[\s\S]{1,80}?\n\s*(Yes|No)", full_text, re.I)
+            if startup_match:
+                st_val = startup_match.group(1).strip().capitalize()
+                if st_val == "Yes":
+                    result["startup_relaxation"] = "Yes (Relaxation for Experience & Turnover)"
+                else:
+                    result["startup_relaxation"] = "No (No Relaxation for Startups)"
+            else:
+                result["startup_relaxation"] = "Verify in ATC / DPIIT certificate required"
+
+            startup_rel = (startup_match and startup_match.group(1).lower() == "yes")
+            mse_rel = (mse_match and mse_match.group(1).lower() == "yes")
 
             # 4. Turnover Requirement
             m_bidder = re.search(r"Minimum\s+Average\s+Annual\s+Turnover\s+of\s+the\s+bidder(?:\s*\([^)]*\))*\s*[:\-]?\s*\n\s*([0-9.]+\s*(?:Lakh|Crore|Cr|Lakhs)?(?:\s*\(s\))?)", full_text, re.I)
@@ -117,8 +141,10 @@ class PDFService:
             if m_bidder or m_oem:
                 to_parts = []
                 if m_bidder:
+                    result["bidder_turnover"] = m_bidder.group(1).strip()
                     to_parts.append(f"Bidder: ₹ {m_bidder.group(1).strip()}")
                 if m_oem:
+                    result["oem_turnover"] = m_oem.group(1).strip()
                     to_parts.append(f"OEM: ₹ {m_oem.group(1).strip()}")
                 to_text = " | ".join(to_parts)
                 if startup_rel or mse_rel:
@@ -132,7 +158,11 @@ class PDFService:
                 elif startup_rel or mse_rel:
                     result["turnover_required"] = "Exempt for DPIIT Startups / MSEs (Standard GeM Terms)"
                 else:
-                    result["turnover_required"] = "As per ATC / GeM Verified Turnover (No minimum cap published)"
+                    turnover_explicit = re.search(r"(?:Annual|Bidder)\s+Turnover\s*[:\-]?\s*(?:INR|Rs\.?|₹)\s*([0-9,.]+\s*(?:Lakh|Crore|Cr|Lakhs))", full_text, re.I)
+                    if turnover_explicit:
+                        result["turnover_required"] = f"₹ {turnover_explicit.group(1).strip()}"
+                    else:
+                        result["turnover_required"] = "As per ATC / GeM Verified Turnover (No minimum cap published)"
 
             # 5. Estimated Tender Value & Order Criteria
             est_match = re.search(r"(?:Estimated\s+(?:Bid|Tender|Contract)?\s*Value|Total\s+Estimated\s+Value)\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([0-9,.]+\s*(?:Lakh|Crore|Cr|Lakhs)?)", full_text, re.I)
@@ -182,10 +212,12 @@ class PDFService:
             if "Order thresholds" not in result["experience_required"]:
                 m_exp = re.search(r"Years\s+of\s+Past\s+Experience\s+Required[\s\S]{1,80}?\n\s*(\d+\s*Years?(?:\s*\(s\))?)", full_text, re.I)
                 if m_exp:
+                    result["experience_years"] = m_exp.group(1).strip()
                     result["experience_required"] = f"Minimum {m_exp.group(1).strip()} past experience in similar domain required."
                 else:
                     exp_years = re.search(r"(?:Years\s+of\s+)?Past\s+Experience\s+Required\s*[:\-]?\s*(\d+\s*Years?)", full_text, re.I)
                     if exp_years:
+                        result["experience_years"] = exp_years.group(1).strip()
                         result["experience_required"] = f"Minimum {exp_years.group(1).strip()} past experience required."
                     spec_exp = re.search(r"Experience Criteria[\s\S]{1,40}?(Successfully supplied[^\n\r]{20,250})", full_text, re.I)
                     if spec_exp:
@@ -193,12 +225,6 @@ class PDFService:
                     else:
                         result["experience_required"] = "Relevant past project experience certificates & OEM authorization required."
 
-            # 6. Turnover Requirement
-            turnover_match = re.search(r"(?:Bidder|Annual)\s+Turnover\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([0-9,.]+\s*(?:Lakh|Crore|Cr|Lakhs)?)", full_text, re.I)
-            if turnover_match:
-                result["turnover_required"] = f"₹ {turnover_match.group(1).strip()}"
-            elif "exemption from Experience / Turnover" in full_text:
-                result["turnover_required"] = "As per ATC (DPIIT/MSE exemption applicable)"
             # Startup / MSME Relaxation Note for Experience
             if re.search(r"For Startups party need to submit DPIIT certificate to get exemption", full_text, re.I):
                 result["experience_required"] += " (DPIIT Startups exempt with PoC / relevant PO)"
