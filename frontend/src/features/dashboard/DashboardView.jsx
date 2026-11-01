@@ -41,6 +41,23 @@ export const DashboardView = () => {
     fetchHighlights();
   }, []);
 
+  // Sync dashboard cards when a tender is updated
+  useEffect(() => {
+    const handleUpdate = (e) => {
+      const updated = e.detail;
+      if (updated?.id) {
+        setUrgentTenders((prev) =>
+          prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+        );
+        setHighFitTenders((prev) =>
+          prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+        );
+      }
+    };
+    window.addEventListener('tender:updated', handleUpdate);
+    return () => window.removeEventListener('tender:updated', handleUpdate);
+  }, []);
+
   const cleanOrg = (org) => {
     if (!org) return 'Central Government Ministry';
     const primary = org.split('/')[0].split('-')[0].trim();

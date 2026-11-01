@@ -80,6 +80,20 @@ export const TendersView = () => {
     fetchTenders();
   }, [page, limit, portal, status, eligibility, priority, sortBy, sortDesc]);
 
+  // Real-time synchronization when tender is updated from drawer or actions
+  useEffect(() => {
+    const handleUpdate = (e) => {
+      const updated = e.detail;
+      if (updated?.id) {
+        setTenders((prev) =>
+          prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+        );
+      }
+    };
+    window.addEventListener('tender:updated', handleUpdate);
+    return () => window.removeEventListener('tender:updated', handleUpdate);
+  }, []);
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setPage(1);
