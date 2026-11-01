@@ -18,7 +18,12 @@ def ensure_schema():
         for col, col_type in [
             ("estimated_value", "VARCHAR(100) DEFAULT 'Check tender PDF / ATC'"),
             ("epbg_required", "VARCHAR(100) DEFAULT 'Check tender PDF / ATC'"),
-            ("extracted_pdf_text", "TEXT")
+            ("extracted_pdf_text", "TEXT"),
+            ("bidder_turnover", "VARCHAR(120)"),
+            ("oem_turnover", "VARCHAR(120)"),
+            ("experience_years", "VARCHAR(120)"),
+            ("mse_relaxation", "VARCHAR(120) DEFAULT 'Check tender PDF / ATC'"),
+            ("startup_relaxation", "VARCHAR(120) DEFAULT 'Check tender PDF / ATC'"),
         ]:
             try:
                 conn.execute(text(f"ALTER TABLE tenders ADD COLUMN {col} {col_type}"))
