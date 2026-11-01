@@ -70,19 +70,61 @@ class PDFService:
             )
             clean_t = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', raw_excerpt)
             clean_t = re.sub(r'[\u0900-\u097F]+', '', clean_t)
+            clean_t = re.sub(r'Turnover\s+of\s+the\s+bidder\s*\(For\s+the\s+last\s+3:?\s*Financial\s+Years\)', 'Turnover of the bidder (For 3 Years)', clean_t, flags=re.I)
+            clean_t = re.sub(r'MSE\s+Relaxation\s+for\s+Years\s+Of\s+Experience:?\s+and\s+Turnover:?\s+Yes', 'MSE Relaxation for Years of Experience and Turnover: Yes', clean_t, flags=re.I)
+            clean_t = re.sub(r'Startup\s+Relaxation\s+for\s+Years\s+Of:?\s+Experience\s+and\s+Turnover:?\s+Yes', 'Startup Relaxation for Years of Experience and Turnover: Yes', clean_t, flags=re.I)
+
+            valid_words = {'to', 'in', 'of', 'on', 'at', 'by', 'no', 'as', 'is', 'or', 'if', 'an', 'we', 'do', 'up', 'us', 'rs', 're'}
             filtered_lines = []
             for line in clean_t.split('\n'):
                 l = re.sub(r'^[\s/:\-]+|[\s/:\-]+$', '', line).strip()
                 if not l:
                     continue
-                if len(l) <= 2 and not l.isalpha():
+                # Drop isolated icon font glyphs / table bullets (E, F, H, I, J, L, P, FJ, X, Y, a, c, e)
+                if len(l) <= 2 and l.lower() not in valid_words and not l.isdigit():
                     continue
-                if re.match(r'^[0-9\W]+$', l) and len(l) <= 3:
+                if re.match(r'^[^\w\s]+$', l):
                     continue
                 if filtered_lines and filtered_lines[-1].lower() == l.lower():
                     continue
                 filtered_lines.append(l)
-            result["extracted_pdf_text"] = "\n".join(filtered_lines)[:6000]
+
+            # Strip leading Bid / Details / table debris
+            while filtered_lines and filtered_lines[0].lower() in ('bid', 'details', 'bid details', 'bid document', 'document'):
+                filtered_lines.pop(0)
+
+            # Merge broken lines and pair key headers with values
+            formatted_lines = ['=== OFFICIAL GeM BID DETAILS & SPECIFICATIONS ===\n']
+            key_headers = [
+                'Bid End Date/Time', 'Bid Opening Date/Time', 'Bid Offer Validity',
+                'Ministry/State Name', 'Department Name', 'Organisation Name', 'Office Name',
+                'Total Quantity', 'Item Category', 'Minimum Average Annual Turnover of the bidder',
+                'OEM Average Turnover', 'Years of Past Experience Required',
+                'Turnover eligibility criteria', 'MSE Relaxation', 'Startup Relaxation',
+                'Primary product category', 'Type of Bid', 'Evaluation Method', 'RA Qualification Rule',
+                'Advisory Bank', 'ePBG Percentage', 'EMD Amount', 'Beneficiary'
+            ]
+
+            idx = 0
+            while idx < len(filtered_lines):
+                line = filtered_lines[idx]
+                matched_kh = None
+                for kh in key_headers:
+                    if line.lower().startswith(kh.lower()):
+                        matched_kh = kh
+                        break
+                
+                if matched_kh and idx + 1 < len(filtered_lines):
+                    val = filtered_lines[idx + 1]
+                    is_other_kh = any(val.lower().startswith(kh.lower()) for kh in key_headers)
+                    if not is_other_kh and len(val) < 180:
+                        formatted_lines.append(f"{line}: {val}")
+                        idx += 2
+                        continue
+                formatted_lines.append(line)
+                idx += 1
+
+            result["extracted_pdf_text"] = "\n".join(formatted_lines)[:7000]
 
             # 1. EMD Amount & Exemption Parsing (GeM & general)
             emd_section = re.search(r"/(?:EMD Detail|ईएमड[\s\S]*?ववरण)[\s\S]{1,150}?(?:आवPयकता|Required)[\s\S]{1,40}?(No|Yes)", full_text, re.I)

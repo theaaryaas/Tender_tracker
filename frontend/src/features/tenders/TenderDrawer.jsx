@@ -213,7 +213,7 @@ export const TenderDrawer = () => {
     t = t.replace(/\bYes\s+Complete\b/gi, 'Yes');
     t = t.replace(/\bNo\s+Complete\b/gi, 'No');
 
-    const validShortWords = new Set(['to', 'in', 'of', 'on', 'at', 'by', 'no', 'as', 'is', 'or', 'if', 'an', 'we', 'do', 'up', 'us', 'my', 'he', 'so', 'it']);
+    const validShortWords = new Set(['to', 'in', 'of', 'on', 'at', 'by', 'no', 'as', 'is', 'or', 'if', 'an', 'we', 'do', 'up', 'us', 'my', 'he', 'so', 'it', 'rs', 're']);
 
     const rawLines = t.split('\n');
     const filtered = [];
@@ -238,7 +238,57 @@ export const TenderDrawer = () => {
       filtered.push(line);
     }
 
-    return filtered.join('\n');
+    // Strip leading Bid / Details / table debris
+    while (filtered.length > 0 && (
+      filtered[0].toLowerCase() === 'bid' ||
+      filtered[0].toLowerCase() === 'details' ||
+      filtered[0].toLowerCase() === 'bid details' ||
+      filtered[0].toLowerCase() === 'bid document' ||
+      filtered[0].toLowerCase() === 'document' ||
+      filtered[0] === '/' ||
+      filtered[0] === '//'
+    )) {
+      filtered.shift();
+    }
+
+    const keyHeaders = [
+      'Bid End Date/Time', 'Bid Opening Date/Time', 'Bid Offer Validity',
+      'Ministry/State Name', 'Department Name', 'Organisation Name', 'Office Name',
+      'Total Quantity', 'Item Category', 'Minimum Average Annual Turnover of the bidder',
+      'OEM Average Turnover', 'Years of Past Experience Required',
+      'Turnover eligibility criteria', 'MSE Relaxation', 'Startup Relaxation',
+      'Primary product category', 'Type of Bid', 'Evaluation Method', 'RA Qualification Rule',
+      'Advisory Bank', 'ePBG Percentage', 'EMD Amount', 'Beneficiary'
+    ];
+
+    const formatted = ['=== OFFICIAL GeM BID DETAILS & SPECIFICATIONS ===\n'];
+    let idx = 0;
+
+    while (idx < filtered.length) {
+      const line = filtered[idx];
+      let matchedKh = null;
+      for (const kh of keyHeaders) {
+        if (line.toLowerCase().startsWith(kh.toLowerCase())) {
+          matchedKh = kh;
+          break;
+        }
+      }
+
+      if (matchedKh && idx + 1 < filtered.length) {
+        const val = filtered[idx + 1];
+        const isOtherKh = keyHeaders.some(kh => val.toLowerCase().startsWith(kh.toLowerCase()));
+        if (!isOtherKh && val.length < 180) {
+          formatted.push(`${line}: ${val}`);
+          idx += 2;
+          continue;
+        }
+      }
+
+      formatted.push(line);
+      idx += 1;
+    }
+
+    return formatted.join('\n');
   };
 
   const cleanPdfText = formatDocumentExcerpt(tender.extracted_pdf_text);
@@ -255,7 +305,7 @@ export const TenderDrawer = () => {
     let raw = tender.assessment_notes || '';
     if (
       !raw ||
-      raw.includes('Company turnover is not configured in settings') ||
+      raw.toLowerCase().includes('company turnover') ||
       raw.includes("Tender title/keyword aligns with BitVivid's known AI")
     ) {
       const scopeDesc = tender.scope_summary || tender.title || 'CCTV & Video Systems';
@@ -303,9 +353,8 @@ export const TenderDrawer = () => {
               </span>
               <span className="text-xs text-slate-500 font-medium">{tender.portal}</span>
               <span
-                className={`text-xs px-2 py-0.5 rounded font-bold ${
-                  isDirect ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                }`}
+                className={`text-xs px-2 py-0.5 rounded font-bold ${isDirect ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}
               >
                 {tender.fit_score}% Fit
               </span>
@@ -356,8 +405,8 @@ export const TenderDrawer = () => {
                 {isEstimatedDisclosed
                   ? tender.estimated_value
                   : tender.extracted_pdf_text
-                  ? 'Not Disclosed by Buyer on GeM'
-                  : 'Awaiting PDF Parse'}
+                    ? 'Not Disclosed by Buyer on GeM'
+                    : 'Awaiting PDF Parse'}
               </p>
             </div>
           </div>
@@ -407,10 +456,10 @@ export const TenderDrawer = () => {
               </h3>
               {(tender.extracted_pdf_text ||
                 (tender.estimated_value && tender.estimated_value !== 'Check tender PDF / ATC')) && (
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
-                  ✓ Verified from PDF
-                </span>
-              )}
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                    ✓ Verified from PDF
+                  </span>
+                )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -445,13 +494,12 @@ export const TenderDrawer = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-slate-500 font-semibold">MSE Relaxation</span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                      mse.badge === 'emerald'
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${mse.badge === 'emerald'
                         ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                         : mse.badge === 'rose'
-                        ? 'text-rose-700 bg-rose-50 border-rose-200'
-                        : 'text-slate-600 bg-slate-50 border-slate-200'
-                    }`}
+                          ? 'text-rose-700 bg-rose-50 border-rose-200'
+                          : 'text-slate-600 bg-slate-50 border-slate-200'
+                      }`}
                   >
                     {mse.label}
                   </span>
@@ -469,13 +517,12 @@ export const TenderDrawer = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-slate-500 font-semibold">Startup Relaxation</span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                      startup.badge === 'emerald'
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${startup.badge === 'emerald'
                         ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                         : startup.badge === 'rose'
-                        ? 'text-rose-700 bg-rose-50 border-rose-200'
-                        : 'text-slate-600 bg-slate-50 border-slate-200'
-                    }`}
+                          ? 'text-rose-700 bg-rose-50 border-rose-200'
+                          : 'text-slate-600 bg-slate-50 border-slate-200'
+                      }`}
                   >
                     {startup.label}
                   </span>
@@ -500,8 +547,8 @@ export const TenderDrawer = () => {
                   {bidderTurnover
                     ? `₹ ${bidderTurnover}`
                     : displayTurnover && displayTurnover !== '₹ ,'
-                    ? displayTurnover
-                    : 'No Minimum Mandated'}
+                      ? displayTurnover
+                      : 'No Minimum Mandated'}
                 </p>
                 <span className="text-[10px] text-slate-500 block leading-tight">
                   Minimum Average Annual Turnover of the bidder (For 3 Years)
