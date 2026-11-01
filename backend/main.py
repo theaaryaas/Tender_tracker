@@ -13,29 +13,87 @@ from backend.routes import (
 )
 from backend.seed_data import seed_database
 
-def ensure_schema():
-    with engine.connect() as conn:
-        for col, col_type in [
-            ("estimated_value", "VARCHAR(100) DEFAULT 'Check tender PDF / ATC'"),
-            ("epbg_required", "VARCHAR(100) DEFAULT 'Check tender PDF / ATC'"),
-            ("extracted_pdf_text", "TEXT"),
-            ("bidder_turnover", "VARCHAR(120)"),
-            ("oem_turnover", "VARCHAR(120)"),
-            ("experience_years", "VARCHAR(120)"),
-            ("mse_relaxation", "VARCHAR(120) DEFAULT 'Check tender PDF / ATC'"),
-            ("startup_relaxation", "VARCHAR(120) DEFAULT 'Check tender PDF / ATC'"),
-        ]:
-            try:
-                conn.execute(text(f"ALTER TABLE tenders ADD COLUMN {col} {col_type}"))
+from pathlib import Path
+from alembic.config import Config
+from alembic import command
+
+def run_migrations():
+    try:
+        alembic_ini_path = Path(__file__).resolve().parent / "alembic.ini"
+        if alembic_ini_path.exists():
+            alembic_cfg = Config(str(alembic_ini_path))
+            command.upgrade(alembic_cfg, "head")
+            print("Database migrations applied successfully via Alembic.")
+        else:
+            Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Migration note/warning: {e}")
+        Base.metadata.create_all(bind=engine)
+
+def migrate_from_sqlite_if_empty():
+    """If Postgres is brand new and /app/data/tenders.db exists, migrate tenders & settings seamlessly."""
+    try:
+        sqlite_path = Path("/app/data/tenders.db")
+        if not sqlite_path.exists():
+            return
+        
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM tenders")).scalar()
+            if result and result > 0:
+                return # PostgreSQL already populated
+
+        print("Migrating existing data from SQLite to PostgreSQL...")
+        import sqlite3
+        sq_conn = sqlite3.connect(str(sqlite_path))
+        sq_conn.row_factory = sqlite3.Row
+        sq_cur = sq_conn.cursor()
+
+        # Migrate Settings
+        try:
+            sq_cur.execute("SELECT key, value_json, description FROM settings")
+            rows = sq_cur.fetchall()
+            with engine.connect() as conn:
+                for r in rows:
+                    conn.execute(
+                        text("INSERT INTO settings (key, value_json, description) VALUES (:k, :v, :d) ON CONFLICT (key) DO NOTHING"),
+                        {"k": r["key"], "v": r["value_json"], "d": r["description"]}
+                    )
                 conn.commit()
-            except Exception:
-                pass
+            print(f"Migrated {len(rows)} settings from SQLite.")
+        except Exception as e:
+            print(f"Settings migration note: {e}")
+
+        # Migrate Tenders
+        try:
+            sq_cur.execute("SELECT * FROM tenders")
+            rows = sq_cur.fetchall()
+            if rows:
+                cols = [desc[0] for desc in sq_cur.description if desc[0] != "id"]
+                col_names = ", ".join(cols)
+                col_params = ", ".join(f":{c}" for c in cols)
+                with engine.connect() as conn:
+                    for r in rows:
+                        row_dict = {c: r[c] for c in cols}
+                        if "is_starred" in row_dict:
+                            row_dict["is_starred"] = bool(row_dict["is_starred"])
+                        conn.execute(
+                            text(f"INSERT INTO tenders ({col_names}) VALUES ({col_params}) ON CONFLICT (tender_id) DO NOTHING"),
+                            row_dict
+                        )
+                    conn.commit()
+                print(f"Successfully migrated {len(rows)} tenders from SQLite to PostgreSQL!")
+        except Exception as e:
+            print(f"Tenders migration note: {e}")
+
+        sq_conn.close()
+    except Exception as e:
+        print(f"SQLite migration check warning: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Ensure tables exist & seed default data
-    Base.metadata.create_all(bind=engine)
-    ensure_schema()
+    # Startup: Apply Alembic migrations, migrate legacy SQLite data, seed defaults
+    run_migrations()
+    migrate_from_sqlite_if_empty()
     try:
         seed_database()
     except Exception as e:
