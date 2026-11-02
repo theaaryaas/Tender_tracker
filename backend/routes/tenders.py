@@ -59,7 +59,7 @@ async def batch_parse_tenders(
 @router.get("/", response_model=TenderListResponse)
 def get_tenders(
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     search: Optional[str] = None,
     portal: Optional[str] = None,
     status: Optional[str] = None,
@@ -95,7 +95,7 @@ def get_tenders(
 
 @router.get("/upcoming-deadlines")
 def get_upcoming_deadlines(
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     days: Optional[int] = Query(None, description="Filter within next N days"),
     include_expired: bool = Query(False, description="Whether to include expired deadlines"),
     db: Session = Depends(get_db)
