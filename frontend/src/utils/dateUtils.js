@@ -135,6 +135,38 @@ export const formatDeadline = (rawDate) => {
 };
 
 /**
+ * Formats ISO timestamps strictly in Indian Standard Time (Asia/Kolkata).
+ * Gracefully handles naive UTC strings from databases.
+ */
+export const formatIndianDateTime = (rawDate) => {
+  if (!rawDate) return 'N/A';
+  let d;
+  if (typeof rawDate === 'string') {
+    // If it's a naive timestamp without timezone offset (+ / -) or 'Z', treat as UTC
+    if (!rawDate.includes('Z') && !rawDate.includes('+') && !rawDate.match(/-\d{2}:\d{2}$/)) {
+      d = new Date(rawDate + 'Z');
+    } else {
+      d = new Date(rawDate);
+    }
+  } else {
+    d = new Date(rawDate);
+  }
+
+  if (isNaN(d.getTime())) return String(rawDate);
+
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+};
+
+/**
  * Sorts tenders chronologically by closing deadline (nearest first).
  */
 export const sortTendersByDeadline = (tenders, ascending = true) => {

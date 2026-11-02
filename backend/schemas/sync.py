@@ -1,5 +1,7 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, field_serializer
 from typing import Optional, List, Any
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import json
 
 class SyncTriggerRequest(BaseModel):
@@ -22,6 +24,17 @@ class SyncStatusResponse(BaseModel):
     duration_seconds: float = 0.0
     started_at: Optional[Any] = None
     completed_at: Optional[Any] = None
+
+    @field_serializer("started_at", "completed_at")
+    def serialize_ist_datetime(self, v: Any) -> Optional[str]:
+        if not v:
+            return None
+        if isinstance(v, datetime):
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=timezone.utc)
+            ist = ZoneInfo("Asia/Kolkata")
+            return v.astimezone(ist).isoformat()
+        return str(v)
 
     @field_validator("error_details", mode="before")
     @classmethod

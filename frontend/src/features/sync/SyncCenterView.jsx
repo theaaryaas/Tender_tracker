@@ -7,6 +7,7 @@ import {
   Play, 
   History
 } from 'lucide-react';
+import { formatIndianDateTime } from '../../utils/dateUtils';
 
 export const SyncCenterView = () => {
   const { syncState, refreshSyncStatus, showNotification, refreshStats } = useApp();
@@ -174,7 +175,7 @@ export const SyncCenterView = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-2.5 px-4">Started At</th>
+                <th className="py-2.5 px-4">Started At (IST)</th>
                 <th className="py-2.5 px-4">Portals</th>
                 <th className="py-2.5 px-4">Status</th>
                 <th className="py-2.5 px-4 text-center">Tenders Found</th>
@@ -186,8 +187,13 @@ export const SyncCenterView = () => {
               {history.length > 0 ? (
                 history.map((h) => (
                   <tr key={h.id} className="hover:bg-slate-50">
-                    <td className="py-3 px-4 font-medium text-slate-900">
-                      {h.started_at ? new Date(h.started_at).toLocaleString() : 'N/A'}
+                    <td className="py-3 px-4 font-semibold text-slate-900">
+                      <div className="flex items-center space-x-2">
+                        <span>{formatIndianDateTime(h.started_at)}</span>
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                          IST
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600 truncate max-w-xs">{h.portal_filter}</td>
                     <td className="py-3 px-4">
