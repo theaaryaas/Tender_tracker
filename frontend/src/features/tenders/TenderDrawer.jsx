@@ -7,7 +7,6 @@ import {
   Sparkles,
   CheckCircle2,
   AlertTriangle,
-  ShieldCheck,
   Save,
   Calendar,
   Building,
@@ -761,3 +760,6 @@ export const TenderDrawer = () => {
     </div>
   );
 };
+
+export default TenderDrawer;
+

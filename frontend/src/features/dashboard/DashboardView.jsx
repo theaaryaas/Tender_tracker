@@ -5,11 +5,8 @@ import {
   Users, 
   Clock, 
   TrendingUp, 
-  AlertTriangle, 
   ArrowRight, 
   Sparkles, 
-  ExternalLink,
-  Target,
   Building2
 } from 'lucide-react';
 import { tenderApi, exportApi } from '../../utils/api';

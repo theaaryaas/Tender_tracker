@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { settingsApi } from '../../utils/api';
-import { Save, Plus, Trash2, Building, ShieldCheck, Tag } from 'lucide-react';
+import { Save, Plus, Trash2, Building, Tag } from 'lucide-react';
 
 export const SettingsView = () => {
   const { showNotification } = useApp();
@@ -217,4 +217,7 @@ export const SettingsView = () => {
     </div>
   );
 };
+
+export default SettingsView;
+
 

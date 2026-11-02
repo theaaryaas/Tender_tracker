@@ -8,13 +8,9 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
-  SlidersHorizontal,
   FileSpreadsheet,
   FileText,
   Eye,
-  CheckCircle2,
-  Users,
-  AlertCircle,
   Sparkles
 } from 'lucide-react';
 import { tenderApi, exportApi } from '../../utils/api';
@@ -104,10 +100,11 @@ export const TendersView = () => {
     e.stopPropagation();
     const newStatus = e.target.value;
     try {
-      await tenderApi.updateTender(tenderId, { status: newStatus });
+      const res = await tenderApi.updateTender(tenderId, { status: newStatus });
       setTenders((prev) =>
         prev.map((t) => (t.id === tenderId ? { ...t, status: newStatus } : t))
       );
+      window.dispatchEvent(new CustomEvent('tender:updated', { detail: res.data || { id: tenderId, status: newStatus } }));
       showNotification(`Tender status changed to ${newStatus}`, 'success');
     } catch (err) {
       showNotification('Failed to update status', 'error');
@@ -118,10 +115,11 @@ export const TendersView = () => {
     e.stopPropagation();
     try {
       const updated = !tender.is_starred;
-      await tenderApi.updateTender(tender.id, { is_starred: updated });
+      const res = await tenderApi.updateTender(tender.id, { is_starred: updated });
       setTenders((prev) =>
         prev.map((t) => (t.id === tender.id ? { ...t, is_starred: updated } : t))
       );
+      window.dispatchEvent(new CustomEvent('tender:updated', { detail: res.data || { id: tender.id, is_starred: updated } }));
     } catch (err) {
       showNotification('Failed to update star', 'error');
     }
@@ -459,4 +457,7 @@ export const TendersView = () => {
     </div>
   );
 };
+
+export default TendersView;
+
 

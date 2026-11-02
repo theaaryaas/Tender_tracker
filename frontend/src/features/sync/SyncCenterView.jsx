@@ -3,13 +3,9 @@ import { useApp } from '../../context/AppContext';
 import { syncApi, settingsApi } from '../../utils/api';
 import { 
   RefreshCw, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
   Globe, 
   Play, 
-  History,
-  FileCheck2
+  History
 } from 'lucide-react';
 
 export const SyncCenterView = () => {
@@ -19,7 +15,6 @@ export const SyncCenterView = () => {
   const [gemPages, setGemPages] = useState(3);
   const [extractPdfs, setExtractPdfs] = useState(false);
   const [history, setHistory] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     const loadPortalsAndHistory = async () => {
@@ -221,4 +216,7 @@ export const SyncCenterView = () => {
     </div>
   );
 };
+
+export default SyncCenterView;
+
 

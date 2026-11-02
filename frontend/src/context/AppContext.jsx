@@ -11,7 +11,6 @@ export const AppProvider = ({ children }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [tenderFilter, setTenderFilter] = useState('');
 
   // Global Ctrl+K / Cmd+K keyboard shortcut listener
   useEffect(() => {
@@ -90,8 +89,6 @@ export const AppProvider = ({ children }) => {
         isDrawerOpen,
         isCommandPaletteOpen,
         setIsCommandPaletteOpen,
-        tenderFilter,
-        setTenderFilter,
         notification,
         showNotification,
       }}
@@ -102,4 +99,7 @@ export const AppProvider = ({ children }) => {
 };
 
 export const useApp = () => useContext(AppContext);
+
+export default AppContext;
+
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { tenderApi } from '../../utils/api';
-import { Clock, ArrowRight, Eye, Star, AlertCircle } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 const COLUMNS = [
   { id: 'New', title: 'New Opportunities', color: 'border-slate-300' },
@@ -145,4 +145,7 @@ export const KanbanView = () => {
     </div>
   );
 };
+
+export default KanbanView;
+
 

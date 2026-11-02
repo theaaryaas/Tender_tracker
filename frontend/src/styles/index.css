@@ -8,13 +8,6 @@
   }
 }
 
-/* Tactical Command Grid & Ambient Mesh */
-.bg-command-canvas {
-  background-color: #f8fafc;
-  background-image: 
-    radial-gradient(rgba(100, 116, 139, 0.22) 1.25px, transparent 1.25px);
-  background-size: 24px 24px;
-}
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {

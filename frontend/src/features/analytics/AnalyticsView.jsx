@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { BarChart3, PieChart, Tag, Building2, CheckCircle2, Users } from 'lucide-react';
+import { PieChart, Tag, Building2, CheckCircle2, Users } from 'lucide-react';
 
 export const AnalyticsView = () => {
   const { stats } = useApp();
@@ -114,4 +114,7 @@ export const AnalyticsView = () => {
     </div>
   );
 };
+
+export default AnalyticsView;
+
 

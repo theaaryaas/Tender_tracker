@@ -3,16 +3,11 @@ import { useApp } from '../../context/AppContext';
 import { tenderApi } from '../../utils/api';
 import {
   Search,
-  Clock,
-  Sparkles,
   Kanban,
   RefreshCw,
   BarChart3,
-  ExternalLink,
   Flame,
-  FileSpreadsheet,
   X,
-  ArrowRight,
   ChevronRight
 } from 'lucide-react';
 
@@ -21,9 +16,7 @@ export const CommandPalette = () => {
     isCommandPaletteOpen,
     setIsCommandPaletteOpen,
     setCurrentTab,
-    openTenderDrawer,
-    setTenderFilter,
-    showNotification
+    openTenderDrawer
   } = useApp();
 
   const [query, setQuery] = useState('');
@@ -73,7 +66,6 @@ export const CommandPalette = () => {
   const handleQuickAction = (action) => {
     setIsCommandPaletteOpen(false);
     if (action === 'urgent') {
-      setTenderFilter('urgent');
       setCurrentTab('tenders');
     } else if (action === 'kanban') {
       setCurrentTab('kanban');
