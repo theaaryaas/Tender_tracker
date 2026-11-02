@@ -35,7 +35,7 @@ class EligibilityService:
         notes_parts = []
 
         if matched_tech:
-            status = "Direct Technical Alignment — Video & Surveillance Systems"
+            status = "Direct Technical Alignment (Direct Fit) — Video & Surveillance Systems"
             partner = "OEM Authorization Route: Secure MAF from hardware OEM. Bid directly if 2-year past experience threshold is met, or partner with prime SI."
             fit_score = 85
             notes_parts.append("Scope aligns with BitVivid's capabilities in CCTV surveillance, AI video analytics, and camera infrastructure.")

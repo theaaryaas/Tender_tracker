@@ -22,7 +22,7 @@ def seed_database():
                 Path("company_profile.json")
             ]
             for p in candidate_paths:
-                if p.exists():
+                if p.exists() and p.is_file():
                     content = p.read_text(encoding="utf-8")
                     db.add(Setting(key="company_profile", value_json=content, description="BitVivid Company Profile"))
                     print(f"Seeded company profile from {p}")
@@ -42,7 +42,7 @@ def seed_database():
                 Path("/app/BitVivid_Tender_Tracker_GeM.csv"),
                 Path("BitVivid_Tender_Tracker_GeM.csv")
             ]
-            csv_path = next((p for p in csv_candidates if p.exists()), None)
+            csv_path = next((p for p in csv_candidates if p.exists() and p.is_file()), None)
             if csv_path:
                 print(f"Importing legacy tenders from {csv_path.name}...")
                 with open(csv_path, mode="r", encoding="utf-8-sig") as f:
@@ -94,4 +94,3 @@ def seed_database():
 
 if __name__ == "__main__":
     seed_database()
-

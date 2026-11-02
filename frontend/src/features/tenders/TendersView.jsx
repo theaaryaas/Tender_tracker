@@ -291,8 +291,9 @@ export const TendersView = () => {
                 </tr>
               ) : (
                 tenders.map((t) => {
-                  const isDirect = (t.eligibility_assessment || '').toLowerCase().includes('direct fit');
-                  const isPartner = (t.eligibility_assessment || '').toLowerCase().includes('partner');
+                  const assessmentLower = (t.eligibility_assessment || '').toLowerCase();
+                  const isDirect = assessmentLower.includes('direct');
+                  const isPartner = assessmentLower.includes('partner') && !isDirect;
 
                   return (
                     <tr
@@ -353,10 +354,10 @@ export const TendersView = () => {
                         <div className="flex items-center space-x-2">
                           <span
                             className={`px-2 py-0.5 rounded text-[11px] font-bold border ${isDirect
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : isPartner
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : isPartner
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
                               }`}
                           >
                             {isDirect ? 'Direct Fit' : isPartner ? 'SI Partner' : 'Review'}
@@ -378,12 +379,12 @@ export const TendersView = () => {
                           value={t.status || 'New'}
                           onChange={(e) => handleStatusChange(e, t.id)}
                           className={`text-xs font-semibold rounded px-2 py-1 border transition ${t.status === 'Bid Ready'
-                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                              : t.status === 'Reviewing'
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : t.status === 'Submitted'
-                                  ? 'bg-blue-100 text-blue-900 border-blue-300'
-                                  : 'bg-slate-100 text-slate-700 border-slate-300'
+                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                            : t.status === 'Reviewing'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : t.status === 'Submitted'
+                                ? 'bg-blue-100 text-blue-900 border-blue-300'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
                             }`}
                         >
                           <option value="New">New</option>

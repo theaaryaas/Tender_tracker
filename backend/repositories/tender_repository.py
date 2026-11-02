@@ -41,7 +41,27 @@ class TenderRepository:
             query = query.filter(Tender.status == status)
 
         if eligibility and eligibility.lower() != "all":
-            query = query.filter(Tender.eligibility_assessment.ilike(f"%{eligibility}%"))
+            elig_clean = eligibility.lower().strip()
+            if elig_clean in ("direct fit", "direct", "direct technical alignment"):
+                query = query.filter(
+                    or_(
+                        Tender.eligibility_assessment.ilike("%direct fit%"),
+                        Tender.eligibility_assessment.ilike("%direct technical alignment%"),
+                        Tender.eligibility_assessment.ilike("%direct%")
+                    )
+                )
+            elif elig_clean in ("partner", "si partner", "si-partner"):
+                query = query.filter(Tender.eligibility_assessment.ilike("%partner%"))
+            elif elig_clean in ("review", "manual review"):
+                query = query.filter(
+                    or_(
+                        Tender.eligibility_assessment.ilike("%review%"),
+                        Tender.eligibility_assessment.ilike("%manual%"),
+                        Tender.eligibility_assessment.ilike("%not determined%")
+                    )
+                )
+            else:
+                query = query.filter(Tender.eligibility_assessment.ilike(f"%{eligibility}%"))
 
         if priority and priority.lower() != "all":
             query = query.filter(Tender.priority == priority)

@@ -16,9 +16,15 @@ def get_analytics_overview(db: Session = Depends(get_db)):
     all_tenders = db.query(Tender).all()
     total = len(all_tenders)
 
-    direct_fit = sum(1 for t in all_tenders if "direct fit" in (t.eligibility_assessment or "").lower())
-    partner_route = sum(1 for t in all_tenders if "partner" in (t.eligibility_assessment or "").lower())
-    review_count = total - direct_fit - partner_route
+    direct_fit = sum(
+        1 for t in all_tenders
+        if any(w in (t.eligibility_assessment or "").lower() for w in ["direct fit", "direct technical alignment", "direct"])
+    )
+    partner_route = sum(
+        1 for t in all_tenders
+        if "partner" in (t.eligibility_assessment or "").lower() and not any(w in (t.eligibility_assessment or "").lower() for w in ["direct fit", "direct technical alignment"])
+    )
+    review_count = max(0, total - direct_fit - partner_route)
 
     new_tenders = sum(1 for t in all_tenders if t.status == "New")
     under_review = sum(1 for t in all_tenders if t.status == "Reviewing")

@@ -91,7 +91,7 @@ export const TenderDrawer = () => {
     }
   };
 
-  const isDirect = (tender.eligibility_assessment || '').toLowerCase().includes('direct fit');
+  const isDirect = (tender.eligibility_assessment || '').toLowerCase().includes('direct');
 
   // Bid End Date urgency calculation (only red if <= 7 days away)
   const getClosingDateStyle = (rawDate) => {
@@ -495,10 +495,10 @@ export const TenderDrawer = () => {
                   <span className="text-[11px] text-slate-500 font-semibold">MSE Relaxation</span>
                   <span
                     className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${mse.badge === 'emerald'
-                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                        : mse.badge === 'rose'
-                          ? 'text-rose-700 bg-rose-50 border-rose-200'
-                          : 'text-slate-600 bg-slate-50 border-slate-200'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : mse.badge === 'rose'
+                        ? 'text-rose-700 bg-rose-50 border-rose-200'
+                        : 'text-slate-600 bg-slate-50 border-slate-200'
                       }`}
                   >
                     {mse.label}
@@ -518,10 +518,10 @@ export const TenderDrawer = () => {
                   <span className="text-[11px] text-slate-500 font-semibold">Startup Relaxation</span>
                   <span
                     className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${startup.badge === 'emerald'
-                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                        : startup.badge === 'rose'
-                          ? 'text-rose-700 bg-rose-50 border-rose-200'
-                          : 'text-slate-600 bg-slate-50 border-slate-200'
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : startup.badge === 'rose'
+                        ? 'text-rose-700 bg-rose-50 border-rose-200'
+                        : 'text-slate-600 bg-slate-50 border-slate-200'
                       }`}
                   >
                     {startup.label}
