@@ -14,14 +14,19 @@ if settings.DATABASE_URL.startswith("sqlite"):
             db_file.parent.mkdir(parents=True, exist_ok=True)
         except Exception:
             pass
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args=connect_args,
+        echo=False
+    )
 else:
-    connect_args = {}
-
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args=connect_args,
-    echo=False
-)
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        echo=False
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

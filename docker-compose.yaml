@@ -1,4 +1,24 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bitvivid-tender-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -6,15 +26,18 @@ services:
     container_name: bitvivid-tender-backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:8000"
     volumes:
       - tender_data:/app/data
       - ./backend:/app/backend
       - ./company_profile.json:/app/company_profile.json
       - ./BitVivid_Tender_Tracker_GeM.csv:/app/BitVivid_Tender_Tracker_GeM.csv
       - ./bitvivid_tender_tracker.py:/app/bitvivid_tender_tracker.py
-    environment:
-      - DATABASE_URL=sqlite:////app/data/tenders.db
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     build:
@@ -23,9 +46,10 @@ services:
     container_name: bitvivid-tender-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT}:80"
     depends_on:
       - backend
 
 volumes:
   tender_data:
+  postgres_data:
