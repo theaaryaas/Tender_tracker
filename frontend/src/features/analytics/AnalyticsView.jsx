@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { PieChart, Tag, Building2, CheckCircle2, Users } from 'lucide-react';
+import { BarChart3, PieChart, Tag, Building2, CheckCircle2, Users, Layers } from 'lucide-react';
 
 export const AnalyticsView = () => {
   const { stats } = useApp();
@@ -14,9 +14,21 @@ export const AnalyticsView = () => {
 
   return (
     <div className="space-y-6 w-full">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Analytics & Portfolio Insights</h2>
-        <p className="text-xs text-slate-500">Distribution of public opportunities across portals, domains, and partner readiness</p>
+      {/* 1. Page Header Banner Card */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              Analytics & Portfolio Insights
+            </h1>
+            <p className="text-xs font-medium text-slate-500 mt-0.5">
+              Distribution of public opportunities across portals, domains, and partner readiness
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Breakdown Row */}
@@ -61,42 +73,90 @@ export const AnalyticsView = () => {
         </div>
       </div>
 
-      {/* Two Column Distributions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Two Column Distributions (Balanced & Symmetrical) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
-        {/* Portal Distribution */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
-            <Building2 className="w-4 h-4 text-blue-600" />
-            <span>Tenders by Portal</span>
+        {/* Left Column: Portal Distribution & Eligibility Breakdown */}
+        <div className="space-y-6">
+          {/* Portal Distribution */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
+              <Building2 className="w-4 h-4 text-blue-600" />
+              <span>Tenders by Portal</span>
+            </div>
+
+            <div className="space-y-3">
+              {Object.entries(stats.portals_distribution || {}).map(([name, count]) => {
+                const pCount = Math.round((count / total) * 100);
+                return (
+                  <div key={name} className="space-y-1.5">
+                    <div className="flex justify-between text-xs font-medium text-slate-700">
+                      <span className="font-semibold">{name}</span>
+                      <span className="font-bold text-slate-900">{count} ({pCount}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          name.toLowerCase().includes('gem') ? 'bg-amber-500' : 'bg-blue-600'
+                        }`} 
+                        style={{ width: `${Math.max(pCount, 1)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {Object.entries(stats.portals_distribution || {}).map(([name, count]) => {
-              const pCount = Math.round((count / total) * 100);
-              return (
-                <div key={name} className="space-y-1">
-                  <div className="flex justify-between text-xs font-medium text-slate-700">
-                    <span>{name}</span>
-                    <span className="font-bold text-slate-900">{count} ({pCount}%)</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${pCount}%` }}></div>
-                  </div>
+          {/* Readiness & Matching Breakdown Card */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
+              <Layers className="w-4 h-4 text-emerald-600" />
+              <span>Readiness & Matching Breakdown</span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-medium text-slate-700">
+                  <span className="font-semibold text-emerald-800">Potential Direct Fit (≥80%)</span>
+                  <span className="font-bold text-slate-900">{stats.direct_fit_count} ({directPct}%)</span>
                 </div>
-              );
-            })}
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${directPct}%` }} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-medium text-slate-700">
+                  <span className="font-semibold text-amber-800">SI / OEM Consortium Route</span>
+                  <span className="font-bold text-slate-900">{stats.partner_route_count} ({partnerPct}%)</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${partnerPct}%` }} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs font-medium text-slate-700">
+                  <span className="font-semibold text-slate-700">Requires Manual PDF Check</span>
+                  <span className="font-bold text-slate-900">{stats.review_count} ({reviewPct}%)</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-slate-400 h-2 rounded-full" style={{ width: `${reviewPct}%` }} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Keyword Frequency */}
+        {/* Right Column: Top Matched Keywords */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
           <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
-            <Tag className="w-4 h-4 text-indigo-600" />
+            <Tag className="w-4 h-4 text-blue-600" />
             <span>Top Matched Keywords</span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {Object.entries(stats.top_keywords || {}).map(([kw, count]) => {
               return (
                 <div key={kw} className="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">

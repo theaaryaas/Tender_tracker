@@ -29,7 +29,7 @@ export const App = () => {
         <div className="flex-1 relative overflow-hidden flex flex-col min-w-0">
           <TenderBackground />
 
-          <main className="flex-1 p-5 pb-6 max-w-7xl mx-auto w-full relative z-10">
+          <main className="flex-1 px-6 py-5 w-full relative z-10">
             {currentTab === 'dashboard' && <DashboardView />}
             {currentTab === 'tenders' && <TendersView />}
             {currentTab === 'kanban' && <KanbanView />}

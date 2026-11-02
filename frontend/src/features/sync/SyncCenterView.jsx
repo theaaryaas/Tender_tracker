@@ -60,11 +60,21 @@ export const SyncCenterView = () => {
 
   return (
     <div className="space-y-6 w-full">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Portal Sync Center</h2>
-        <p className="text-xs text-slate-500">
-          Run asynchronous discovery crawls across e-procurement portals with automated scoring and deduplication.
-        </p>
+      {/* 1. Page Header Banner Card */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+            <RefreshCw className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              Portal Sync Center
+            </h1>
+            <p className="text-xs font-medium text-slate-500 mt-0.5">
+              Run asynchronous discovery crawls across e-procurement portals with automated scoring and deduplication.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Live Sync Progress Bar */}
