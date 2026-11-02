@@ -34,7 +34,7 @@ export const KanbanView = () => {
       setTenders(res.data.items || []);
     } catch (e) {
       console.error(e);
-      showNotification('Failed to load Kanban board', 'error');
+      showNotification('Failed to load Bid Pipeline', 'error');
     } finally {
       setLoading(false);
     }
@@ -112,7 +112,7 @@ export const KanbanView = () => {
       {/* Board Header & Search Toolbar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Opportunity Pipeline Board</h2>
+          <h2 className="text-lg font-bold text-slate-900">Bid Pipeline</h2>
           <p className="text-xs text-slate-500">Track and advance bids through business development stages</p>
         </div>
 

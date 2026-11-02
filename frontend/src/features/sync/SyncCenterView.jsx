@@ -59,7 +59,7 @@ export const SyncCenterView = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 w-full">
       <div>
         <h2 className="text-lg font-bold text-slate-900">Portal Sync Center</h2>
         <p className="text-xs text-slate-500">

@@ -13,7 +13,7 @@ export const AnalyticsView = () => {
   const reviewPct = 100 - directPct - partnerPct;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 w-full">
       <div>
         <h2 className="text-lg font-bold text-slate-900">Analytics & Portfolio Insights</h2>
         <p className="text-xs text-slate-500">Distribution of public opportunities across portals, domains, and partner readiness</p>

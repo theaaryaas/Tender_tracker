@@ -111,7 +111,7 @@ export const CommandPalette = () => {
           {/* Live Search Results */}
           {loading && (
             <div className="p-4 text-center text-xs text-slate-400">
-              Searching tenders pipeline...
+              Searching all tenders...
             </div>
           )}
 

@@ -14,8 +14,8 @@ export const Sidebar = () => {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tenders', label: 'Tenders Pipeline', icon: ListFilter, badge: stats?.total_tenders || 351 },
-    { id: 'kanban', label: 'Kanban Board', icon: Kanban },
+    { id: 'tenders', label: 'All Tenders', icon: ListFilter, badge: stats?.total_tenders || 351 },
+    { id: 'kanban', label: 'Bid Pipeline', icon: Kanban },
     { id: 'sync', label: 'Sync Center', icon: RefreshCw },
     { id: 'analytics', label: 'Analytics & Insights', icon: BarChart3 },
     { id: 'settings', label: 'Company Settings', icon: Sliders },
