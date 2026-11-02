@@ -3,7 +3,6 @@ import { useApp } from '../../context/AppContext';
 import { tenderApi } from '../../utils/api';
 import { formatDeadline } from '../../utils/dateUtils';
 import { 
-  ArrowRight, 
   Search, 
   X, 
   RefreshCw, 
@@ -15,7 +14,8 @@ import {
   Send,
   Trophy,
   Clock,
-  Kanban
+  ArrowRight,
+  Filter
 } from 'lucide-react';
 
 const COLUMNS = [
@@ -23,45 +23,45 @@ const COLUMNS = [
     id: 'New', 
     title: 'New Opportunities', 
     icon: Inbox,
-    dot: 'bg-blue-500',
-    topBorder: 'border-t-4 border-t-blue-500',
-    badge: 'bg-blue-100 text-blue-800'
+    dot: 'bg-blue-500 ring-4 ring-blue-500/15',
+    pill: 'bg-blue-50 text-blue-700 border-blue-200/80',
+    countBadge: 'bg-blue-100 text-blue-800'
   },
   { 
     id: 'Reviewing', 
     title: 'Under BD Review', 
     icon: Eye,
-    dot: 'bg-amber-500',
-    topBorder: 'border-t-4 border-t-amber-500',
-    badge: 'bg-amber-100 text-amber-800'
+    dot: 'bg-amber-500 ring-4 ring-amber-500/15',
+    pill: 'bg-amber-50 text-amber-700 border-amber-200/80',
+    countBadge: 'bg-amber-100 text-amber-800'
   },
   { 
     id: 'Bid Ready', 
     title: 'Bid Decided (Go)', 
     icon: TrendingUp,
-    dot: 'bg-indigo-500',
-    topBorder: 'border-t-4 border-t-indigo-500',
-    badge: 'bg-indigo-100 text-indigo-800'
+    dot: 'bg-indigo-500 ring-4 ring-indigo-500/15',
+    pill: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+    countBadge: 'bg-indigo-100 text-indigo-800'
   },
   { 
     id: 'Submitted', 
     title: 'Bid Submitted', 
     icon: Send,
-    dot: 'bg-sky-500',
-    topBorder: 'border-t-4 border-t-sky-500',
-    badge: 'bg-sky-100 text-sky-800'
+    dot: 'bg-sky-500 ring-4 ring-sky-500/15',
+    pill: 'bg-sky-50 text-sky-700 border-sky-200/80',
+    countBadge: 'bg-sky-100 text-sky-800'
   },
   { 
     id: 'Won', 
     title: 'Awarded / Won', 
     icon: Trophy,
-    dot: 'bg-emerald-500',
-    topBorder: 'border-t-4 border-t-emerald-500',
-    badge: 'bg-emerald-100 text-emerald-800'
+    dot: 'bg-emerald-500 ring-4 ring-emerald-500/15',
+    pill: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+    countBadge: 'bg-emerald-100 text-emerald-800'
   },
 ];
 
-// Helper to format values cleanly into Lakhs / Crores
+// Formats currency values into Lakhs / Crores cleanly
 const formatTenderValue = (val) => {
   if (!val) return 'Open Value';
   const clean = String(val).trim();
@@ -130,13 +130,13 @@ export const KanbanView = () => {
       setTenders((prev) =>
         prev.map((t) => (t.id === tenderId ? { ...t, status: nextStatus } : t))
       );
-      window.dispatchEvent(new CustomEvent('tender:updated', { detail: res.data }));
+      window.dispatchEvent(new CustomEvent('tender:updated', { detail: res.data || { id: tenderId, status: nextStatus } }));
       if (refreshStats) {
         refreshStats();
       }
       showNotification(`Moved to ${nextStatus}`, 'success');
     } catch (e) {
-      showNotification('Failed to update tender stage', 'error');
+      showNotification('Failed to update stage', 'error');
     }
   };
 
@@ -174,73 +174,72 @@ export const KanbanView = () => {
 
   const getPortalStyle = (portal) => {
     const p = (portal || '').toLowerCase();
-    if (p.includes('gem')) return 'bg-amber-50 text-amber-900 border-amber-300';
-    if (p.includes('cppp') || p.includes('central')) return 'bg-blue-50 text-blue-900 border-blue-300';
-    if (p.includes('railtel')) return 'bg-cyan-50 text-cyan-900 border-cyan-300';
-    return 'bg-slate-100 text-slate-800 border-slate-200';
+    if (p.includes('gem')) return 'bg-amber-50 text-amber-800 border-amber-200/80';
+    if (p.includes('cppp') || p.includes('central')) return 'bg-blue-50 text-blue-800 border-blue-200/80';
+    if (p.includes('railtel')) return 'bg-cyan-50 text-cyan-800 border-cyan-200/80';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
   return (
-    <div className="space-y-5 w-full">
-      {/* 1. Page Header & Search Toolbar Card (High Contrast & Visible) */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full">
-        <div className="flex items-center space-x-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-            <Kanban className="w-5 h-5 text-blue-600" />
+    <div className="space-y-4 w-full">
+      {/* 1. Sleek, Linear-Style Header & Filter Toolbar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-1">
+        <div>
+          <div className="flex items-center space-x-2.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">Bid Pipeline</h1>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
+              {filteredTenders.length} {filteredTenders.length === 1 ? 'Bid' : 'Bids'}
+            </span>
           </div>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Bid Pipeline
-            </h1>
-            <p className="text-xs font-medium text-slate-500 mt-0.5">
-              Track and advance bids through business development stages
-            </p>
-          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Track opportunities, qualify criteria, and advance stage progression toward bid submission
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Toolbar Controls */}
+        <div className="flex flex-wrap items-center gap-2">
           {/* Live Search Input */}
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-blue-600 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by ID, title, ministry..."
-              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-2xs"
+              placeholder="Filter by ID, ministry, keyword..."
+              className="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition shadow-2xs"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                 title="Clear search"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             )}
           </div>
 
-          {/* Quick Fit Filter */}
-          <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
+          {/* Quick Fit Filter Segmented Buttons */}
+          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-xs font-medium text-slate-600">
             <button
               onClick={() => setFitFilter('all')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer ${
+              className={`px-3 py-1 rounded-md transition cursor-pointer text-xs ${
                 fitFilter === 'all' 
-                  ? 'bg-white text-slate-900 shadow-xs font-bold' 
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-slate-900 font-bold shadow-2xs' 
+                  : 'hover:text-slate-900'
               }`}
             >
               All Bids
             </button>
             <button
               onClick={() => setFitFilter('direct_fit')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1 rounded-md transition cursor-pointer flex items-center space-x-1 text-xs ${
                 fitFilter === 'direct_fit' 
-                  ? 'bg-emerald-600 text-white shadow-xs font-bold' 
-                  : 'text-emerald-700 hover:text-emerald-900'
+                  ? 'bg-white text-emerald-800 font-bold shadow-2xs' 
+                  : 'hover:text-slate-900'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-3 h-3 text-emerald-600" />
               <span>≥ 80% Fit</span>
             </button>
           </div>
@@ -249,46 +248,17 @@ export const KanbanView = () => {
           <button
             onClick={fetchKanbanTenders}
             disabled={loading}
-            className="text-xs font-bold px-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-lg hover:bg-slate-50 text-slate-700 flex items-center space-x-1.5 transition shadow-xs cursor-pointer shrink-0"
-            title="Refresh board data"
+            className="p-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-lg hover:bg-slate-50 text-slate-600 transition shadow-2xs cursor-pointer"
+            title="Refresh pipeline data"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-600' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Active Filter Notification Banner */}
-      {isFiltering && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 shadow-2xs w-full">
-          <span>
-            {search && (
-              <>
-                Matching search <strong className="text-blue-950 font-bold">"{search}"</strong>
-              </>
-            )}
-            {search && fitFilter !== 'all' && ' • '}
-            {fitFilter === 'direct_fit' && 'Filtered by ≥ 80% Fit'}
-            <span className="text-blue-700 ml-2 font-medium">
-              (Found <strong>{filteredTenders.length}</strong> of {tenders.length} total projects)
-            </span>
-          </span>
-
-          <button
-            onClick={() => {
-              setSearch('');
-              setFitFilter('all');
-            }}
-            className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer"
-          >
-            Clear Search
-          </button>
-        </div>
-      )}
-
-      {/* 2. Columns Row (Grid of 5 Equal Width Columns, 100% Full-Width Aligned, Solid Opaque Surface) */}
+      {/* 2. Board Columns (Full-Width Symmetrical Grid with Opaque Surfaces) */}
       <div className="overflow-x-auto pb-4 w-full">
-        <div className="grid grid-cols-5 gap-3.5 min-w-[1150px] w-full items-start min-h-[620px]">
+        <div className="grid grid-cols-5 gap-3.5 min-w-[1100px] w-full items-start">
           {COLUMNS.map((col, idx) => {
             const colTenders = filteredTenders.filter((t) => (t.status || 'New') === col.id);
             const totalInCol = tenders.filter((t) => (t.status || 'New') === col.id).length;
@@ -302,21 +272,23 @@ export const KanbanView = () => {
             return (
               <div 
                 key={col.id} 
-                className={`bg-slate-100 rounded-xl p-3 flex flex-col space-y-3 border border-slate-200 shadow-xs w-full ${col.topBorder}`}
+                className="bg-slate-100/75 rounded-2xl p-2.5 flex flex-col space-y-2.5 border border-slate-200/70 shadow-xs min-h-[640px] w-full"
               >
                 {/* Column Header */}
-                <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+                <div className="flex items-center justify-between px-1 py-1">
                   <div className="flex items-center space-x-2 min-w-0">
-                    <span className={`w-2.5 h-2.5 rounded-full ${col.dot} shrink-0`} />
-                    <span className="font-extrabold text-xs text-slate-800 tracking-tight truncate">{col.title}</span>
+                    <span className={`w-2 h-2 rounded-full ${col.dot} shrink-0`} />
+                    <span className="font-bold text-xs text-slate-800 tracking-tight truncate">
+                      {col.title}
+                    </span>
                   </div>
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-extrabold shadow-2xs shrink-0 ${col.badge}`}>
-                    {isFiltering && colTenders.length !== totalInCol ? `${colTenders.length} / ${totalInCol}` : colTenders.length}
+                  <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${col.countBadge}`}>
+                    {isFiltering && colTenders.length !== totalInCol ? `${colTenders.length}/${totalInCol}` : colTenders.length}
                   </span>
                 </div>
 
-                {/* Scrollable Cards Lane */}
-                <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-17rem)] min-h-[460px] pr-0.5">
+                {/* Cards Scroll Lane */}
+                <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-14rem)] pr-0.5">
                   {displayedTenders.map((t) => {
                     const deadlineInfo = formatDeadline(t.closing_date);
                     const isUrgent = deadlineInfo.urgency === 'critical' || deadlineInfo.urgency === 'urgent';
@@ -327,103 +299,108 @@ export const KanbanView = () => {
                       <div
                         key={t.id}
                         onClick={() => openTenderDrawer(t)}
-                        className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer space-y-2.5 group"
+                        className="bg-white rounded-xl border border-slate-200/80 hover:border-blue-400/90 shadow-2xs hover:shadow-md transition-all duration-150 p-3.5 space-y-2.5 cursor-pointer group"
                       >
-                        {/* Top Row: ID, Portal & Fit Badge */}
+                        {/* Row 1: ID, Portal & Match Tag */}
                         <div className="flex items-center justify-between gap-1.5">
                           <div className="flex items-center space-x-1.5 min-w-0">
-                            <span className="text-[10px] font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-mono shrink-0">
+                            <span className="text-[10px] font-mono font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded group-hover:text-blue-700 transition">
                               {t.tender_id}
                             </span>
-                            <span className={`text-[9.5px] px-1.5 py-0.5 rounded border font-bold truncate ${getPortalStyle(t.portal)}`}>
+                            <span className={`text-[9.5px] font-semibold px-1.5 py-0.2 rounded border truncate ${getPortalStyle(t.portal)}`}>
                               {t.portal || 'GeM'}
                             </span>
                           </div>
 
                           {t.fit_score && (
-                            <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border shrink-0 ${
+                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md border shrink-0 ${
                               t.fit_score >= 80 
-                                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                                : 'bg-amber-50 text-amber-900 border-amber-300'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90' 
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
                             }`}>
                               {t.fit_score}% Fit
                             </span>
                           )}
                         </div>
 
-                        {/* Tender Title */}
+                        {/* Row 2: Tender Title */}
                         <h4 
-                          className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-blue-700 transition"
+                          className="text-xs font-semibold text-slate-900 line-clamp-2 leading-relaxed group-hover:text-blue-700 transition-colors"
                           title={t.title}
                         >
                           {t.title}
                         </h4>
 
-                        {/* Organisation */}
+                        {/* Row 3: Organisation / Department */}
                         {t.organisation && (
-                          <p className="text-[10.5px] font-medium text-slate-600 truncate flex items-center space-x-1">
-                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <p className="text-[11px] text-slate-500 truncate flex items-center space-x-1.5">
+                            <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
                             <span className="truncate">{cleanOrg(t.organisation)}</span>
                           </p>
                         )}
 
-                        {/* Metadata Row: Value & Deadline Countdown */}
-                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[10.5px]">
-                          <span className={`font-extrabold truncate max-w-[110px] ${
-                            formattedValue.includes('₹') ? 'text-emerald-700' : 'text-slate-500'
-                          }`}>
+                        {/* Row 4: Financial Value & Deadline Countdown */}
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+                          <span className="font-bold text-slate-900 truncate max-w-[120px]">
                             {formattedValue}
                           </span>
 
                           <div className="flex items-center space-x-1 shrink-0">
                             <Clock className={`w-3 h-3 ${isUrgent ? 'text-rose-500' : isUpcoming ? 'text-amber-500' : 'text-slate-400'}`} />
-                            <span className={`font-bold text-[10px] ${
+                            <span className={`text-[10px] font-semibold ${
                               isUrgent 
                                 ? 'text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200' 
                                 : isUpcoming 
                                   ? 'text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200' 
-                                  : 'text-slate-600'
+                                  : 'text-slate-500'
                             }`}>
                               {deadlineInfo.countdown}
                             </span>
                           </div>
                         </div>
 
-                        {/* Action Button: Next Stage */}
-                        {nextCol ? (
-                          <button
-                            onClick={(e) => moveTender(e, t.id, nextCol)}
-                            className="w-full mt-1 py-1.5 px-2.5 rounded-lg bg-blue-50/70 hover:bg-blue-600 text-blue-700 hover:text-white text-xs font-bold transition flex items-center justify-center space-x-1.5 border border-blue-200/80 hover:border-blue-600 cursor-pointer shadow-2xs"
+                        {/* Row 5: Sleek Micro Stage Dropdown (No bulky brick buttons) */}
+                        <div 
+                          className="pt-1.5 border-t border-slate-100 flex items-center justify-between"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            Move Stage
+                          </span>
+                          <select
+                            value={t.status || 'New'}
+                            onChange={(e) => moveTender(e, t.id, e.target.value)}
+                            className="text-[10.5px] font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer transition"
                           >
-                            <span>Advance to {nextCol}</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
-                          <div className="w-full mt-1 py-1 px-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold text-center flex items-center justify-center space-x-1">
-                            <Trophy className="w-3 h-3 text-emerald-600" />
-                            <span>Awarded &amp; Won</span>
-                          </div>
-                        )}
+                            <option value="New">New Opportunity</option>
+                            <option value="Reviewing">Under BD Review</option>
+                            <option value="Bid Ready">Bid Decided (Go)</option>
+                            <option value="Submitted">Bid Submitted</option>
+                            <option value="Won">Awarded / Won</option>
+                            <option value="Lost">Lost</option>
+                            <option value="Archived">Archived</option>
+                          </select>
+                        </div>
                       </div>
                     );
                   })}
 
-                  {/* Progressive Loading for Column 1 */}
+                  {/* Load More for Column 1 */}
                   {col.id === 'New' && colTenders.length > visibleNewCount && (
                     <button
                       onClick={() => setVisibleNewCount((prev) => prev + 30)}
-                      className="w-full py-2 px-3 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 text-blue-700 text-xs font-bold shadow-2xs hover:border-blue-300 transition text-center cursor-pointer"
+                      className="w-full py-2 px-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200/80 text-blue-700 text-xs font-semibold shadow-2xs hover:border-blue-300 transition text-center cursor-pointer"
                     >
                       Load 30 More ({colTenders.length - visibleNewCount} remaining)
                     </button>
                   )}
 
-                  {/* Visible Empty State Dropzone */}
+                  {/* Clean Empty Stage Dropzone */}
                   {colTenders.length === 0 && (
-                    <div className="h-44 flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-slate-200 rounded-xl my-4 bg-white/70 space-y-1.5">
-                      <ColIcon className="w-6 h-6 text-slate-400" />
-                      <p className="text-xs font-bold text-slate-700">No tenders in this stage</p>
-                      <p className="text-[11px] text-slate-400 leading-tight">Advance qualified bids here</p>
+                    <div className="h-40 flex flex-col items-center justify-center p-4 text-center border border-dashed border-slate-300/80 rounded-xl bg-white/40 space-y-1.5 my-2">
+                      <ColIcon className="w-5 h-5 text-slate-400" />
+                      <p className="text-xs font-semibold text-slate-600">No tenders in this stage</p>
+                      <p className="text-[10.5px] text-slate-400">Select stage from card menu</p>
                     </div>
                   )}
                 </div>

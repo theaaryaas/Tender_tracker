@@ -151,7 +151,7 @@ export const TenderBackground = () => {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
       {/* Base Canvas: Clean Executive Light Tone */}
-      <div className="absolute inset-0 bg-[#eef3f8]" />
+      <div className="absolute inset-0 bg-[#f8fafc]" />
 
       {/* Subtle Construction Drafting Grid */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.35]" xmlns="http://www.w3.org/2000/svg">

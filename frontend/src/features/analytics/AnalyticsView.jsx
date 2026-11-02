@@ -1,9 +1,21 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { BarChart3, PieChart, Tag, Building2, CheckCircle2, Users, Layers } from 'lucide-react';
+import { 
+  BarChart3, 
+  PieChart, 
+  Tag, 
+  Building2, 
+  CheckCircle2, 
+  Users, 
+  Layers, 
+  Sparkles,
+  TrendingUp,
+  FileSearch,
+  ExternalLink
+} from 'lucide-react';
 
 export const AnalyticsView = () => {
-  const { stats } = useApp();
+  const { stats, setCurrentTab } = useApp();
 
   if (!stats) return <div className="text-center py-12 text-slate-400">Loading analytics...</div>;
 
@@ -13,93 +25,122 @@ export const AnalyticsView = () => {
   const reviewPct = 100 - directPct - partnerPct;
 
   return (
-    <div className="space-y-6 w-full">
-      {/* 1. Page Header Banner Card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center space-x-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
+    <div className="space-y-5 w-full">
+      {/* 1. Sleek Typographic Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">Analytics &amp; Portfolio Insights</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Real-time distribution of public procurement opportunities across portals, domains, and partner readiness
+          </p>
+        </div>
+      </div>
+
+      {/* 2. Top Executive Metric Cards (4 Symmetrical Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: Direct Fit Ratio */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-4 flex flex-col justify-between space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Direct Fit Ratio</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Analytics & Portfolio Insights
-            </h1>
-            <p className="text-xs font-medium text-slate-500 mt-0.5">
-              Distribution of public opportunities across portals, domains, and partner readiness
-            </p>
+            <h3 className="text-2xl font-extrabold text-slate-900">{directPct}%</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{stats.direct_fit_count} of {total} tenders qualified</p>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${directPct}%` }}></div>
+          </div>
+        </div>
+
+        {/* Card 2: SI / Partner Route */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-4 flex flex-col justify-between space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">SI / OEM Route</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-2xl font-extrabold text-slate-900">{partnerPct}%</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{stats.partner_route_count} tenders for consortium</p>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${partnerPct}%` }}></div>
+          </div>
+        </div>
+
+        {/* Card 3: Manual Review */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-4 flex flex-col justify-between space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">ATC / PDF Check</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+              <FileSearch className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-2xl font-extrabold text-slate-900">{reviewPct}%</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{stats.review_count} tenders need ATC parse</p>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-slate-400 h-1.5 rounded-full transition-all duration-500" style={{ width: `${reviewPct}%` }}></div>
+          </div>
+        </div>
+
+        {/* Card 4: Total Tracked Pipeline */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-4 flex flex-col justify-between space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Total Tracked Bids</span>
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-2xl font-extrabold text-slate-900">{total}</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Across 8 government portals</p>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-blue-600 h-1.5 rounded-full w-full"></div>
           </div>
         </div>
       </div>
 
-      {/* Breakdown Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Direct Fit Card */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-700 uppercase">Direct Fit Ratio</span>
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">{directPct}%</h3>
-          <p className="text-xs text-slate-500">{stats.direct_fit_count} of {total} total tenders</p>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${directPct}%` }}></div>
-          </div>
-        </div>
-
-        {/* Partner Route Card */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-700 uppercase">SI / OEM Route</span>
-            <Users className="w-5 h-5 text-amber-600" />
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">{partnerPct}%</h3>
-          <p className="text-xs text-slate-500">{stats.partner_route_count} of {total} total tenders</p>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-            <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${partnerPct}%` }}></div>
-          </div>
-        </div>
-
-        {/* Manual Review Ratio */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-600 uppercase">Manual Review</span>
-            <PieChart className="w-5 h-5 text-slate-500" />
-          </div>
-          <h3 className="text-3xl font-extrabold text-slate-900">{reviewPct}%</h3>
-          <p className="text-xs text-slate-500">{stats.review_count} tenders need PDF check</p>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-            <div className="bg-slate-400 h-1.5 rounded-full" style={{ width: `${reviewPct}%` }}></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Two Column Distributions (Balanced & Symmetrical) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      {/* 3. Symmetrical 2-Column Deep Dive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         
-        {/* Left Column: Portal Distribution & Eligibility Breakdown */}
-        <div className="space-y-6">
-          {/* Portal Distribution */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
-              <Building2 className="w-4 h-4 text-blue-600" />
-              <span>Tenders by Portal</span>
+        {/* Left Column: Portal Distribution & Qualification Matrix */}
+        <div className="space-y-5">
+          {/* Card: Tenders by Portal */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                <span>Tenders by Procurement Portal</span>
+              </div>
+              <span className="text-xs text-slate-400 font-medium">8 Portals Active</span>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 pt-1">
               {Object.entries(stats.portals_distribution || {}).map(([name, count]) => {
                 const pCount = Math.round((count / total) * 100);
+                const isGeM = name.toLowerCase().includes('gem');
                 return (
                   <div key={name} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-medium text-slate-700">
-                      <span className="font-semibold">{name}</span>
-                      <span className="font-bold text-slate-900">{count} ({pCount}%)</span>
+                      <div className="flex items-center space-x-1.5">
+                        <span className={`w-2 h-2 rounded-full ${isGeM ? 'bg-amber-500' : 'bg-blue-600'}`} />
+                        <span className="font-semibold text-slate-800">{name}</span>
+                      </div>
+                      <span className="font-bold text-slate-900">{count} bids ({pCount}%)</span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2">
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                       <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          name.toLowerCase().includes('gem') ? 'bg-amber-500' : 'bg-blue-600'
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          isGeM ? 'bg-amber-500' : 'bg-blue-600'
                         }`} 
-                        style={{ width: `${Math.max(pCount, 1)}%` }}
+                        style={{ width: `${Math.max(pCount, 2)}%` }}
                       />
                     </div>
                   </div>
@@ -108,40 +149,42 @@ export const AnalyticsView = () => {
             </div>
           </div>
 
-          {/* Readiness & Matching Breakdown Card */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
-              <Layers className="w-4 h-4 text-emerald-600" />
-              <span>Readiness & Matching Breakdown</span>
+          {/* Card: Technical Synergy Tiers */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
+                <Layers className="w-4 h-4 text-emerald-600" />
+                <span>Technical Synergy &amp; Partner Tiers</span>
+              </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 pt-1">
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-medium text-slate-700">
-                  <span className="font-semibold text-emerald-800">Potential Direct Fit (≥80%)</span>
+                  <span className="font-semibold text-emerald-800">Potential Direct Fit (≥80% Technical Match)</span>
                   <span className="font-bold text-slate-900">{stats.direct_fit_count} ({directPct}%)</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                   <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${directPct}%` }} />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-medium text-slate-700">
-                  <span className="font-semibold text-amber-800">SI / OEM Consortium Route</span>
+                  <span className="font-semibold text-amber-800">SI / OEM Consortium Route (&lt;80% or High Turnover)</span>
                   <span className="font-bold text-slate-900">{stats.partner_route_count} ({partnerPct}%)</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                   <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${partnerPct}%` }} />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-medium text-slate-700">
-                  <span className="font-semibold text-slate-700">Requires Manual PDF Check</span>
+                  <span className="font-semibold text-slate-600">Manual ATC Review Required</span>
                   <span className="font-bold text-slate-900">{stats.review_count} ({reviewPct}%)</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                   <div className="bg-slate-400 h-2 rounded-full" style={{ width: `${reviewPct}%` }} />
                 </div>
               </div>
@@ -150,20 +193,39 @@ export const AnalyticsView = () => {
         </div>
 
         {/* Right Column: Top Matched Keywords */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
-            <Tag className="w-4 h-4 text-blue-600" />
-            <span>Top Matched Keywords</span>
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center space-x-2 font-bold text-slate-900 text-sm">
+              <Tag className="w-4 h-4 text-blue-600" />
+              <span>Top AI Matched Discovery Keywords</span>
+            </div>
+            <span className="text-xs text-slate-400 font-medium">Ranked by volume</span>
           </div>
 
-          <div className="space-y-2">
-            {Object.entries(stats.top_keywords || {}).map(([kw, count]) => {
+          <div className="space-y-2 pt-1">
+            {Object.entries(stats.top_keywords || {}).map(([kw, count], idx) => {
+              const maxCount = Math.max(...Object.values(stats.top_keywords || { a: 1 }));
+              const barWidth = Math.round((count / maxCount) * 100);
+
               return (
-                <div key={kw} className="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
-                  <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded">
-                    {kw}
-                  </span>
-                  <span className="font-bold text-slate-900">{count} bids</span>
+                <div key={kw} className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100/80 transition flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center space-x-2 min-w-0 flex-1">
+                    <span className="text-[10.5px] font-mono font-bold text-slate-400 w-5">
+                      #{idx + 1}
+                    </span>
+                    <span className="font-semibold text-slate-800 truncate">
+                      {kw}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2 shrink-0">
+                    <div className="w-20 bg-slate-200 rounded-full h-1.5 overflow-hidden hidden sm:block">
+                      <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${barWidth}%` }} />
+                    </div>
+                    <span className="font-bold text-slate-900 bg-white border border-slate-200 px-2 py-0.5 rounded-md text-[11px] shadow-2xs">
+                      {count} bids
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -176,5 +238,3 @@ export const AnalyticsView = () => {
 };
 
 export default AnalyticsView;
-
-
