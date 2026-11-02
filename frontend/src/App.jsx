@@ -17,7 +17,7 @@ export const App = () => {
   const { currentTab, notification } = useApp();
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans text-slate-800">
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col font-sans text-slate-800">
       {/* Top Navigation */}
       <Navbar />
 

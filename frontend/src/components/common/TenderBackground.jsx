@@ -151,10 +151,10 @@ export const TenderBackground = () => {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
       {/* Base Canvas: Clean Executive Light Tone */}
-      <div className="absolute inset-0 bg-[#f8fafc]" />
+      <div className="absolute inset-0 bg-[#f1f5f9]" />
 
       {/* Subtle Construction Drafting Grid */}
-      <svg className="absolute inset-0 w-full h-full opacity-[0.35]" xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full opacity-0" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="arch-grid" width="80" height="80" patternUnits="userSpaceOnUse">
             <line x1="0" y1="0" x2="80" y2="0" stroke="#cbd5e1" strokeWidth="0.5" strokeDasharray="4,4" />

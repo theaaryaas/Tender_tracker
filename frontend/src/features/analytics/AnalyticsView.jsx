@@ -26,13 +26,25 @@ export const AnalyticsView = () => {
 
   return (
     <div className="space-y-5 w-full">
-      {/* 1. Sleek Typographic Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">Analytics &amp; Portfolio Insights</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time distribution of public procurement opportunities across portals, domains, and partner readiness
-          </p>
+      {/* 1. Solid Pure-White Header Card (High Contrast & Perfectly Aligned) */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/20 shrink-0">
+            <BarChart3 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2.5">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
+                Analytics &amp; Portfolio Insights
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-900 border border-blue-300 shadow-2xs">
+                Real-Time Intelligence
+              </span>
+            </div>
+            <p className="text-xs font-semibold text-slate-600 mt-1">
+              Real-time distribution of public procurement opportunities across portals, domains, and partner readiness
+            </p>
+          </div>
         </div>
       </div>
 
