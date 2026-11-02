@@ -7,7 +7,7 @@ echo "  BITVIVID TENDER INTELLIGENCE & TRACKING SYSTEM"
 echo "============================================================"
 echo ""
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # 1. Check Python
 if command -v python3 &>/dev/null; then

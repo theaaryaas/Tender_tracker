@@ -40,6 +40,10 @@ Tender Tracking/
 │   │   ├── pdf_service.py         # Tender PDF downloader & clause extractor
 │   │   ├── eligibility_service.py # Scoring & company profile matching
 │   │   └── export_service.py      # Openpyxl styled Excel generator
+│   ├── data/                      # Initial data & company profile seed
+│   │   └── company_profile.json
+│   ├── legacy/                    # Standalone crawler modules & utilities
+│   │   └── bitvivid_tender_tracker.py
 │   ├── Dockerfile                 # Backend container definition
 │   ├── main.py                    # FastAPI entrypoint & router registration
 │   ├── requirements.txt           # Python backend dependencies
@@ -66,9 +70,10 @@ Tender Tracking/
 │   ├── tailwind.config.js         # Tailwind configuration
 │   └── vite.config.js             # Vite build & API proxy setup
 │
+├── scripts/                       # Startup & automation scripts
+│   ├── start.bat                  # 1-Click launcher for Windows
+│   └── start.sh                   # 1-Click launcher for Linux / macOS
 ├── docker-compose.yaml            # Docker Compose orchestration
-├── start.bat                      # 1-Click launcher for Windows
-├── start.sh                       # 1-Click launcher for Linux / macOS
 └── README.md
 ```
 
@@ -81,7 +86,7 @@ Tender Tracking/
 | **Every row repeated *"Check tender PDF"*** | Added `pdf_service.py` to auto-download and extract real EMD, Turnover, Experience, and BOQ Scope. |
 | **Overwriting Excel wiped team notes** | Persistent SQLite / PostgreSQL database stores custom BD notes, priority, and stages forever. |
 | **No idea what's new vs. old** | Delta tracking automatically differentiates between New tenders, Updated deadlines, and Closed bids. |
-| **Hardcoded Python path crashed runners** | Dynamic launcher (`start.bat`) auto-detects Python/Node on any Windows machine. |
+| **Hardcoded Python path crashed runners** | Dynamic launcher (`scripts/start.bat`) auto-detects Python/Node on any Windows machine. |
 | **Sequential crawl took 45+ mins or hung** | Asynchronous `httpx` engine with concurrent workers completes runs in 1–2 minutes. |
 | **Black terminal window with raw prints** | Modern React Dashboard with KPI cards, Kanban board, and live progress bar. |
 
@@ -90,7 +95,7 @@ Tender Tracking/
 ## 🚀 Quick Start
 
 ### Option 1: One-Click Launch (Windows)
-Double-click `start.bat`. It will:
+Double-click `scripts\start.bat`. It will:
 1. Verify Python 3.10+ and Node.js.
 2. Install dependencies automatically.
 3. Seed the database with all 252 existing GeM tenders from `BitVivid_Tender_Tracker_GeM.csv`.

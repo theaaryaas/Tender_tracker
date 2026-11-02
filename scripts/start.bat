@@ -7,7 +7,7 @@ echo   BITVIVID TENDER INTELLIGENCE & TRACKING SYSTEM
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 :: 1. Check Python
 echo [1/4] Checking Python environment...
@@ -56,7 +56,7 @@ echo.
 
 :: 3. Setup Backend
 echo [3/4] Initializing Backend dependencies...
-cd /d "%~dp0"
+cd /d "%~dp0.."
 "%PY_CMD%" -m pip install -r backend\requirements.txt --quiet
 if %ERRORLEVEL% neq 0 (
   echo [WARNING] Some Python packages failed to install, proceeding with launch...
@@ -64,7 +64,7 @@ if %ERRORLEVEL% neq 0 (
 
 :: 4. Setup Frontend
 echo [4/4] Initializing Frontend dependencies...
-cd /d "%~dp0frontend"
+cd /d "%~dp0..\frontend"
 if not exist "node_modules\" (
   echo Installing frontend packages (one-time setup)...
   call npm install
@@ -75,10 +75,10 @@ echo.
 echo ============================================================
 echo   Starting Backend (port 8000) and Frontend (port 5173)...
 echo ============================================================
-cd /d "%~dp0"
+cd /d "%~dp0.."
 start "BitVivid Tender Backend" cmd /k ""%PY_CMD%" -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000"
 
-cd /d "%~dp0frontend"
+cd /d "%~dp0..\frontend"
 start "BitVivid Tender Frontend" cmd /k "npm run dev"
 
 timeout /t 3 >nul

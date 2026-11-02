@@ -17,6 +17,9 @@ def seed_database():
         existing_profile = db.query(Setting).filter(Setting.key == "company_profile").first()
         if not existing_profile:
             candidate_paths = [
+                Path(__file__).resolve().parent / "data" / "company_profile.json",
+                BASE_DIR / "backend" / "data" / "company_profile.json",
+                Path("/app/backend/data/company_profile.json"),
                 BASE_DIR / "company_profile.json",
                 Path("/app/company_profile.json"),
                 Path("company_profile.json")

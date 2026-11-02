@@ -18,7 +18,7 @@ from backend.models.setting import Setting
 from backend.services.eligibility_service import EligibilityService
 
 try:
-    from bitvivid_tender_tracker import (
+    from backend.legacy.bitvivid_tender_tracker import (
         get_portal_names,
         search_site,
         GeMSession,
@@ -29,15 +29,27 @@ try:
     ALL_PORTALS = get_portal_names()
     DEFAULT_KEYWORDS = TRACKER_KEYWORDS
 except ImportError:
-    ALL_PORTALS = {}
-    DEFAULT_KEYWORDS = [
-        "CCTV surveillance", "video surveillance system", "AI video analytics",
-        "video management system", "VMS", "automatic number plate recognition",
-        "ANPR", "intelligent traffic management system", "ITMS",
-        "red light violation detection", "facial recognition system", "crowd management",
-        "integrated command and control centre", "fire and smoke detection",
-        "video analytics", "GenAI video search",
-    ]
+    try:
+        from bitvivid_tender_tracker import (
+            get_portal_names,
+            search_site,
+            GeMSession,
+            DEFAULT_KEYWORDS as TRACKER_KEYWORDS,
+            COMPANY_PROFILE_DEFAULT,
+            fetch_and_analyze_pdf
+        )
+        ALL_PORTALS = get_portal_names()
+        DEFAULT_KEYWORDS = TRACKER_KEYWORDS
+    except ImportError:
+        ALL_PORTALS = {}
+        DEFAULT_KEYWORDS = [
+            "CCTV surveillance", "video surveillance system", "AI video analytics",
+            "video management system", "VMS", "automatic number plate recognition",
+            "ANPR", "intelligent traffic management system", "ITMS",
+            "red light violation detection", "facial recognition system", "crowd management",
+            "integrated command and control centre", "fire and smoke detection",
+            "video analytics", "GenAI video search",
+        ]
 
 # Construct PORTALS_DEF for API settings and UI selection (all 23+ portals)
 PORTALS_DEF = {

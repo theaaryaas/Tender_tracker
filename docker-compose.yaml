@@ -30,8 +30,6 @@ services:
     volumes:
       - tender_data:/app/data
       - ./backend:/app/backend
-      - ./company_profile.json:/app/company_profile.json
-      - ./bitvivid_tender_tracker.py:/app/bitvivid_tender_tracker.py
     env_file:
       - .env
     depends_on:
