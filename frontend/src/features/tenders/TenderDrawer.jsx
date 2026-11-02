@@ -16,6 +16,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { tenderApi } from '../../utils/api';
+import { formatIndianDateTime } from '../../utils/dateUtils';
 
 export const TenderDrawer = () => {
   const { isDrawerOpen, selectedTender, closeTenderDrawer, showNotification, refreshStats } = useApp();
@@ -336,43 +337,48 @@ export const TenderDrawer = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-sm flex justify-end"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm p-2 sm:p-4 md:p-6 flex items-center justify-center animate-in fade-in duration-150"
       onClick={closeTenderDrawer}
     >
       <div
-        className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200"
+        className="relative w-full max-w-5xl xl:max-w-6xl h-[92vh] max-h-[920px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-150 ring-1 ring-slate-900/10 text-left"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drawer Header */}
-        <div className="p-5 border-b border-slate-200 flex items-start justify-between bg-slate-50">
-          <div className="space-y-1 pr-6">
-            <div className="flex items-center space-x-2">
+        {/* Modal Header */}
+        <div className="p-5 sm:px-6 border-b border-slate-200/90 flex items-start justify-between bg-white shrink-0">
+          <div className="space-y-1.5 pr-4 flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-blue-700 bg-blue-100/70 px-2.5 py-0.5 rounded border border-blue-200">
                 {tender.tender_id}
               </span>
-              <span className="text-xs text-slate-500 font-medium">{tender.portal}</span>
+              <span className="text-xs text-slate-600 font-medium px-2 py-0.5 bg-slate-100 rounded border border-slate-200">
+                {tender.portal}
+              </span>
               <span
-                className={`text-xs px-2 py-0.5 rounded font-bold ${isDirect ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                  }`}
+                className={`text-xs px-2.5 py-0.5 rounded font-bold border ${
+                  isDirect
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    : 'bg-amber-100 text-amber-800 border-amber-200'
+                }`}
               >
                 {tender.fit_score}% Fit
               </span>
             </div>
-            <h2 className="text-base font-bold text-slate-900 line-clamp-2 leading-snug">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug line-clamp-2" title={tender.title}>
               {tender.title}
             </h2>
           </div>
           <button
             onClick={closeTenderDrawer}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
-            title="Close (Esc)"
+            className="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition flex items-center justify-center shrink-0 cursor-pointer"
+            title="Close modal (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Drawer Content */}
-        <div className="flex-1 overflow-y-auto p-6 pb-12 space-y-6 text-xs text-slate-700">
+        {/* Modal Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 text-xs text-slate-700 min-h-0">
           {/* Key Facts Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
             <div className="space-y-1">
@@ -461,7 +467,7 @@ export const TenderDrawer = () => {
                 )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {/* EMD */}
               <div className="p-3 rounded-lg border border-slate-200 bg-white space-y-1">
                 <span className="text-[11px] text-slate-500 font-semibold">EMD Amount</span>
@@ -695,7 +701,7 @@ export const TenderDrawer = () => {
               BD Workflow, Stage &amp; Internal Notes
             </h3>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">Pipeline Stage</label>
                 <select
@@ -742,15 +748,15 @@ export const TenderDrawer = () => {
           </div>
         </div>
 
-        {/* Drawer Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <span className="text-[11px] text-slate-400">
-            Last updated: {tender.updated_at ? new Date(tender.updated_at).toLocaleString() : 'N/A'}
+        {/* Modal Footer */}
+        <div className="p-4 px-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+          <span className="text-[11px] text-slate-500 font-medium">
+            Last updated: {tender.updated_at ? formatIndianDateTime(tender.updated_at) : 'N/A'}
           </span>
           <button
             disabled={saving}
             onClick={handleSaveNotes}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-sm inline-flex items-center space-x-1.5 transition"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-sm inline-flex items-center space-x-1.5 transition cursor-pointer"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? 'Saving...' : 'Save Notes & Status'}</span>
