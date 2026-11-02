@@ -3,7 +3,7 @@ from sqlalchemy import or_, desc, asc
 from typing import Optional, List, Tuple
 from datetime import datetime, timezone
 from backend.models.tender import Tender
-from backend.schemas.tender import TenderCreate, TenderUpdate
+from backend.schemas.tender import TenderUpdate
 
 class TenderRepository:
     @staticmethod

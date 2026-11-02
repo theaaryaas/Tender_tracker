@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, List, Any
+from typing import Dict
 
 class AnalyticsOverview(BaseModel):
     total_tenders: int

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 import json
 from backend.core.db import get_db
 from backend.models.setting import Setting
-from backend.schemas.settings import CompanyProfileSchema, KeywordsSchema, PortalConfigSchema
+from backend.schemas.settings import CompanyProfileSchema, KeywordsSchema
 from backend.services.scraper_service import PORTALS_DEF, DEFAULT_KEYWORDS
 
 router = APIRouter(prefix="/settings", tags=["Settings"])

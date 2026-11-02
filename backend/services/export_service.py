@@ -3,6 +3,7 @@ import csv
 from typing import List
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from backend.models.tender import Tender
 
 class ExportService:
@@ -16,11 +17,9 @@ class ExportService:
         # Styles
         navy = PatternFill("solid", fgColor="17365D")
         blue = PatternFill("solid", fgColor="1F4E78")
-        light_blue = PatternFill("solid", fgColor="D9EAF7")
         zebra = PatternFill("solid", fgColor="F7FAFD")
         white_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
         regular_font = Font(name="Calibri", size=10)
-        bold_font = Font(name="Calibri", size=10, bold=True)
         thin_border = Border(
             left=Side(style="thin", color="E0E0E0"),
             right=Side(style="thin", color="E0E0E0"),
@@ -96,7 +95,6 @@ class ExportService:
         # Column widths
         widths = {1: 8, 2: 14, 3: 12, 4: 22, 5: 18, 6: 45, 7: 30, 8: 20, 9: 18, 10: 18, 11: 30, 12: 12, 13: 35, 14: 30}
         for col_idx, width in widths.items():
-            from openpyxl.utils import get_column_letter
             ws.column_dimensions[get_column_letter(col_idx)].width = width
 
         buffer = io.BytesIO()

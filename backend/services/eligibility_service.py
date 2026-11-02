@@ -1,5 +1,4 @@
 from typing import Tuple, Dict, Any, List
-import re
 
 TECHNICAL_TERMS = [
     "cctv", "camera", "video analytics", "video management system", "vms", "surveillance",

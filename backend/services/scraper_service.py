@@ -24,8 +24,7 @@ try:
         GeMSession,
         DEFAULT_KEYWORDS as TRACKER_KEYWORDS,
         COMPANY_PROFILE_DEFAULT,
-        fetch_and_analyze_pdf,
-        assess_eligibility as tracker_assess
+        fetch_and_analyze_pdf
     )
     ALL_PORTALS = get_portal_names()
     DEFAULT_KEYWORDS = TRACKER_KEYWORDS
