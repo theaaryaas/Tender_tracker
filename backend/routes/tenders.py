@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import asyncio
+from datetime import datetime
 from backend.core.db import get_db, SessionLocal
+from backend.core.date_utils import parse_closing_datetime, IST
 from backend.models.tender import Tender
 from backend.schemas.tender import TenderResponse, TenderListResponse, TenderUpdate
 from backend.repositories.tender_repository import TenderRepository
@@ -89,6 +91,100 @@ def get_tenders(
         "limit": limit,
         "pages": pages,
         "items": items
+    }
+
+@router.get("/upcoming-deadlines")
+def get_upcoming_deadlines(
+    limit: int = Query(50, ge=1, le=200),
+    days: Optional[int] = Query(None, description="Filter within next N days"),
+    include_expired: bool = Query(False, description="Whether to include expired deadlines"),
+    db: Session = Depends(get_db)
+):
+    all_tenders = db.query(Tender).filter(
+        Tender.closing_date.isnot(None),
+        Tender.closing_date != ""
+    ).all()
+
+    now = datetime.now(IST)
+    deadline_items = []
+    
+    closing_24h_count = 0
+    closing_48h_count = 0
+    closing_7d_count = 0
+
+    for t in all_tenders:
+        dt = parse_closing_datetime(t.closing_date)
+        if not dt:
+            continue
+
+        diff_seconds = (dt - now).total_seconds()
+        is_expired = diff_seconds < 0
+
+        if not include_expired and is_expired:
+            continue
+
+        if 0 <= diff_seconds <= 86400:
+            closing_24h_count += 1
+        if 0 <= diff_seconds <= 172800:
+            closing_48h_count += 1
+        if 0 <= diff_seconds <= 7 * 86400:
+            closing_7d_count += 1
+
+        if days is not None and not is_expired:
+            if diff_seconds > (days * 86400):
+                continue
+
+        # Format human-readable time remaining
+        if is_expired:
+            time_left = "Expired"
+            urgency = "expired"
+        elif diff_seconds < 3600:
+            minutes = max(1, int(diff_seconds // 60))
+            time_left = f"{minutes}m left"
+            urgency = "critical"
+        elif diff_seconds < 86400:
+            hours = int(diff_seconds // 3600)
+            mins = int((diff_seconds % 3600) // 60)
+            time_left = f"{hours}h {mins}m left"
+            urgency = "critical"
+        elif diff_seconds < 172800:
+            hours = int((diff_seconds - 86400) // 3600)
+            time_left = f"1d {hours}h left"
+            urgency = "urgent"
+        elif diff_seconds < 7 * 86400:
+            d = int(diff_seconds // 86400)
+            time_left = f"{d} days left"
+            urgency = "upcoming"
+        else:
+            d = int(diff_seconds // 86400)
+            time_left = f"{d} days left"
+            urgency = "normal"
+
+        deadline_items.append({
+            "tender": TenderResponse.model_validate(t),
+            "closing_datetime": dt.isoformat(),
+            "time_left": time_left,
+            "diff_seconds": diff_seconds,
+            "urgency": urgency,
+            "is_expired": is_expired,
+            "closing_date": t.closing_date,
+        })
+
+    # Sort strictly chronologically: nearest deadline FIRST
+    deadline_items.sort(key=lambda x: x["diff_seconds"])
+
+    total = len(deadline_items)
+    items = deadline_items[:limit]
+
+    return {
+        "total": total,
+        "items": items,
+        "counts": {
+            "critical_24h": closing_24h_count,
+            "urgent_48h": closing_48h_count,
+            "week_7d": closing_7d_count,
+            "total_upcoming": total
+        }
     }
 
 @router.get("/{tender_id}", response_model=TenderResponse)

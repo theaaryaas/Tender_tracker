@@ -9,6 +9,7 @@ const api = axios.create({
 
 export const tenderApi = {
   getTenders: (params) => api.get('/tenders/', { params }),
+  getUpcomingDeadlines: (params) => api.get('/tenders/upcoming-deadlines', { params }),
   getTender: (id) => api.get(`/tenders/${id}`),
   updateTender: (id, data) => api.patch(`/tenders/${id}`, data),
   parseTenderPdf: (id) => api.post(`/tenders/${id}/parse-pdf`),

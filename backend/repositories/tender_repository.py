@@ -71,7 +71,23 @@ class TenderRepository:
 
         total = query.count()
 
-        # Sorting
+        # Sorting: Chronological date sort for closing_date, standard SQL sort otherwise
+        if sort_by == "closing_date":
+            from backend.core.date_utils import parse_closing_datetime, IST
+            all_matching = query.all()
+            max_dt = datetime.max.replace(tzinfo=IST)
+            min_dt = datetime.min.replace(tzinfo=IST)
+
+            def get_sort_key(t):
+                dt = parse_closing_datetime(t.closing_date)
+                if dt:
+                    return dt
+                return min_dt if sort_desc else max_dt
+
+            all_matching.sort(key=get_sort_key, reverse=sort_desc)
+            items = all_matching[skip : skip + limit]
+            return items, total
+
         sort_col = getattr(Tender, sort_by, Tender.id)
         if sort_desc:
             query = query.order_by(desc(sort_col))

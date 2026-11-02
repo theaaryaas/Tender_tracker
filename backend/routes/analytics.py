@@ -8,7 +8,7 @@ from backend.schemas.analytics import AnalyticsOverview
 import re
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
-IST = ZoneInfo("Asia/Kolkata")
+from backend.core.date_utils import parse_closing_datetime, IST
 
 @router.get("/overview", response_model=AnalyticsOverview)
 def get_analytics_overview(db: Session = Depends(get_db)):
@@ -57,27 +57,13 @@ def get_analytics_overview(db: Session = Depends(get_db)):
     closing_7d = 0
 
     for t in all_tenders:
-        if not t.closing_date:
-            continue
-        try:
-            # Try parsing various date formats
-            dt = None
-            date_str = t.closing_date.strip()
-            # E.g. "17-Nov-2026 11:30 PM" or "2026-11-17"
-            for fmt in ["%d-%b-%Y %I:%M %p", "%d-%b-%Y %H:%M", "%d/%m/%Y %H:%M", "%d-%m-%Y"]:
-                try:
-                    dt = datetime.strptime(date_str, fmt).replace(tzinfo=IST)
-                    break
-                except Exception:
-                    pass
-            if dt:
-                diff = (dt - now).total_seconds()
-                if 0 < diff <= 48 * 3600:
-                    closing_48h += 1
-                if 0 < diff <= 7 * 86400:
-                    closing_7d += 1
-        except Exception:
-            pass
+        dt = parse_closing_datetime(t.closing_date)
+        if dt:
+            diff = (dt - now).total_seconds()
+            if 0 < diff <= 48 * 3600:
+                closing_48h += 1
+            if 0 < diff <= 7 * 86400:
+                closing_7d += 1
 
     return {
         "total_tenders": total,

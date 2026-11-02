@@ -12,23 +12,36 @@ import {
 import { tenderApi, exportApi } from '../../utils/api';
 import { ContractDocuments } from '../../components/common/TenderBackground';
 import { IndiaMap } from '../../components/common/IndiaMap';
+import { UpcomingDeadlinesModal } from './UpcomingDeadlinesModal';
+import { formatDeadline, sortTendersByDeadline } from '../../utils/dateUtils';
 
 export const DashboardView = () => {
   const { stats, setCurrentTab, openTenderDrawer } = useApp();
   const [urgentTenders, setUrgentTenders] = useState([]);
   const [highFitTenders, setHighFitTenders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isDeadlinesModalOpen, setIsDeadlinesModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchHighlights = async () => {
       setLoading(true);
       try {
         const [urgentRes, fitRes] = await Promise.all([
-          tenderApi.getTenders({ page: 1, limit: 5, sort_by: 'closing_date', sort_desc: false }),
+          tenderApi.getUpcomingDeadlines({ limit: 15, days: 7 }).catch(() => 
+            tenderApi.getTenders({ page: 1, limit: 15, sort_by: 'closing_date', sort_desc: false })
+          ),
           tenderApi.getTenders({ page: 1, limit: 5, eligibility: 'direct fit', sort_by: 'fit_score', sort_desc: true })
         ]);
-        setUrgentTenders(urgentRes.data.items || []);
-        setHighFitTenders(fitRes.data.items || []);
+
+        let deadlineList = [];
+        if (urgentRes?.data?.items) {
+          deadlineList = urgentRes.data.items.map(item => item.tender || item);
+        }
+        // Strictly sort chronologically so nearest deadline comes first
+        deadlineList = sortTendersByDeadline(deadlineList, true).slice(0, 5);
+
+        setUrgentTenders(deadlineList);
+        setHighFitTenders(fitRes?.data?.items || []);
       } catch (e) {
         console.error('Failed to load dashboard highlights', e);
       } finally {
@@ -158,13 +171,20 @@ export const DashboardView = () => {
         </div>
 
         {/* Card 4: Deadlines < 7 Days (Glossy Crimson / Rose Red) */}
-        <div className="bg-gradient-to-br from-[#991b1b] via-[#dc2626] to-[#b91c1c] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-rose-950/25 flex items-center justify-between relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        <div 
+          onClick={() => setIsDeadlinesModalOpen(true)}
+          className="bg-gradient-to-br from-[#991b1b] via-[#dc2626] to-[#b91c1c] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-rose-950/25 flex items-center justify-between relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          title="Click to view all upcoming deadlines in popup"
+        >
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-rose-100/90">Deadlines &lt; 7 Days</p>
+            <div className="flex items-center space-x-1">
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-rose-100/90">Deadlines &lt; 7 Days</p>
+              <ArrowRight className="w-3 h-3 text-rose-200 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
             <h3 className="text-2xl font-extrabold text-white mt-0.5">{stats?.closing_soon_7d || 44}</h3>
             <p className="text-[11px] text-rose-100/80 mt-0.5">{stats?.closing_soon_48h || 15} closing in 48h</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner group-hover:scale-105 transition-transform">
             <Clock className="w-5 h-5" />
           </div>
         </div>
@@ -250,12 +270,12 @@ export const DashboardView = () => {
               </div>
               <div>
                 <h2 className="font-bold text-slate-900 text-sm tracking-tight">Approaching Submission Deadlines</h2>
-                <p className="text-[11px] text-slate-400 font-medium">Priority bids closing in the next 7 days</p>
+                <p className="text-[11px] text-slate-400 font-medium">Priority bids closing soon, nearest deadline first</p>
               </div>
             </div>
             <button
-              onClick={() => setCurrentTab('tenders')}
-              className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-blue-50/80 transition"
+              onClick={() => setIsDeadlinesModalOpen(true)}
+              className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-blue-50/80 transition cursor-pointer"
             >
               <span>View all</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -265,7 +285,15 @@ export const DashboardView = () => {
           <div className="space-y-2">
             {urgentTenders.length > 0 ? (
               urgentTenders.map((t) => {
-                const closing = formatClosing(t.closing_date);
+                const deadline = formatDeadline(t.closing_date);
+
+                let pillColor = 'bg-rose-50 text-rose-800 border-rose-200/80';
+                if (deadline.urgency === 'critical') {
+                  pillColor = 'bg-rose-100 text-rose-900 border-rose-300 font-extrabold';
+                } else if (deadline.urgency === 'urgent') {
+                  pillColor = 'bg-amber-50 text-amber-900 border-amber-300 font-bold';
+                }
+
                 return (
                   <div
                     key={t.id}
@@ -280,8 +308,16 @@ export const DashboardView = () => {
                         <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60">
                           {t.portal}
                         </span>
+                        {deadline.countdown && deadline.countdown !== 'Expired' && (
+                          <span className={`text-[9.5px] px-1.5 py-0.2 rounded-full border ${pillColor}`}>
+                            {deadline.countdown}
+                          </span>
+                        )}
                       </div>
-                      <h4 className="text-[12.5px] font-semibold text-slate-900 group-hover:text-rose-700 transition truncate mt-1">
+                      <h4 
+                        className="text-[13px] font-bold text-slate-900 group-hover:text-rose-700 transition leading-snug line-clamp-2 mt-1"
+                        title={t.title}
+                      >
                         {t.title}
                       </h4>
                       <p className="text-[11px] text-slate-500 truncate flex items-center space-x-1 mt-0.5">
@@ -292,12 +328,12 @@ export const DashboardView = () => {
 
                     {/* Symmetrical Fixed-Width Status Column */}
                     <div className="w-28 shrink-0 text-right flex flex-col items-end justify-center">
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-rose-50 text-rose-800 border border-rose-200/80 rounded-full font-bold text-xs shadow-2xs">
+                      <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-xs shadow-2xs border ${pillColor}`}>
                         <Clock className="w-3 h-3 text-rose-600" />
-                        <span>{closing.date}</span>
+                        <span>{deadline.date}</span>
                       </span>
                       <span className="text-[10.5px] text-rose-600 font-semibold mt-1 truncate">
-                        {closing.time || 'Closing Soon'}
+                        {deadline.time || 'Closing Soon'}
                       </span>
                     </div>
                   </div>
@@ -309,6 +345,13 @@ export const DashboardView = () => {
           </div>
         </div>
       </div>
+
+      {/* Upcoming Deadlines Pop-up Modal */}
+      <UpcomingDeadlinesModal
+        isOpen={isDeadlinesModalOpen}
+        onClose={() => setIsDeadlinesModalOpen(false)}
+        onSelectTender={openTenderDrawer}
+      />
     </div>
   );
 };
