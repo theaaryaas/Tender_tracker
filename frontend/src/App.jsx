@@ -8,16 +8,44 @@ import { KanbanView } from './features/tenders/KanbanView';
 import { SyncCenterView } from './features/sync/SyncCenterView';
 import { AnalyticsView } from './features/analytics/AnalyticsView';
 import { SettingsView } from './features/settings/SettingsView';
+import { AuthView } from './features/auth/AuthView';
 import { TenderDrawer } from './features/tenders/TenderDrawer';
 import { CommandPalette } from './components/common/CommandPalette';
 import { TenderBackground } from './components/common/TenderBackground';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 export const App = () => {
-  const { currentTab, notification } = useApp();
+  const { currentTab, notification, isAuthenticated } = useApp();
+
+  // If user is not authenticated, present the Lavender Dream Login & Sign Up page
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#FAF9FD] flex flex-col font-sans text-[#1E182B] selection:bg-[#E6E6FA] selection:text-[#553C9A]">
+        <AuthView />
+
+        {/* Global Notification Toast */}
+        {notification && (
+          <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5 duration-200">
+            <div className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold ${
+              notification.type === 'success'
+                ? 'bg-[#2E5A36] text-[#E8F5E9] border-[#A8C2A3]'
+                : notification.type === 'error'
+                ? 'bg-[#7F1D1D] text-[#FEE2E2] border-[#FCA5A5]'
+                : 'bg-[#1E182B] text-[#E6E6FA] border-[#D8BFD8]'
+            }`}>
+              {notification.type === 'success' && <CheckCircle2 className="w-4 h-4 text-[#C8D8C4]" />}
+              {notification.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-300" />}
+              {notification.type === 'info' && <Info className="w-4 h-4 text-[#D8BFD8]" />}
+              <span>{notification.message}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] flex flex-col font-sans text-slate-800">
+    <div className="min-h-screen bg-[#FAF9FD] flex flex-col font-sans text-[#1E182B] selection:bg-[#E6E6FA] selection:text-[#553C9A]">
       {/* Top Navigation */}
       <Navbar />
 
@@ -51,14 +79,14 @@ export const App = () => {
         <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5 duration-200">
           <div className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold ${
             notification.type === 'success'
-              ? 'bg-emerald-900 text-emerald-100 border-emerald-700'
+              ? 'bg-[#2E5A36] text-[#E8F5E9] border-[#A8C2A3]'
               : notification.type === 'error'
-              ? 'bg-rose-900 text-rose-100 border-rose-700'
-              : 'bg-slate-900 text-slate-100 border-slate-700'
+              ? 'bg-[#7F1D1D] text-[#FEE2E2] border-[#FCA5A5]'
+              : 'bg-[#1E182B] text-[#E6E6FA] border-[#D8BFD8]'
           }`}>
-            {notification.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-            {notification.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-400" />}
-            {notification.type === 'info' && <Info className="w-4 h-4 text-blue-400" />}
+            {notification.type === 'success' && <CheckCircle2 className="w-4 h-4 text-[#C8D8C4]" />}
+            {notification.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-300" />}
+            {notification.type === 'info' && <Info className="w-4 h-4 text-[#D8BFD8]" />}
             <span>{notification.message}</span>
           </div>
         </div>

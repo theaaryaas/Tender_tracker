@@ -1,22 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { tenderApi } from '../../utils/api';
-import {
-  Search,
-  Kanban,
-  RefreshCw,
-  BarChart3,
-  Flame,
-  X,
-  ChevronRight
+import { 
+  Search, 
+  X, 
+  ChevronRight, 
+  Clock, 
+  Flame, 
+  BarChart3, 
+  Kanban, 
+  RefreshCw 
 } from 'lucide-react';
+import { tenderApi } from '../../utils/api';
 
 export const CommandPalette = () => {
-  const {
-    isCommandPaletteOpen,
-    setIsCommandPaletteOpen,
-    setCurrentTab,
-    openTenderDrawer
+  const { 
+    isCommandPaletteOpen, 
+    setIsCommandPaletteOpen, 
+    openTenderDrawer, 
+    setCurrentTab 
   } = useApp();
 
   const [query, setQuery] = useState('');
@@ -24,17 +25,16 @@ export const CommandPalette = () => {
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
 
+  // Auto focus input when opened
   useEffect(() => {
     if (isCommandPaletteOpen) {
+      setTimeout(() => inputRef.current?.focus(), 50);
       setQuery('');
       setResults([]);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
     }
   }, [isCommandPaletteOpen]);
 
-  // Search tenders as query changes
+  // Debounced search
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
       setResults([]);
@@ -47,7 +47,7 @@ export const CommandPalette = () => {
         const res = await tenderApi.getTenders({ search: query, limit: 6 });
         setResults(res.data.items || []);
       } catch (e) {
-        console.error('Search error:', e);
+        console.error('Command palette search error:', e);
       } finally {
         setLoading(false);
       }
@@ -56,17 +56,32 @@ export const CommandPalette = () => {
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Keyboard shortcut listener (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      } else if (e.key === 'Escape' && isCommandPaletteOpen) {
+        setIsCommandPaletteOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCommandPaletteOpen, setIsCommandPaletteOpen]);
+
   if (!isCommandPaletteOpen) return null;
 
   const handleSelectTender = (tender) => {
-    setIsCommandPaletteOpen(false);
     openTenderDrawer(tender);
+    setIsCommandPaletteOpen(false);
   };
 
   const handleQuickAction = (action) => {
     setIsCommandPaletteOpen(false);
     if (action === 'urgent') {
-      setCurrentTab('tenders');
+      window.dispatchEvent(new CustomEvent('tender:open-deadlines'));
     } else if (action === 'kanban') {
       setCurrentTab('kanban');
     } else if (action === 'sync') {
@@ -77,31 +92,34 @@ export const CommandPalette = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-start justify-center pt-20 px-4 animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 z-50 bg-[#141021]/60 backdrop-blur-xs flex items-start justify-center pt-20 px-4 animate-in fade-in duration-150"
+      onClick={() => setIsCommandPaletteOpen(false)}
+    >
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-150"
+        className="bg-white rounded-2xl shadow-2xl border border-[#E2DEEC] w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-150 ring-1 ring-purple-950/5 text-left"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Box */}
-        <div className="flex items-center px-4 py-3.5 border-b border-slate-200">
-          <Search className="w-5 h-5 text-blue-600 mr-3 shrink-0" />
+        <div className="flex items-center px-4 py-3.5 border-b border-[#E2DEEC]">
+          <Search className="w-5 h-5 text-[#6B46C1] mr-3 shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tenders by ID, department, keywords, or jump to..."
-            className="w-full text-sm font-medium text-slate-800 placeholder-slate-400 bg-transparent focus:outline-none"
+            className="w-full text-sm font-medium text-[#1E182B] placeholder-[#8C82A0] bg-transparent focus:outline-none"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="text-slate-400 hover:text-slate-600 p-1 mr-1"
+              className="text-[#8C82A0] hover:text-[#1E182B] p-1 mr-1 transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+          <span className="text-[10px] font-bold text-[#8C82A0] bg-[#FAF9FD] px-2 py-0.5 rounded border border-[#E2DEEC]">
             ESC
           </span>
         </div>
@@ -110,14 +128,14 @@ export const CommandPalette = () => {
         <div className="max-h-96 overflow-y-auto p-3 space-y-3">
           {/* Live Search Results */}
           {loading && (
-            <div className="p-4 text-center text-xs text-slate-400">
+            <div className="p-4 text-center text-xs text-[#8C82A0]">
               Searching all tenders...
             </div>
           )}
 
           {!loading && results.length > 0 && (
             <div>
-              <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8C82A0]">
                 Tenders Found ({results.length})
               </p>
               <div className="space-y-1">
@@ -125,22 +143,22 @@ export const CommandPalette = () => {
                   <button
                     key={tender.id}
                     onClick={() => handleSelectTender(tender)}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-blue-50/80 transition flex items-center justify-between group border border-transparent hover:border-blue-100"
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-[#FAF9FD] transition flex items-center justify-between group border border-transparent hover:border-[#D8BFD8] cursor-pointer"
                   >
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center space-x-2">
-                        <span className="text-[10px] font-bold text-blue-700 bg-blue-100/70 px-1.5 py-0.2 rounded">
+                        <span className="text-[10px] font-bold text-[#4A337A] bg-[#E6E6FA] px-1.5 py-0.2 rounded border border-[#D8BFD8]">
                           {tender.tender_id}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate">
+                        <span className="text-[10px] text-[#8C82A0] truncate">
                           {tender.portal}
                         </span>
                       </div>
-                      <p className="text-xs font-semibold text-slate-800 truncate mt-1 group-hover:text-blue-700">
+                      <p className="text-xs font-semibold text-[#1E182B] truncate mt-1 group-hover:text-[#6B46C1] transition">
                         {tender.title}
                       </p>
                       {tender.organisation && (
-                        <p className="text-[10px] text-slate-400 truncate">
+                        <p className="text-[10px] text-[#8C82A0] truncate">
                           {tender.organisation}
                         </p>
                       )}
@@ -149,12 +167,12 @@ export const CommandPalette = () => {
                     <div className="flex items-center space-x-2 shrink-0">
                       <span className={`text-[11px] font-extrabold px-1.5 py-0.5 rounded ${
                         (tender.fit_score || 0) >= 80 
-                          ? 'bg-emerald-100 text-emerald-800' 
-                          : 'bg-slate-100 text-slate-700'
+                          ? 'bg-[#E8F5E9] text-[#2E7D32] border border-[#C8D8C4]' 
+                          : 'bg-[#FAF9FD] text-[#584E6B] border border-[#E2DEEC]'
                       }`}>
                         {tender.fit_score}% Fit
                       </span>
-                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition" />
+                      <ChevronRight className="w-4 h-4 text-[#8C82A0] group-hover:text-[#6B46C1] transition" />
                     </div>
                   </button>
                 ))}
@@ -163,7 +181,7 @@ export const CommandPalette = () => {
           )}
 
           {!loading && query.length >= 2 && results.length === 0 && (
-            <div className="p-6 text-center text-xs text-slate-400 italic">
+            <div className="p-6 text-center text-xs text-[#8C82A0] italic">
               No tenders found matching "{query}".
             </div>
           )}
@@ -172,68 +190,68 @@ export const CommandPalette = () => {
           {query.length < 2 && (
             <div className="space-y-3">
               <div>
-                <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <p className="px-2 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8C82A0]">
                   Quick Actions
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleQuickAction('urgent')}
-                    className="p-2.5 rounded-xl bg-rose-50/60 border border-rose-200/60 hover:bg-rose-100/70 text-left transition flex items-center space-x-2.5 group"
+                    className="p-2.5 rounded-xl bg-[#FFF2E5] border border-[#FFDAB9] hover:bg-[#FFE8D6] text-left transition flex items-center space-x-2.5 group cursor-pointer shadow-2xs"
                   >
-                    <span className="p-1.5 bg-rose-200 text-rose-700 rounded-lg group-hover:scale-105 transition">
+                    <span className="p-1.5 bg-[#FFDAB9] text-[#9A3412] rounded-lg group-hover:scale-105 transition">
                       <Flame className="w-4 h-4" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-rose-900">&lt; 48h Deadlines</p>
-                      <p className="text-[10px] text-rose-600">Urgent closing bids</p>
+                      <p className="text-xs font-bold text-[#7C2D12]">&lt; 48h Deadlines</p>
+                      <p className="text-[10px] text-[#9A3412]">Urgent closing bids</p>
                     </div>
                   </button>
 
                   <button
                     onClick={() => handleQuickAction('kanban')}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50/70 hover:border-blue-200 text-left transition flex items-center space-x-2.5 group"
+                    className="p-2.5 rounded-xl bg-[#FAF9FD] border border-[#E2DEEC] hover:bg-white hover:border-[#D8BFD8] text-left transition flex items-center space-x-2.5 group cursor-pointer shadow-2xs"
                   >
-                    <span className="p-1.5 bg-slate-200 text-slate-700 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition">
+                    <span className="p-1.5 bg-[#E6E6FA] text-[#6B46C1] rounded-lg group-hover:bg-[#6B46C1] group-hover:text-white transition">
                       <Kanban className="w-4 h-4" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700">Presales War Room</p>
-                      <p className="text-[10px] text-slate-500">Pipeline & Checklists</p>
+                      <p className="text-xs font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition">Presales War Room</p>
+                      <p className="text-[10px] text-[#584E6B]">Pipeline & Checklists</p>
                     </div>
                   </button>
 
                   <button
                     onClick={() => handleQuickAction('sync')}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50/70 hover:border-blue-200 text-left transition flex items-center space-x-2.5 group"
+                    className="p-2.5 rounded-xl bg-[#FAF9FD] border border-[#E2DEEC] hover:bg-white hover:border-[#D8BFD8] text-left transition flex items-center space-x-2.5 group cursor-pointer shadow-2xs"
                   >
-                    <span className="p-1.5 bg-slate-200 text-slate-700 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition">
+                    <span className="p-1.5 bg-[#E6E6FA] text-[#6B46C1] rounded-lg group-hover:bg-[#6B46C1] group-hover:text-white transition">
                       <RefreshCw className="w-4 h-4" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700">Portal Sync Center</p>
-                      <p className="text-[10px] text-slate-500">23+ Portals Scraper</p>
+                      <p className="text-xs font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition">Portal Sync Center</p>
+                      <p className="text-[10px] text-[#584E6B]">23+ Portals Scraper</p>
                     </div>
                   </button>
 
                   <button
                     onClick={() => handleQuickAction('analytics')}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50/70 hover:border-blue-200 text-left transition flex items-center space-x-2.5 group"
+                    className="p-2.5 rounded-xl bg-[#FAF9FD] border border-[#E2DEEC] hover:bg-white hover:border-[#D8BFD8] text-left transition flex items-center space-x-2.5 group cursor-pointer shadow-2xs"
                   >
-                    <span className="p-1.5 bg-slate-200 text-slate-700 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition">
+                    <span className="p-1.5 bg-[#E6E6FA] text-[#6B46C1] rounded-lg group-hover:bg-[#6B46C1] group-hover:text-white transition">
                       <BarChart3 className="w-4 h-4" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700">Analytics Insights</p>
-                      <p className="text-[10px] text-slate-500">Fit & Domain Trends</p>
+                      <p className="text-xs font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition">Analytics Insights</p>
+                      <p className="text-[10px] text-[#584E6B]">Fit & Domain Trends</p>
                     </div>
                   </button>
                 </div>
               </div>
 
               {/* Navigation Hint */}
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
-                <span>Tip: Press <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-semibold text-slate-700">Ctrl + K</kbd> anywhere to open Spotlight</span>
-                <span className="text-blue-600 font-semibold cursor-pointer" onClick={() => setIsCommandPaletteOpen(false)}>Close</span>
+              <div className="p-2.5 bg-[#FAF9FD] rounded-xl border border-[#E2DEEC] text-[11px] text-[#584E6B] flex items-center justify-between">
+                <span>Tip: Press <kbd className="px-1.5 py-0.5 bg-white border border-[#E2DEEC] rounded font-semibold text-[#1E182B]">Ctrl + K</kbd> anywhere to open Spotlight</span>
+                <span className="text-[#6B46C1] font-semibold cursor-pointer hover:underline" onClick={() => setIsCommandPaletteOpen(false)}>Close</span>
               </div>
             </div>
           )}
@@ -244,4 +262,3 @@ export const CommandPalette = () => {
 };
 
 export default CommandPalette;
-

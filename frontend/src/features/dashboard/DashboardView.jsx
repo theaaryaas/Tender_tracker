@@ -84,13 +84,13 @@ export const DashboardView = () => {
 
   return (
     <div className="space-y-4">
-      {/* Top Banner - Executive Deep Navy with Stacked Contracts */}
-      <div className="bg-gradient-to-r from-[#091b36] via-[#0d2a52] to-[#143d73] border border-blue-400/25 shadow-xl rounded-2xl p-6 text-white relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+      {/* Top Banner - Lavender Dream Twilight with Stacked Contracts */}
+      <div className="bg-gradient-to-r from-[#141021] via-[#241C3B] to-[#3B2961] border border-[#553C9A]/40 shadow-xl rounded-2xl p-6 text-white relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
         
         {/* Banner Left Content */}
         <div className="relative z-10 max-w-2xl space-y-2.5">
-          <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[11px] font-semibold border border-blue-400/30">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-[#2E244D] text-[#D8BFD8] text-[11px] font-semibold border border-[#4E3D82]">
+            <Sparkles className="w-3.5 h-3.5 text-[#FFDAB9]" />
             <span>AI &amp; Government Tender Intelligence</span>
           </div>
 
@@ -98,7 +98,7 @@ export const DashboardView = () => {
             BitVivid Opportunity Pipeline
           </h1>
 
-          <p className="text-blue-100/90 text-xs leading-relaxed max-w-xl">
+          <p className="text-[#E6E6FA]/90 text-xs leading-relaxed max-w-xl">
             Continuously discovering tenders across GeM BidPlus, CPPP, State Portals, and RailTel with automated
             eligibility matching against BitVivid's past projects &amp; certifications.
           </p>
@@ -106,14 +106,14 @@ export const DashboardView = () => {
           <div className="pt-1 flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => setCurrentTab('tenders')}
-              className="px-3.5 py-2 bg-gradient-to-r from-[#b45309] to-[#d97706] hover:from-[#92400e] hover:to-[#b45309] text-white rounded-lg text-xs font-bold shadow-md shadow-amber-950/40 transition inline-flex items-center space-x-2 cursor-pointer"
+              className="px-3.5 py-2 bg-gradient-to-r from-[#6B46C1] to-[#805AD5] hover:from-[#553C9A] hover:to-[#6B46C1] text-white rounded-lg text-xs font-bold shadow-md shadow-purple-950/40 transition inline-flex items-center space-x-2 cursor-pointer"
             >
               <span>Explore All Tenders</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             <a
               href={exportApi.getExcelUrl()}
-              className="px-3.5 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 rounded-lg text-xs font-semibold border border-slate-600/60 shadow-xs transition"
+              className="px-3.5 py-2 bg-[#26203A] hover:bg-[#322B4D] text-[#E6E6FA] rounded-lg text-xs font-semibold border border-[#3E355E] shadow-xs transition"
               download
             >
               Export Excel Report
@@ -131,49 +131,49 @@ export const DashboardView = () => {
         </div>
       </div>
 
-      {/* 4 Colored Glossy KPI Cards (Royal Blue, Emerald, Warm Amber, Midnight Navy) */}
+      {/* 4 Colored KPI Cards (Lavender Dream Palette) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
-        {/* Card 1: Tracked Tenders (Royal Blue) */}
-        <div className="bg-gradient-to-br from-[#1d4ed8] via-[#2563eb] to-[#1e40af] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-blue-900/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        {/* Card 1: Tracked Tenders (Royal Iris / Lavender #E6E6FA) */}
+        <div className="bg-gradient-to-br from-[#553C9A] via-[#6B46C1] to-[#7C3AED] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-purple-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-blue-100/80">Tracked Tenders</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#E6E6FA]">Tracked Tenders</p>
             <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.total_tenders || 351}</h3>
-            <p className="text-[11px] text-blue-100/70 mt-1">Across 8+ portals</p>
+            <p className="text-[11px] text-[#E6E6FA]/80 mt-1">Across 8+ portals</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Card 2: Potential Direct Fit (Emerald Green) */}
-        <div className="bg-gradient-to-br from-[#065f46] via-[#0d766e] to-[#047857] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-emerald-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        {/* Card 2: Potential Direct Fit (Sage Mist #C8D8C4) */}
+        <div className="bg-gradient-to-br from-[#2E5A36] via-[#386B42] to-[#468051] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-emerald-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-100/80">Potential Direct Fit</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#C8D8C4]">Potential Direct Fit</p>
             <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.direct_fit_count || 331}</h3>
-            <p className="text-[11px] text-emerald-100/70 mt-1">High technical synergy</p>
+            <p className="text-[11px] text-[#C8D8C4]/80 mt-1">High technical synergy</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Card 3: SI / OEM Route (Warm Amber / Gold) */}
-        <div className="bg-gradient-to-br from-[#854d0e] via-[#b45309] to-[#d97706] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-amber-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        {/* Card 3: SI / OEM Route (Warm Peach Puff #FFDAB9) */}
+        <div className="bg-gradient-to-br from-[#8C4A1D] via-[#A85B24] to-[#C96E2E] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-amber-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-amber-100/80">SI / OEM Route</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#FFDAB9]">SI / OEM Route</p>
             <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.partner_route_count || 0}</h3>
-            <p className="text-[11px] text-amber-100/70 mt-1">Consortium or OEM tie-up</p>
+            <p className="text-[11px] text-[#FFDAB9]/80 mt-1">Consortium or OEM tie-up</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0">
             <Users className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Card 4: Deadlines < 7 Days (Glossy Crimson / Rose Red) */}
+        {/* Card 4: Deadlines < 7 Days (Muted Rose / Thistle #D8BFD8) */}
         <div 
           onClick={() => setIsDeadlinesModalOpen(true)}
-          className="bg-gradient-to-br from-[#991b1b] via-[#dc2626] to-[#b91c1c] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-rose-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          className="bg-gradient-to-br from-[#831843] via-[#9F1239] to-[#BE123C] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-rose-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
           title="Click to view all upcoming deadlines in popup"
         >
           <div>
@@ -190,24 +190,24 @@ export const DashboardView = () => {
         </div>
       </div>
 
-      {/* Two Column Layout: Top Direct Fits & Urgent Bids (Symmetrical, High Precision Grid) */}
+      {/* Two Column Layout: Top Direct Fits & Urgent Bids */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4.5">
         
         {/* Direct Fit Opportunities Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-3.5 transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-5 space-y-3.5 transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-[#F0EDF7]">
             <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 shadow-2xs shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#E8F3E6] border border-[#C8D8C4] flex items-center justify-center text-[#2E7D32] shadow-2xs shrink-0">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="font-bold text-slate-900 text-sm tracking-tight">Top Direct Fit Opportunities</h2>
-                <p className="text-[11px] text-slate-400 font-medium">Ranked by BitVivid technical capability synergy</p>
+                <h2 className="font-bold text-[#1E182B] text-sm tracking-tight">Top Direct Fit Opportunities</h2>
+                <p className="text-[11px] text-[#8C82A0] font-medium">Ranked by BitVivid technical capability synergy</p>
               </div>
             </div>
             <button
               onClick={() => setCurrentTab('tenders')}
-              className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-blue-50/80 transition cursor-pointer"
+              className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer"
             >
               <span>View all</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -222,36 +222,36 @@ export const DashboardView = () => {
                   <div
                     key={t.id}
                     onClick={() => openTenderDrawer(t)}
-                    className="group p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-xs transition duration-150 cursor-pointer flex items-center justify-between gap-4 min-h-[86px]"
+                    className="group p-3.5 rounded-xl bg-[#FAF9FD] hover:bg-white border border-[#E2DEEC] hover:border-[#D8BFD8] hover:shadow-xs transition duration-150 cursor-pointer flex items-center justify-between gap-4 min-h-[86px]"
                   >
                     <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 min-h-[58px]">
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono text-[10.5px] font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200/90 shadow-2xs">
+                        <span className="font-mono text-[10.5px] font-bold text-[#1E182B] bg-white px-2 py-0.5 rounded border border-[#E2DEEC] shadow-2xs">
                           {t.tender_id}
                         </span>
-                        <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60">
+                        <span className="text-[10px] font-semibold text-[#4A337A] bg-[#E6E6FA] px-2 py-0.5 rounded-full border border-[#D8BFD8]">
                           {t.portal}
                         </span>
                       </div>
                       <h4 
-                        className="text-[13px] font-bold text-slate-900 group-hover:text-blue-700 transition truncate leading-normal" 
+                        className="text-[13px] font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition truncate leading-normal" 
                         title={t.title}
                       >
                         {t.title}
                       </h4>
-                      <p className="text-xs text-slate-500 truncate flex items-center space-x-1.5 leading-normal">
-                        <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <p className="text-xs text-[#584E6B] truncate flex items-center space-x-1.5 leading-normal">
+                        <Building2 className="w-3.5 h-3.5 text-[#8C82A0] shrink-0" />
                         <span>{cleanOrg(t.organisation)}</span>
                       </p>
                     </div>
 
-                    {/* Symmetrical Fixed-Width Status Column */}
+                    {/* Status Column */}
                     <div className="w-32 shrink-0 text-right flex flex-col items-end justify-center space-y-1.5">
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/90 rounded-full font-bold text-xs shadow-2xs">
-                        <Sparkles className="w-3 h-3 text-emerald-600" />
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-[#E8F3E6] text-[#244E2C] border border-[#C8D8C4] rounded-full font-bold text-xs shadow-2xs">
+                        <Sparkles className="w-3 h-3 text-[#2E7D32]" />
                         <span>{t.fit_score}% Fit</span>
                       </span>
-                      <span className="text-[11px] text-slate-500 font-medium truncate">
+                      <span className="text-[11px] text-[#8C82A0] font-medium truncate">
                         Closes {closing.date}
                       </span>
                     </div>
@@ -259,26 +259,26 @@ export const DashboardView = () => {
                 );
               })
             ) : (
-              <p className="text-xs text-slate-400 py-8 text-center">No direct fit tenders found.</p>
+              <p className="text-xs text-[#8C82A0] py-8 text-center">No direct fit tenders found.</p>
             )}
           </div>
         </div>
 
         {/* Approaching Submission Deadlines Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-3.5 transition-all">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-5 space-y-3.5 transition-all">
+          <div className="flex items-center justify-between pb-2 border-b border-[#F0EDF7]">
             <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200/80 flex items-center justify-center text-rose-600 shadow-2xs shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-[#FFF2E5] border border-[#FFDAB9] flex items-center justify-center text-[#9A3412] shadow-2xs shrink-0">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="font-bold text-slate-900 text-sm tracking-tight">Approaching Submission Deadlines</h2>
-                <p className="text-[11px] text-slate-400 font-medium">Priority bids closing soon, nearest deadline first</p>
+                <h2 className="font-bold text-[#1E182B] text-sm tracking-tight">Approaching Submission Deadlines</h2>
+                <p className="text-[11px] text-[#8C82A0] font-medium">Priority bids closing soon, nearest deadline first</p>
               </div>
             </div>
             <button
               onClick={() => setIsDeadlinesModalOpen(true)}
-              className="text-xs text-blue-600 hover:text-blue-700 font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-blue-50/80 transition cursor-pointer"
+              className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer"
             >
               <span>View all</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -290,25 +290,25 @@ export const DashboardView = () => {
               urgentTenders.map((t) => {
                 const deadline = formatDeadline(t.closing_date);
 
-                let pillColor = 'bg-rose-50 text-rose-800 border-rose-200/80';
+                let pillColor = 'bg-[#FFF2E5] text-[#9A3412] border-[#FFDAB9]';
                 if (deadline.urgency === 'critical') {
-                  pillColor = 'bg-rose-100 text-rose-900 border-rose-300 font-extrabold';
+                  pillColor = 'bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5] font-extrabold';
                 } else if (deadline.urgency === 'urgent') {
-                  pillColor = 'bg-amber-50 text-amber-900 border-amber-300 font-bold';
+                  pillColor = 'bg-[#FFF2E5] text-[#9A3412] border-[#FFDAB9] font-bold';
                 }
 
                 return (
                   <div
                     key={t.id}
                     onClick={() => openTenderDrawer(t)}
-                    className="group p-3.5 rounded-xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-rose-300 hover:shadow-xs transition duration-150 cursor-pointer flex items-center justify-between gap-4 min-h-[86px]"
+                    className="group p-3.5 rounded-xl bg-[#FAF9FD] hover:bg-white border border-[#E2DEEC] hover:border-[#FFDAB9] hover:shadow-xs transition duration-150 cursor-pointer flex items-center justify-between gap-4 min-h-[86px]"
                   >
                     <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 min-h-[58px]">
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono text-[10.5px] font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200/90 shadow-2xs">
+                        <span className="font-mono text-[10.5px] font-bold text-[#1E182B] bg-white px-2 py-0.5 rounded border border-[#E2DEEC] shadow-2xs">
                           {t.tender_id}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/70">
+                        <span className="text-[10px] font-semibold text-[#584E6B] bg-[#E6E6FA] px-2 py-0.5 rounded-full border border-[#D8BFD8]">
                           {t.portal}
                         </span>
                         {deadline.countdown && deadline.countdown !== 'Expired' && (
@@ -318,13 +318,13 @@ export const DashboardView = () => {
                         )}
                       </div>
                       <h4 
-                        className="text-[13px] font-bold text-slate-900 group-hover:text-rose-700 transition truncate leading-normal"
+                        className="text-[13px] font-bold text-[#1E182B] group-hover:text-[#9A3412] transition truncate leading-normal"
                         title={t.title}
                       >
                         {t.title}
                       </h4>
-                      <p className="text-xs text-slate-500 truncate flex items-center space-x-1.5 leading-normal">
-                        <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <p className="text-xs text-[#584E6B] truncate flex items-center space-x-1.5 leading-normal">
+                        <Building2 className="w-3.5 h-3.5 text-[#8C82A0] shrink-0" />
                         <span>{cleanOrg(t.organisation)}</span>
                       </p>
                     </div>
@@ -332,10 +332,10 @@ export const DashboardView = () => {
                     {/* Symmetrical Fixed-Width Status Column */}
                     <div className="w-32 shrink-0 text-right flex flex-col items-end justify-center space-y-1.5">
                       <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-xs shadow-2xs border ${pillColor}`}>
-                        <Clock className="w-3 h-3 text-rose-600" />
+                        <Clock className="w-3 h-3 text-[#9A3412]" />
                         <span>{deadline.date}</span>
                       </span>
-                      <span className="text-[11px] text-rose-600 font-bold truncate">
+                      <span className="text-[11px] text-[#9A3412] font-bold truncate">
                         {deadline.time || 'Closing Soon'}
                       </span>
                     </div>
@@ -343,7 +343,7 @@ export const DashboardView = () => {
                 );
               })
             ) : (
-              <p className="text-xs text-slate-400 py-8 text-center">No upcoming deadlines found.</p>
+              <p className="text-xs text-[#8C82A0] py-8 text-center">No upcoming deadlines found.</p>
             )}
           </div>
         </div>

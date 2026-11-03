@@ -11,7 +11,6 @@ import {
   CheckCircle2, 
   ShieldCheck, 
   Rocket, 
-  FileCheck,
   Sliders
 } from 'lucide-react';
 
@@ -118,10 +117,10 @@ export const SettingsView = () => {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center py-20 text-slate-400">
+      <div className="flex items-center justify-center py-20 text-[#8C82A0]">
         <div className="text-center space-y-2">
-          <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs font-semibold text-slate-600">Loading settings...</p>
+          <div className="w-7 h-7 border-2 border-[#6B46C1] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-[#584E6B]">Loading settings...</p>
         </div>
       </div>
     );
@@ -129,22 +128,22 @@ export const SettingsView = () => {
 
   return (
     <div className="space-y-5 w-full">
-      {/* 1. Solid Pure-White Header Card (High Contrast & Perfectly Aligned) */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 1. Header Card (Lavender Dream Palette) */}
+      <div className="bg-white p-5 rounded-2xl border border-[#E2DEEC] shadow-sm w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3.5">
-          <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/20 shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#6B46C1] text-white flex items-center justify-center font-bold shadow-md shadow-purple-900/20 shrink-0">
             <Sliders className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center space-x-2.5">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
+              <h1 className="text-xl font-bold text-[#1E182B] tracking-tight leading-tight">
                 Application &amp; Company Settings
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-900 border border-blue-300 shadow-2xs">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#E6E6FA] text-[#4A337A] border border-[#D8BFD8] shadow-2xs">
                 Company Config
               </span>
             </div>
-            <p className="text-xs font-semibold text-slate-600 mt-1">
+            <p className="text-xs font-medium text-[#584E6B] mt-1">
               Configure BitVivid company credentials, financial thresholds, and AI discovery keyword scrapers
             </p>
           </div>
@@ -152,22 +151,22 @@ export const SettingsView = () => {
       </div>
 
       {/* 2. Corporate Profile Card */}
-      <form onSubmit={handleProfileSave} className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-6">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <form onSubmit={handleProfileSave} className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-6 space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-[#F0EDF7]">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-[#E6E6FA] border border-[#D8BFD8] text-[#4A337A] flex items-center justify-center font-bold">
               <Building className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-900">Corporate Profile & Qualifications</h3>
-              <p className="text-xs text-slate-500">Parameters utilized to determine tender direct fit and partner consortium readiness</p>
+              <h3 className="font-bold text-sm text-[#1E182B]">Corporate Profile &amp; Qualifications</h3>
+              <p className="text-xs text-[#8C82A0]">Parameters utilized to determine tender direct fit and partner consortium readiness</p>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={savingProfile}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs inline-flex items-center space-x-1.5 transition cursor-pointer shrink-0"
+            className="px-4 py-2 bg-[#6B46C1] hover:bg-[#553C9A] disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs inline-flex items-center space-x-1.5 transition cursor-pointer shrink-0"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{savingProfile ? 'Saving...' : 'Save Profile'}</span>
@@ -177,7 +176,7 @@ export const SettingsView = () => {
         {/* Section A: Company Identity */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-[#1E182B] mb-1.5">
               Registered Company Name
             </label>
             <input
@@ -185,12 +184,12 @@ export const SettingsView = () => {
               value={profile.company_name || ''}
               onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
               placeholder="BitVivid Solutions Private Limited"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="w-full px-3 py-2 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-[#1E182B] mb-1.5">
               Direct Bidder Category
             </label>
             <input
@@ -198,7 +197,7 @@ export const SettingsView = () => {
               value={profile.direct_bidder_type || ''}
               onChange={(e) => setProfile({ ...profile, direct_bidder_type: e.target.value })}
               placeholder="Software/Product OEM and Solution Provider"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="w-full px-3 py-2 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
           </div>
         </div>
@@ -207,11 +206,11 @@ export const SettingsView = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-700">
+              <label className="text-xs font-semibold text-[#1E182B]">
                 Average Annual Turnover (INR)
               </label>
               {profile.average_annual_turnover_inr && (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <span className="text-[11px] font-bold text-[#244E2C] bg-[#E8F3E6] px-2 py-0.5 rounded border border-[#C8D8C4] font-mono">
                   {formatAmountPreview(profile.average_annual_turnover_inr)}
                 </span>
               )}
@@ -221,17 +220,17 @@ export const SettingsView = () => {
               placeholder="50000000"
               value={profile.average_annual_turnover_inr || ''}
               onChange={(e) => setProfile({ ...profile, average_annual_turnover_inr: parseFloat(e.target.value) || null })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="w-full px-3 py-2 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-700">
+              <label className="text-xs font-semibold text-[#1E182B]">
                 Net Worth (INR)
               </label>
               {profile.net_worth_inr && (
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <span className="text-[11px] font-bold text-[#244E2C] bg-[#E8F3E6] px-2 py-0.5 rounded border border-[#C8D8C4] font-mono">
                   {formatAmountPreview(profile.net_worth_inr)}
                 </span>
               )}
@@ -241,14 +240,14 @@ export const SettingsView = () => {
               placeholder="25000000"
               value={profile.net_worth_inr || ''}
               onChange={(e) => setProfile({ ...profile, net_worth_inr: parseFloat(e.target.value) || null })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="w-full px-3 py-2 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
           </div>
         </div>
 
-        {/* Section C: Government Accreditations (Modern Toggle Tiles) */}
+        {/* Section C: Government Accreditations */}
         <div className="space-y-2.5 pt-1">
-          <label className="block text-xs font-semibold text-slate-700">
+          <label className="block text-xs font-semibold text-[#1E182B]">
             Government Accreditations &amp; Exemption Eligibility
           </label>
           
@@ -258,20 +257,20 @@ export const SettingsView = () => {
               onClick={() => setProfile({ ...profile, udyam_registered: !profile.udyam_registered })}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none ${
                 profile.udyam_registered 
-                  ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs' 
-                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/60'
+                  ? 'bg-[#E6E6FA] border-[#6B46C1] text-[#1E182B] shadow-2xs' 
+                  : 'bg-[#FAF9FD] border-[#E2DEEC] text-[#584E6B] hover:bg-[#F3EFF8]'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <ShieldCheck className={`w-4 h-4 ${profile.udyam_registered ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <ShieldCheck className={`w-4 h-4 ${profile.udyam_registered ? 'text-[#6B46C1]' : 'text-[#8C82A0]'}`} />
                   <span className="text-xs font-bold">Udyam / MSME</span>
                 </div>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.udyam_registered ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.udyam_registered ? 'bg-[#6B46C1] text-white' : 'bg-[#E2DEEC] text-[#584E6B]'}`}>
                   {profile.udyam_registered ? 'Active' : 'Off'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-[11px] text-[#8C82A0] leading-snug">
                 EMD waiver and prior experience relaxations on GeM and CPPP portals.
               </p>
             </div>
@@ -281,20 +280,20 @@ export const SettingsView = () => {
               onClick={() => setProfile({ ...profile, dpiit_startup_recognised: !profile.dpiit_startup_recognised })}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none ${
                 profile.dpiit_startup_recognised 
-                  ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs' 
-                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/60'
+                  ? 'bg-[#E6E6FA] border-[#6B46C1] text-[#1E182B] shadow-2xs' 
+                  : 'bg-[#FAF9FD] border-[#E2DEEC] text-[#584E6B] hover:bg-[#F3EFF8]'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Rocket className={`w-4 h-4 ${profile.dpiit_startup_recognised ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <Rocket className={`w-4 h-4 ${profile.dpiit_startup_recognised ? 'text-[#6B46C1]' : 'text-[#8C82A0]'}`} />
                   <span className="text-xs font-bold">DPIIT Startup</span>
                 </div>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.dpiit_startup_recognised ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.dpiit_startup_recognised ? 'bg-[#6B46C1] text-white' : 'bg-[#E2DEEC] text-[#584E6B]'}`}>
                   {profile.dpiit_startup_recognised ? 'Active' : 'Off'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-[11px] text-[#8C82A0] leading-snug">
                 Startup India turnover and prior experience relaxations for recognized tech firms.
               </p>
             </div>
@@ -304,20 +303,20 @@ export const SettingsView = () => {
               onClick={() => setProfile({ ...profile, gem_registered: !profile.gem_registered })}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none ${
                 profile.gem_registered 
-                  ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs' 
-                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/60'
+                  ? 'bg-[#E6E6FA] border-[#6B46C1] text-[#1E182B] shadow-2xs' 
+                  : 'bg-[#FAF9FD] border-[#E2DEEC] text-[#584E6B] hover:bg-[#F3EFF8]'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Building className={`w-4 h-4 ${profile.gem_registered ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <Building className={`w-4 h-4 ${profile.gem_registered ? 'text-[#6B46C1]' : 'text-[#8C82A0]'}`} />
                   <span className="text-xs font-bold">GeM Registered</span>
                 </div>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.gem_registered ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.gem_registered ? 'bg-[#6B46C1] text-white' : 'bg-[#E2DEEC] text-[#584E6B]'}`}>
                   {profile.gem_registered ? 'Active' : 'Off'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-[11px] text-[#8C82A0] leading-snug">
                 Verified seller account enabled for direct bidding on GeM BidPlus tenders.
               </p>
             </div>
@@ -327,20 +326,20 @@ export const SettingsView = () => {
               onClick={() => setProfile({ ...profile, blacklisting_status_confirmed: !profile.blacklisting_status_confirmed })}
               className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 select-none ${
                 profile.blacklisting_status_confirmed 
-                  ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs' 
-                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100/60'
+                  ? 'bg-[#E6E6FA] border-[#6B46C1] text-[#1E182B] shadow-2xs' 
+                  : 'bg-[#FAF9FD] border-[#E2DEEC] text-[#584E6B] hover:bg-[#F3EFF8]'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <CheckCircle2 className={`w-4 h-4 ${profile.blacklisting_status_confirmed ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <CheckCircle2 className={`w-4 h-4 ${profile.blacklisting_status_confirmed ? 'text-[#2E7D32]' : 'text-[#8C82A0]'}`} />
                   <span className="text-xs font-bold">Clean Record</span>
                 </div>
-                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.blacklisting_status_confirmed ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${profile.blacklisting_status_confirmed ? 'bg-[#2E7D32] text-white' : 'bg-[#E2DEEC] text-[#584E6B]'}`}>
                   {profile.blacklisting_status_confirmed ? 'Active' : 'Off'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-snug">
+              <p className="text-[11px] text-[#8C82A0] leading-snug">
                 Confirmed zero debarment or blacklisting across central and state authorities.
               </p>
             </div>
@@ -348,14 +347,14 @@ export const SettingsView = () => {
         </div>
 
         {/* Section D: Active Certifications */}
-        <div className="pt-3 border-t border-slate-100 space-y-3">
-          <label className="block text-xs font-semibold text-slate-700">
+        <div className="pt-3 border-t border-[#F0EDF7] space-y-3">
+          <label className="block text-xs font-semibold text-[#1E182B]">
             Active Certifications &amp; Compliance Standards
           </label>
 
           {/* Quick Preset Badges */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-[11px] text-slate-400 font-medium">Quick add:</span>
+            <span className="text-[11px] text-[#8C82A0] font-medium">Quick add:</span>
             {COMMON_CERTS.map((cert) => {
               const alreadyHas = (profile.known_certifications || []).includes(cert);
               if (alreadyHas) return null;
@@ -364,7 +363,7 @@ export const SettingsView = () => {
                   type="button"
                   key={cert}
                   onClick={() => handleAddCert(cert)}
-                  className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 text-[11px] font-medium border border-slate-200 transition cursor-pointer"
+                  className="px-2 py-0.5 rounded-md bg-[#FAF9FD] hover:bg-[#E6E6FA] text-[#584E6B] hover:text-[#1E182B] text-[11px] font-medium border border-[#E2DEEC] transition cursor-pointer"
                 >
                   + {cert}
                 </button>
@@ -380,14 +379,14 @@ export const SettingsView = () => {
               value={newCert}
               onChange={(e) => setNewCert(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCert())}
-              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+              className="flex-1 px-3 py-1.5 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
             <button
               type="button"
               onClick={() => handleAddCert()}
-              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center space-x-1 cursor-pointer transition shrink-0"
+              className="px-3.5 py-1.5 bg-[#E6E6FA] hover:bg-[#D8BFD8] text-[#3B2961] rounded-lg text-xs font-semibold inline-flex items-center space-x-1 cursor-pointer transition shrink-0 border border-[#D8BFD8]"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 mr-1" />
               <span>Add</span>
             </button>
           </div>
@@ -397,14 +396,14 @@ export const SettingsView = () => {
             {(profile.known_certifications || []).map((cert, i) => (
               <span
                 key={i}
-                className="inline-flex items-center space-x-1.5 text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg font-medium text-slate-700 shadow-2xs"
+                className="inline-flex items-center space-x-1.5 text-xs bg-[#E6E6FA] border border-[#D8BFD8] px-3 py-1.5 rounded-lg font-medium text-[#3B2961] shadow-2xs"
               >
-                <Award className="w-3.5 h-3.5 text-blue-600" />
+                <Award className="w-3.5 h-3.5 text-[#6B46C1]" />
                 <span>{cert}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveCert(cert)}
-                  className="text-slate-400 hover:text-rose-600 p-0.5 cursor-pointer ml-1"
+                  className="text-[#8C82A0] hover:text-rose-600 p-0.5 cursor-pointer ml-1"
                   title="Remove certification"
                 >
                   <Trash2 className="w-3 h-3" />
@@ -416,18 +415,18 @@ export const SettingsView = () => {
       </form>
 
       {/* 3. Search Discovery Keywords Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-6 space-y-5">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+      <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-6 space-y-5">
+        <div className="flex items-center justify-between pb-4 border-b border-[#F0EDF7]">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-lg bg-[#E6E6FA] border border-[#D8BFD8] text-[#4A337A] flex items-center justify-center font-bold">
               <Tag className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-900">
+              <h3 className="font-bold text-sm text-[#1E182B]">
                 Search Discovery Keywords ({keywords.length})
               </h3>
-              <p className="text-xs text-slate-500">
-                Keywords scraped continuously across GeM BidPlus, CPPP eProcurement, and State Tenders
+              <p className="text-xs text-[#8C82A0]">
+                Keywords scraped continuously across GeM BidPlus, CPPP eProcurement, and State Portals
               </p>
             </div>
           </div>
@@ -435,7 +434,7 @@ export const SettingsView = () => {
           <button
             onClick={handleSaveKeywords}
             disabled={savingKeywords}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs inline-flex items-center space-x-1.5 transition cursor-pointer shrink-0"
+            className="px-4 py-2 bg-[#6B46C1] hover:bg-[#553C9A] disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs inline-flex items-center space-x-1.5 transition cursor-pointer shrink-0"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{savingKeywords ? 'Saving...' : 'Save Keywords'}</span>
@@ -450,14 +449,14 @@ export const SettingsView = () => {
             value={newKeyword}
             onChange={(e) => setNewKeyword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
-            className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+            className="flex-1 px-3 py-1.5 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
           />
           <button
             type="button"
             onClick={handleAddKeyword}
-            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center space-x-1 cursor-pointer transition shrink-0"
+            className="px-3.5 py-1.5 bg-[#E6E6FA] hover:bg-[#D8BFD8] text-[#3B2961] rounded-lg text-xs font-semibold inline-flex items-center space-x-1 cursor-pointer transition shrink-0 border border-[#D8BFD8]"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 mr-1" />
             <span>Add</span>
           </button>
         </div>
@@ -467,12 +466,12 @@ export const SettingsView = () => {
           {keywords.map((kw) => (
             <span
               key={kw}
-              className="inline-flex items-center space-x-1.5 text-xs bg-blue-50 border border-blue-200 text-blue-900 px-3 py-1.5 rounded-lg font-medium hover:border-blue-300 transition shadow-2xs"
+              className="inline-flex items-center space-x-1.5 text-xs bg-[#FAF9FD] border border-[#E2DEEC] text-[#1E182B] px-3 py-1.5 rounded-lg font-medium hover:border-[#D8BFD8] transition shadow-2xs"
             >
               <span>{kw}</span>
               <button
                 onClick={() => handleRemoveKeyword(kw)}
-                className="text-blue-400 hover:text-rose-600 p-0.5 rounded cursor-pointer ml-0.5"
+                className="text-[#8C82A0] hover:text-rose-600 p-0.5 rounded cursor-pointer ml-0.5"
                 title={`Remove ${kw}`}
               >
                 <Trash2 className="w-3 h-3" />

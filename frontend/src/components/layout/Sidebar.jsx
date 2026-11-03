@@ -22,11 +22,14 @@ export const Sidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-[#071527] text-slate-300 flex flex-col justify-between shrink-0 h-[calc(100vh-5.5rem)] sticky top-[4.75rem] rounded-2xl border border-slate-800/80 shadow-2xl relative overflow-hidden my-3 ml-3 z-20 self-start">
+    <aside className="w-64 bg-[#141021] text-[#C3C1CD] flex flex-col shrink-0 h-[calc(100vh-5.5rem)] sticky top-[4.75rem] rounded-2xl border border-[#26203B] shadow-2xl relative overflow-hidden my-3 ml-3 z-20 self-start justify-between">
       
       {/* Top Nav Items */}
       <div className="p-4 space-y-1 relative z-10 overflow-y-auto">
-        <div className="space-y-1.5">
+        <div className="text-[10px] font-bold tracking-wider text-[#8C82A0] uppercase px-3 py-1.5 select-none">
+          Procurement Modules
+        </div>
+        <div className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = currentTab === item.id;
@@ -34,21 +37,21 @@ export const Sidebar = () => {
               <button
                 key={item.id}
                 onClick={() => setCurrentTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   active 
-                    ? 'bg-gradient-to-r from-amber-900/40 via-amber-700/30 to-amber-600/40 border border-amber-400/60 text-amber-100 shadow-lg shadow-amber-950/40' 
-                    : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
+                    ? 'bg-[#6B46C1] border border-[#D8BFD8]/50 text-white shadow-lg shadow-purple-950/40' 
+                    : 'text-[#C3C1CD] hover:bg-white/5 hover:text-white border border-transparent'
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <Icon className={`w-4 h-4 ${active ? 'text-amber-300' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
+                  <Icon className={`w-4 h-4 ${active ? 'text-[#FFDAB9]' : 'text-[#8C82A0]'}`} />
+                  <span className="tracking-tight">{item.label}</span>
                 </div>
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold shadow-xs ${
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shadow-xs ${
                     active 
-                      ? 'bg-amber-600/60 text-amber-100 border border-amber-400/60' 
-                      : 'bg-amber-600/30 text-amber-200 border border-amber-400/50'
+                      ? 'bg-[#553C9A] text-white border border-[#D8BFD8]/40' 
+                      : 'bg-[#241C3B] text-[#D8BFD8] border border-[#3E3260]'
                   }`}>
                     {item.badge}
                   </span>
@@ -59,31 +62,31 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      {/* LOWER SECTION: Classical Pillars + Official Navy Contract Certificate (Docked Sticky Visual) */}
+      {/* LOWER SECTION: Constitutional Pillars Building + Official Contract Certificate */}
       <div className="relative w-full h-56 mt-auto shrink-0 overflow-hidden pointer-events-none select-none z-0">
         <svg viewBox="0 0 240 220" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            {/* Gradients */}
+            {/* Gradients in Lavender Dream */}
             <linearGradient id="sb-contract-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0c1e3d" />
-              <stop offset="50%" stopColor="#08152b" />
-              <stop offset="100%" stopColor="#040b17" />
+              <stop offset="0%" stopColor="#221A38" />
+              <stop offset="50%" stopColor="#191329" />
+              <stop offset="100%" stopColor="#0F0B1A" />
             </linearGradient>
 
             <linearGradient id="sb-gold-seal" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#fef08a" />
-              <stop offset="35%" stopColor="#f59e0b" />
-              <stop offset="70%" stopColor="#b45309" />
-              <stop offset="100%" stopColor="#78350f" />
+              <stop offset="0%" stopColor="#FFDAB9" />
+              <stop offset="40%" stopColor="#D8BFD8" />
+              <stop offset="75%" stopColor="#B794F4" />
+              <stop offset="100%" stopColor="#6B46C1" />
             </linearGradient>
 
             <filter id="sb-doc-shadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="-2" dy="6" stdDeviation="5" floodColor="#000000" floodOpacity="0.6" />
+              <feDropShadow dx="-2" dy="6" stdDeviation="5" floodColor="#000000" floodOpacity="0.5" />
             </filter>
           </defs>
 
-          {/* 1. CLASSICAL GOVERNMENT PILLAR BUILDING / MINISTRY PORTICO (Left Side) */}
-          <g transform="translate(10, 50)" opacity="0.38" stroke="#38bdf8">
+          {/* 1. CLASSICAL CONSTITUTIONAL GOVERNMENT PILLAR BUILDING / MINISTRY PORTICO (Left Side) */}
+          <g transform="translate(10, 50)" opacity="0.45" stroke="#D8BFD8">
             {/* Triangular Pediment (Roof) */}
             <polygon points="5,35 60,8 115,35" strokeWidth="1.5" fill="none" />
             <polygon points="12,33 60,12 108,33" strokeWidth="0.8" fill="none" strokeDasharray="3,2" />
@@ -138,9 +141,9 @@ export const Sidebar = () => {
             <rect x="-2" y="150" width="124" height="6" strokeWidth="1" fill="none" />
           </g>
 
-          {/* 3. ANGLED DARK NAVY OFFICIAL CONTRACT DOCUMENT (Right Side, Overlapping Pillars) */}
+          {/* 2. ANGLED OFFICIAL CONTRACT DOCUMENT (Right Side, Overlapping Pillars) */}
           <g transform="translate(95, 38) rotate(9 65 85)" filter="url(#sb-doc-shadow)">
-            {/* Dark Navy Certificate Paper */}
+            {/* Certificate Paper */}
             <rect
               x="0"
               y="0"
@@ -148,7 +151,7 @@ export const Sidebar = () => {
               height="165"
               rx="5"
               fill="url(#sb-contract-bg)"
-              stroke="#1e3a8a"
+              stroke="#6B46C1"
               strokeWidth="1.2"
             />
 
@@ -160,7 +163,7 @@ export const Sidebar = () => {
               height="155"
               rx="3"
               fill="none"
-              stroke="#38bdf8"
+              stroke="#D8BFD8"
               strokeWidth="0.7"
               strokeOpacity="0.45"
             />
@@ -171,20 +174,20 @@ export const Sidebar = () => {
               height="149"
               rx="2"
               fill="none"
-              stroke="#60a5fa"
+              stroke="#E6E6FA"
               strokeWidth="0.4"
               strokeOpacity="0.3"
               strokeDasharray="3,2"
             />
 
             {/* Official Header Crest & Typography */}
-            <circle cx="65" cy="22" r="6" stroke="#93c5fd" strokeWidth="0.8" strokeOpacity="0.7" fill="#071527" />
-            <text x="65" y="24.5" textAnchor="middle" fill="#93c5fd" fontSize="5.5" fontWeight="bold">⚖</text>
+            <circle cx="65" cy="22" r="6" stroke="#D8BFD8" strokeWidth="0.8" strokeOpacity="0.7" fill="#141021" />
+            <text x="65" y="24.5" textAnchor="middle" fill="#FFDAB9" fontSize="5.5" fontWeight="bold">⚖</text>
             <text
               x="65"
               y="37"
               textAnchor="middle"
-              fill="#bfdbfe"
+              fill="#FAF9FD"
               fontSize="9"
               fontWeight="bold"
               fontFamily="serif"
@@ -192,35 +195,35 @@ export const Sidebar = () => {
             >
               CONTRACT
             </text>
-            <line x1="38" y1="42" x2="92" y2="42" stroke="#38bdf8" strokeWidth="0.6" strokeOpacity="0.6" />
+            <line x1="38" y1="42" x2="92" y2="42" stroke="#D8BFD8" strokeWidth="0.6" strokeOpacity="0.6" />
 
-            {/* Ruled Body Lines in Blue/Cyan Tone */}
-            <line x1="16" y1="52" x2="114" y2="52" stroke="#60a5fa" strokeWidth="1.2" strokeOpacity="0.4" />
-            <line x1="16" y1="60" x2="114" y2="60" stroke="#38bdf8" strokeWidth="1" strokeOpacity="0.35" />
-            <line x1="16" y1="68" x2="105" y2="68" stroke="#38bdf8" strokeWidth="1" strokeOpacity="0.3" />
-            <line x1="16" y1="76" x2="114" y2="76" stroke="#38bdf8" strokeWidth="1" strokeOpacity="0.3" />
-            <line x1="16" y1="84" x2="100" y2="84" stroke="#38bdf8" strokeWidth="1" strokeOpacity="0.3" />
-            <line x1="16" y1="92" x2="114" y2="92" stroke="#38bdf8" strokeWidth="1" strokeOpacity="0.3" />
-            <line x1="16" y1="100" x2="95" y2="100" stroke="#38bdf8" strokeWidth="1" strokeOpacity="0.3" />
+            {/* Ruled Body Lines in Lavender & Sage Tones */}
+            <line x1="16" y1="52" x2="114" y2="52" stroke="#E6E6FA" strokeWidth="1.2" strokeOpacity="0.4" />
+            <line x1="16" y1="60" x2="114" y2="60" stroke="#D8BFD8" strokeWidth="1" strokeOpacity="0.35" />
+            <line x1="16" y1="68" x2="105" y2="68" stroke="#D8BFD8" strokeWidth="1" strokeOpacity="0.3" />
+            <line x1="16" y1="76" x2="114" y2="76" stroke="#C8D8C4" strokeWidth="1" strokeOpacity="0.3" />
+            <line x1="16" y1="84" x2="100" y2="84" stroke="#D8BFD8" strokeWidth="1" strokeOpacity="0.3" />
+            <line x1="16" y1="92" x2="114" y2="92" stroke="#E6E6FA" strokeWidth="1" strokeOpacity="0.3" />
+            <line x1="16" y1="100" x2="95" y2="100" stroke="#D8BFD8" strokeWidth="1" strokeOpacity="0.3" />
 
             {/* Signatures */}
-            <line x1="20" y1="140" x2="55" y2="140" stroke="#64748b" strokeWidth="0.8" strokeDasharray="3,2" />
-            <text x="20" y="146" fill="#64748b" fontSize="4.5" fontFamily="sans-serif">Authorized Seal</text>
+            <line x1="20" y1="140" x2="55" y2="140" stroke="#8C82A0" strokeWidth="0.8" strokeDasharray="3,2" />
+            <text x="20" y="146" fill="#8C82A0" fontSize="4.5" fontFamily="sans-serif">Authorized Seal</text>
 
             {/* CIRCULAR GOLDEN WATERMARK SEAL (Bottom Left of Contract) */}
             <g transform="translate(32, 122)">
-              {/* Gold outer rim */}
-              <circle cx="0" cy="0" r="16" fill="url(#sb-gold-seal)" stroke="#78350f" strokeWidth="1" />
+              {/* Outer Rim */}
+              <circle cx="0" cy="0" r="16" fill="url(#sb-gold-seal)" stroke="#6B46C1" strokeWidth="1" />
               {/* Concentric rings */}
-              <circle cx="0" cy="0" r="13" fill="none" stroke="#fef08a" strokeWidth="0.7" strokeDasharray="2,2" />
-              <circle cx="0" cy="0" r="11" fill="url(#sb-gold-seal)" stroke="#b45309" strokeWidth="0.7" />
+              <circle cx="0" cy="0" r="13" fill="none" stroke="#FFDAB9" strokeWidth="0.7" strokeDasharray="2,2" />
+              <circle cx="0" cy="0" r="11" fill="url(#sb-gold-seal)" stroke="#553C9A" strokeWidth="0.7" />
               {/* Inner Crest Star */}
-              <text x="0" y="3" textAnchor="middle" fill="#78350f" fontSize="7" fontWeight="bold">
+              <text x="0" y="3" textAnchor="middle" fill="#FAF9FD" fontSize="7" fontWeight="bold">
                 ★
               </text>
-              <circle cx="0" cy="0" r="7" fill="none" stroke="#fde047" strokeWidth="0.5" />
+              <circle cx="0" cy="0" r="7" fill="none" stroke="#FFDAB9" strokeWidth="0.5" />
               {/* Specular highlight */}
-              <ellipse cx="-4" cy="-5" rx="4" ry="2" transform="rotate(-30 -4 -5)" fill="#ffffff" opacity="0.4" />
+              <ellipse cx="-4" cy="-5" rx="4" ry="2" transform="rotate(-30 -4 -5)" fill="#ffffff" opacity="0.45" />
             </g>
           </g>
         </svg>

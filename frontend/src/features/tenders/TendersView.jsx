@@ -130,7 +130,7 @@ export const TendersView = () => {
   return (
     <div className="space-y-4">
       {/* Search & Actions Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+      <div className="bg-white p-4 rounded-xl border border-[#E2DEEC] shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-xl">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -147,7 +147,7 @@ export const TendersView = () => {
             <button
               onClick={handleBatchParse}
               disabled={batchParsing}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] disabled:opacity-50 text-white text-xs font-semibold shadow-sm transition"
               title="Parse GeM PDF documents for top tenders in the background"
             >
               <Sparkles className="w-4 h-4" />
@@ -155,7 +155,7 @@ export const TendersView = () => {
             </button>
             <a
               href={exportApi.getExcelUrl({ search, portal, status, eligibility })}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-xs font-semibold shadow-sm transition"
               download
             >
               <FileSpreadsheet className="w-4 h-4" />
@@ -163,7 +163,7 @@ export const TendersView = () => {
             </a>
             <a
               href={exportApi.getCsvUrl({ search, portal, status, eligibility })}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-[#FAF9FD] hover:bg-[#E6E6FA] text-[#3B2961] border border-[#E2DEEC] text-xs font-semibold transition"
               download
             >
               <FileText className="w-4 h-4" />
@@ -256,10 +256,10 @@ export const TendersView = () => {
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-[#E2DEEC] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+            <thead className="bg-[#FAF9FD] border-b border-[#E2DEEC] text-[#584E6B] font-semibold uppercase tracking-wider">
               <tr>
                 <th className="py-3 px-3 w-10 text-center">⭐</th>
                 <th className="py-3 px-4 w-44">Tender ID / Portal</th>
@@ -271,7 +271,7 @@ export const TendersView = () => {
                 <th className="py-3 px-3 w-20 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#F0EDF7]">
               {loading ? (
                 <tr>
                   <td colSpan="8" className="py-12 text-center text-slate-500">
