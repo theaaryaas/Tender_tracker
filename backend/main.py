@@ -9,7 +9,8 @@ from backend.routes import (
     sync_router,
     analytics_router,
     settings_router,
-    export_router
+    export_router,
+    auth_router
 )
 from backend.seed_data import seed_database
 
@@ -127,6 +128,7 @@ app.add_middleware(
 )
 
 # Register API routers under /api/v1
+app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(tenders_router, prefix=settings.API_V1_STR)
 app.include_router(sync_router, prefix=settings.API_V1_STR)
 app.include_router(analytics_router, prefix=settings.API_V1_STR)

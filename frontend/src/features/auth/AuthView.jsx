@@ -7,7 +7,8 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  ChevronRight
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 
 export const AuthView = () => {
@@ -18,23 +19,38 @@ export const AuthView = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Sign In inputs
-  const [loginIdentifier, setLoginIdentifier] = useState('bd@bitvividsolutions.com');
-  const [loginPassword, setLoginPassword] = useState('••••••••••');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
-  // Sign Up inputs (kept minimal: Full Name, Work Email, Password)
-  const [signupName, setSignupName] = useState('');
+  // Sign Up inputs (Username, Email, Password, Confirm Password)
+  const [signupUsername, setSignupUsername] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+
+  // Helper to extract clean error message from API response
+  const getErrorMessage = (err, fallback) => {
+    if (err.response?.data?.detail) {
+      const detail = err.response.data.detail;
+      if (typeof detail === 'string') return detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        return detail[0].msg || fallback;
+      }
+    }
+    return err.message || fallback;
+  };
 
   // Handle Login
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!loginIdentifier.trim()) {
-      setErrorMessage('Please enter your username or email');
+    const cleanIdentifier = loginIdentifier.trim();
+    if (!cleanIdentifier) {
+      setErrorMessage('Please enter your username or email address');
       return;
     }
 
@@ -46,13 +62,9 @@ export const AuthView = () => {
     setLoading(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      const email = loginIdentifier.includes('@') 
-        ? loginIdentifier.trim() 
-        : `${loginIdentifier.trim()}@bitvividsolutions.com`;
-      login(email, loginPassword, true);
+      await login(cleanIdentifier, loginPassword);
     } catch (err) {
-      setErrorMessage('Invalid username or password');
+      setErrorMessage(getErrorMessage(err, 'Invalid username/email or password'));
     } finally {
       setLoading(false);
     }
@@ -63,13 +75,21 @@ export const AuthView = () => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!signupName.trim()) {
-      setErrorMessage('Please enter your full name');
+    const cleanUsername = signupUsername.trim();
+    const cleanEmail = signupEmail.trim();
+
+    if (!cleanUsername) {
+      setErrorMessage('Please enter a username');
       return;
     }
 
-    if (!signupEmail.trim() || !/\S+@\S+\.\S+/.test(signupEmail)) {
-      setErrorMessage('Please enter a valid work email');
+    if (cleanUsername.length < 3) {
+      setErrorMessage('Username must be at least 3 characters');
+      return;
+    }
+
+    if (!cleanEmail || !/\S+@\S+\.\S+/.test(cleanEmail)) {
+      setErrorMessage('Please enter a valid email address');
       return;
     }
 
@@ -78,26 +98,25 @@ export const AuthView = () => {
       return;
     }
 
+    if (signupPassword !== signupConfirmPassword) {
+      setErrorMessage('Passwords do not match. Please verify your password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      signup({
-        name: signupName.trim(),
-        email: signupEmail.trim(),
-        role: 'Business Development Manager',
-        company: 'BitVivid Solutions Private Limited',
+      await signup({
+        username: cleanUsername,
+        email: cleanEmail,
         password: signupPassword,
+        confirm_password: signupConfirmPassword,
       });
     } catch (err) {
-      setErrorMessage('Registration failed. Please try again.');
+      setErrorMessage(getErrorMessage(err, 'Registration failed. Please check your details.'));
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGuestSignIn = () => {
-    login('guest@bitvividsolutions.com', 'guest123', false);
   };
 
   return (
@@ -114,7 +133,6 @@ export const AuthView = () => {
       <div className="absolute inset-0 pointer-events-none select-none opacity-80">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            {/* 45° Architectural Diagonal Lines */}
             <pattern 
               id="auth-lines-diagonal" 
               width="24" 
@@ -122,9 +140,7 @@ export const AuthView = () => {
               patternTransform="rotate(45 0 0)" 
               patternUnits="userSpaceOnUse"
             >
-              {/* Primary crisp diagonal line */}
               <line x1="0" y1="0" x2="0" y2="24" stroke="#D1CADF" strokeWidth="1.1" strokeOpacity="0.65" />
-              {/* Secondary fine subtle diagonal line */}
               <line x1="12" y1="0" x2="12" y2="24" stroke="#E2DEEC" strokeWidth="0.8" strokeOpacity="0.45" />
             </pattern>
           </defs>
@@ -136,8 +152,8 @@ export const AuthView = () => {
         </svg>
       </div>
 
-      {/* 3. CENTERED LAVENDER DREAM CARD */}
-      <div className="w-full max-w-[400px] bg-white border border-[#E2DEEC] rounded-2xl p-7 sm:p-8 shadow-xl shadow-purple-950/5 relative z-10 flex flex-col">
+      {/* 3. CENTERED CARD */}
+      <div className="w-full max-w-[420px] bg-white border border-[#E2DEEC] rounded-2xl p-7 sm:p-8 shadow-xl shadow-purple-950/5 relative z-10 flex flex-col">
         
         {/* BITVIVID BRAND LOGO */}
         <div className="flex flex-col items-center justify-center">
@@ -154,20 +170,23 @@ export const AuthView = () => {
             {mode === 'login' ? 'Tender Tracking Portal' : 'Create an Account'}
           </h1>
           <p className="text-[#584E6B] text-xs mt-1">
-            {mode === 'login' ? 'Sign in to your account' : 'Enter your details to register'}
+            {mode === 'login' 
+              ? 'Sign in using your username or registered email' 
+              : 'Enter your credentials to register a new account'}
           </p>
         </div>
 
-        {/* ERROR / NOTICE BANNER (Peach Puff #FFDAB9 Accent) */}
+        {/* ERROR BANNER */}
         {errorMessage && (
-          <div className="mb-4 bg-[#FFF2E5] border border-[#FFDAB9] text-[#9A3412] py-2 px-3 rounded-lg text-xs font-medium text-center animate-in fade-in duration-150">
-            {errorMessage}
+          <div className="mb-4 bg-[#FFF2E5] border border-[#FFDAB9] text-[#9A3412] py-2 px-3 rounded-lg text-xs font-medium flex items-center space-x-2 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#EA580C]" />
+            <span className="flex-1">{errorMessage}</span>
           </div>
         )}
 
         {/* FORM CONTENT */}
         {mode === 'login' ? (
-          /* ================= SIGN IN (Minimal: Username + Password + Button) ================= */
+          /* ================= SIGN IN ================= */
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-[#1E182B] mb-1.5">
@@ -179,7 +198,9 @@ export const AuthView = () => {
                   type="text"
                   value={loginIdentifier}
                   onChange={(e) => setLoginIdentifier(e.target.value)}
-                  placeholder="bd@bitvividsolutions.com"
+                  placeholder="Enter username or email"
+                  autoComplete="username"
+                  required
                   className="w-full bg-[#FAF9FD] border border-[#E2DEEC] focus:bg-white focus:border-[#6B46C1] focus:ring-2 focus:ring-[#D8BFD8]/50 text-[#1E182B] text-xs sm:text-sm rounded-lg pl-9 pr-3.5 py-2.5 outline-none transition placeholder:text-[#8C82A0] font-medium"
                 />
               </div>
@@ -195,7 +216,9 @@ export const AuthView = () => {
                   type={showLoginPassword ? 'text' : 'password'}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••••"
+                  placeholder="Enter password"
+                  autoComplete="current-password"
+                  required
                   className="w-full bg-[#FAF9FD] border border-[#E2DEEC] focus:bg-white focus:border-[#6B46C1] focus:ring-2 focus:ring-[#D8BFD8]/50 text-[#1E182B] text-xs sm:text-sm rounded-lg pl-9 pr-10 py-2.5 outline-none transition placeholder:text-[#8C82A0] font-medium"
                 />
                 <button
@@ -225,19 +248,21 @@ export const AuthView = () => {
             </button>
           </form>
         ) : (
-          /* ================= SIGN UP (Kept Minimal: Name + Email + Password) ================= */
+          /* ================= SIGN UP ================= */
           <form onSubmit={handleSignupSubmit} className="space-y-3.5">
             <div>
               <label className="block text-xs font-semibold text-[#1E182B] mb-1">
-                Full Name
+                Username
               </label>
               <div className="relative flex items-center">
                 <User className="w-4 h-4 text-[#8C82A0] absolute left-3" />
                 <input
                   type="text"
-                  value={signupName}
-                  onChange={(e) => setSignupName(e.target.value)}
-                  placeholder="Vikram Malhotra"
+                  value={signupUsername}
+                  onChange={(e) => setSignupUsername(e.target.value)}
+                  placeholder="Choose a unique username"
+                  autoComplete="username"
+                  required
                   className="w-full bg-[#FAF9FD] border border-[#E2DEEC] focus:bg-white focus:border-[#6B46C1] focus:ring-2 focus:ring-[#D8BFD8]/50 text-[#1E182B] text-xs sm:text-sm rounded-lg pl-9 pr-3 py-2.5 outline-none transition placeholder:text-[#8C82A0] font-medium"
                 />
               </div>
@@ -245,7 +270,7 @@ export const AuthView = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#1E182B] mb-1">
-                Work Email
+                Email Address
               </label>
               <div className="relative flex items-center">
                 <Mail className="w-4 h-4 text-[#8C82A0] absolute left-3" />
@@ -253,7 +278,9 @@ export const AuthView = () => {
                   type="email"
                   value={signupEmail}
                   onChange={(e) => setSignupEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder="name@example.com"
+                  autoComplete="email"
+                  required
                   className="w-full bg-[#FAF9FD] border border-[#E2DEEC] focus:bg-white focus:border-[#6B46C1] focus:ring-2 focus:ring-[#D8BFD8]/50 text-[#1E182B] text-xs sm:text-sm rounded-lg pl-9 pr-3 py-2.5 outline-none transition placeholder:text-[#8C82A0] font-medium"
                 />
               </div>
@@ -269,7 +296,9 @@ export const AuthView = () => {
                   type={showSignupPassword ? 'text' : 'password'}
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value)}
-                  placeholder="At least 6 characters"
+                  placeholder="Min 6 characters"
+                  autoComplete="new-password"
+                  required
                   className="w-full bg-[#FAF9FD] border border-[#E2DEEC] focus:bg-white focus:border-[#6B46C1] focus:ring-2 focus:ring-[#D8BFD8]/50 text-[#1E182B] text-xs sm:text-sm rounded-lg pl-9 pr-10 py-2.5 outline-none transition placeholder:text-[#8C82A0] font-medium"
                 />
                 <button
@@ -281,6 +310,44 @@ export const AuthView = () => {
                   {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#1E182B] mb-1">
+                Verify Password
+              </label>
+              <div className="relative flex items-center">
+                <Lock className="w-4 h-4 text-[#8C82A0] absolute left-3" />
+                <input
+                  type={showSignupConfirmPassword ? 'text' : 'password'}
+                  value={signupConfirmPassword}
+                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password to verify"
+                  autoComplete="new-password"
+                  required
+                  className={`w-full bg-[#FAF9FD] border ${
+                    signupConfirmPassword && signupPassword !== signupConfirmPassword
+                      ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200'
+                      : signupConfirmPassword && signupPassword === signupConfirmPassword
+                      ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-200'
+                      : 'border-[#E2DEEC] focus:border-[#6B46C1] focus:ring-[#D8BFD8]/50'
+                  } focus:bg-white focus:ring-2 text-[#1E182B] text-xs sm:text-sm rounded-lg pl-9 pr-10 py-2.5 outline-none transition placeholder:text-[#8C82A0] font-medium`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                  className="absolute right-3 text-[#8C82A0] hover:text-[#584E6B] transition cursor-pointer"
+                  title={showSignupConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showSignupConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {signupConfirmPassword && signupPassword === signupConfirmPassword && (
+                <p className="text-[11px] text-emerald-600 mt-1 flex items-center space-x-1">
+                  <CheckCircle className="w-3 h-3" />
+                  <span>Passwords match</span>
+                </p>
+              )}
             </div>
 
             <button
@@ -331,18 +398,6 @@ export const AuthView = () => {
               </button>
             </span>
           )}
-        </div>
-
-        {/* GUEST ACCESS */}
-        <div className="mt-4 pt-3 border-t border-[#E2DEEC] text-center">
-          <button
-            type="button"
-            onClick={handleGuestSignIn}
-            className="text-[11px] text-[#8C82A0] hover:text-[#6B46C1] transition cursor-pointer inline-flex items-center space-x-1 font-medium"
-          >
-            <span>Continue as Guest Reviewer</span>
-            <ChevronRight className="w-3 h-3" />
-          </button>
         </div>
 
       </div>

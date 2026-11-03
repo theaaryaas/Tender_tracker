@@ -1,18 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { analyticsApi, syncApi } from '../utils/api';
+import { analyticsApi, syncApi, authApi } from '../utils/api';
 
 const AppContext = createContext();
 
 const getInitialUser = () => {
   try {
     const saved = localStorage.getItem('bitvivid_user');
-    if (saved) {
+    const token = localStorage.getItem('tender_tracker_token');
+    if (saved && token) {
       return JSON.parse(saved);
     }
   } catch (e) {
     console.error('Failed to parse saved user', e);
   }
-  // Default to null so user sees the login / sign up page
   return null;
 };
 
@@ -27,6 +27,29 @@ export const AppProvider = ({ children }) => {
   const [notification, setNotification] = useState(null);
 
   const isAuthenticated = Boolean(user);
+
+  // Validate active session on mount
+  useEffect(() => {
+    const token = localStorage.getItem('tender_tracker_token');
+    if (token) {
+      authApi.getMe()
+        .then((res) => {
+          const freshUser = {
+            ...res.data,
+            name: res.data.username,
+            token,
+          };
+          setUser(freshUser);
+          localStorage.setItem('bitvivid_user', JSON.stringify(freshUser));
+        })
+        .catch((err) => {
+          console.warn('Session expired or invalid, logging out', err);
+          localStorage.removeItem('tender_tracker_token');
+          localStorage.removeItem('bitvivid_user');
+          setUser(null);
+        });
+    }
+  }, []);
 
   // Global Ctrl+K / Cmd+K keyboard shortcut listener
   useEffect(() => {
@@ -64,61 +87,63 @@ export const AppProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    fetchStats();
-    fetchSyncStatus();
-
-    // Poll sync status every 3 seconds if running, otherwise every 15s
-    const interval = setInterval(() => {
+    if (isAuthenticated) {
+      fetchStats();
       fetchSyncStatus();
-    }, syncState.is_running ? 2500 : 15000);
 
-    return () => clearInterval(interval);
-  }, [syncState.is_running]);
+      // Poll sync status every 3 seconds if running, otherwise every 15s
+      const interval = setInterval(() => {
+        fetchSyncStatus();
+      }, syncState.is_running ? 2500 : 15000);
+
+      return () => clearInterval(interval);
+    }
+  }, [syncState.is_running, isAuthenticated]);
 
   const showNotification = (message, type = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const login = (email, password, remember = true) => {
+  const login = async (identifier, password) => {
+    const res = await authApi.login({ identifier, password });
+    const { access_token, user: userData } = res.data;
     const loggedUser = {
-      name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Business Development Team',
-      email: email.trim(),
-      role: email.includes('analyst') 
-        ? 'Senior Bid Analyst' 
-        : email.includes('director') 
-          ? 'Executive Director' 
-          : 'Business Development Manager',
-      company: 'BitVivid Solutions Private Limited',
-      avatar: null,
-      token: 'jwt_bitvivid_' + Date.now(),
+      ...userData,
+      name: userData.username,
+      token: access_token,
     };
 
+    localStorage.setItem('tender_tracker_token', access_token);
+    localStorage.setItem('bitvivid_user', JSON.stringify(loggedUser));
     setUser(loggedUser);
-    if (remember) {
-      localStorage.setItem('bitvivid_user', JSON.stringify(loggedUser));
-    }
-    showNotification(`Welcome back, ${loggedUser.name}!`, 'success');
+    showNotification(`Welcome back, ${loggedUser.username}!`, 'success');
     return loggedUser;
   };
 
-  const signup = (formData) => {
+  const signup = async ({ username, email, password, confirm_password }) => {
+    const res = await authApi.signup({
+      username,
+      email,
+      password,
+      confirm_password,
+    });
+    const { access_token, user: userData } = res.data;
     const newUser = {
-      name: formData.name || 'New Member',
-      email: formData.email.trim(),
-      role: formData.role || 'Bidding Specialist',
-      company: formData.company || 'BitVivid Solutions Private Limited',
-      avatar: null,
-      token: 'jwt_bitvivid_' + Date.now(),
+      ...userData,
+      name: userData.username,
+      token: access_token,
     };
 
-    setUser(newUser);
+    localStorage.setItem('tender_tracker_token', access_token);
     localStorage.setItem('bitvivid_user', JSON.stringify(newUser));
-    showNotification(`Account created successfully! Welcome to BitVivid, ${newUser.name}.`, 'success');
+    setUser(newUser);
+    showNotification(`Account created successfully! Welcome, ${newUser.username}.`, 'success');
     return newUser;
   };
 
   const logout = () => {
+    localStorage.removeItem('tender_tracker_token');
     localStorage.removeItem('bitvivid_user');
     setUser(null);
     showNotification('Logged out successfully', 'info');

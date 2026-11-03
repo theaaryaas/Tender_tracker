@@ -18,6 +18,7 @@ from backend.core.db import Base
 from backend.models.tender import Tender
 from backend.models.setting import Setting
 from backend.models.sync_log import SyncLog
+from backend.models.user import User
 
 config = context.config
 
