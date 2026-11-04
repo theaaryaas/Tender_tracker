@@ -89,7 +89,7 @@ const formatTenderValue = (val) => {
   return clean;
 };
 
-export const KanbanView = () => {
+export const BidPipelineView = () => {
   const { openTenderDrawer, showNotification, refreshStats } = useApp();
   const [tenders, setTenders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -450,4 +450,5 @@ export const KanbanView = () => {
   );
 };
 
-export default KanbanView;
+export default BidPipelineView;
+export { BidPipelineView as KanbanView };

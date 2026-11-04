@@ -24,7 +24,7 @@ const COMMON_CERTS = [
   'STQC Certified'
 ];
 
-export const SettingsView = () => {
+export const CompanySettingsView = () => {
   const { showNotification } = useApp();
   const [profile, setProfile] = useState(null);
   const [keywords, setKeywords] = useState([]);
@@ -484,4 +484,5 @@ export const SettingsView = () => {
   );
 };
 
-export default SettingsView;
+export default CompanySettingsView;
+export { CompanySettingsView as SettingsView };

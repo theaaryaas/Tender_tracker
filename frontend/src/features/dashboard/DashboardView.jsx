@@ -13,6 +13,7 @@ import { tenderApi, exportApi } from '../../utils/api';
 import { ContractDocuments } from '../../components/common/TenderBackground';
 import { IndiaMap } from '../../components/common/IndiaMap';
 import { UpcomingDeadlinesModal } from './UpcomingDeadlinesModal';
+import { DirectFitModal } from './DirectFitModal';
 import { formatDeadline, sortTendersByDeadline } from '../../utils/dateUtils';
 
 export const DashboardView = () => {
@@ -21,6 +22,7 @@ export const DashboardView = () => {
   const [highFitTenders, setHighFitTenders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDeadlinesModalOpen, setIsDeadlinesModalOpen] = useState(false);
+  const [isDirectFitModalOpen, setIsDirectFitModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchHighlights = async () => {
@@ -135,37 +137,58 @@ export const DashboardView = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
         {/* Card 1: Tracked Tenders (Royal Iris / Lavender #E6E6FA) */}
-        <div className="bg-gradient-to-br from-[#553C9A] via-[#6B46C1] to-[#7C3AED] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-purple-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        <div 
+          onClick={() => setCurrentTab('tenders')}
+          className="bg-gradient-to-br from-[#553C9A] via-[#6B46C1] to-[#7C3AED] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-purple-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          title="Click to view all tracked tenders"
+        >
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#E6E6FA]">Tracked Tenders</p>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.total_tenders || 351}</h3>
+            <div className="flex items-center space-x-1">
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#E6E6FA]">Tracked Tenders</p>
+              <ArrowRight className="w-3 h-3 text-[#E6E6FA] opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.total_tenders || 525}</h3>
             <p className="text-[11px] text-[#E6E6FA]/80 mt-1">Across 8+ portals</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
 
         {/* Card 2: Potential Direct Fit (Sage Mist #C8D8C4) */}
-        <div className="bg-gradient-to-br from-[#2E5A36] via-[#386B42] to-[#468051] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-emerald-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        <div
+          onClick={() => setIsDirectFitModalOpen(true)}
+          className="bg-gradient-to-br from-[#2E5A36] via-[#386B42] to-[#468051] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-emerald-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          title="Click to view all potential direct fit opportunities in popup"
+        >
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#C8D8C4]">Potential Direct Fit</p>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.direct_fit_count || 331}</h3>
+            <div className="flex items-center space-x-1">
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#C8D8C4]">Potential Direct Fit</p>
+              <ArrowRight className="w-3 h-3 text-[#C8D8C4] opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.direct_fit_count || 110}</h3>
             <p className="text-[11px] text-[#C8D8C4]/80 mt-1">High technical synergy</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
         {/* Card 3: SI / OEM Route (Warm Peach Puff #FFDAB9) */}
-        <div className="bg-gradient-to-br from-[#8C4A1D] via-[#A85B24] to-[#C96E2E] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-amber-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40">
+        <div 
+          onClick={() => setCurrentTab('tenders')}
+          className="bg-gradient-to-br from-[#8C4A1D] via-[#A85B24] to-[#C96E2E] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-amber-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          title="Click to view SI & OEM consortium tenders"
+        >
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#FFDAB9]">SI / OEM Route</p>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.partner_route_count || 0}</h3>
+            <div className="flex items-center space-x-1">
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#FFDAB9]">SI / OEM Route</p>
+              <ArrowRight className="w-3 h-3 text-[#FFDAB9] opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.partner_route_count || 22}</h3>
             <p className="text-[11px] text-[#FFDAB9]/80 mt-1">Consortium or OEM tie-up</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
             <Users className="w-5 h-5" />
           </div>
         </div>
@@ -206,8 +229,9 @@ export const DashboardView = () => {
               </div>
             </div>
             <button
-              onClick={() => setCurrentTab('tenders')}
+              onClick={() => setIsDirectFitModalOpen(true)}
               className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer"
+              title="View all potential direct fit opportunities in popup"
             >
               <span>View all</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -353,6 +377,13 @@ export const DashboardView = () => {
       <UpcomingDeadlinesModal
         isOpen={isDeadlinesModalOpen}
         onClose={() => setIsDeadlinesModalOpen(false)}
+        onSelectTender={openTenderDrawer}
+      />
+
+      {/* Top Direct Fit Opportunities Pop-up Modal */}
+      <DirectFitModal
+        isOpen={isDirectFitModalOpen}
+        onClose={() => setIsDirectFitModalOpen(false)}
         onSelectTender={openTenderDrawer}
       />
     </div>

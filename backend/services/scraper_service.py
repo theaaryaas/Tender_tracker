@@ -221,11 +221,27 @@ class ScraperService:
                 if not code:
                     continue
 
+                existing = db.query(Tender).filter(Tender.tender_id == code).first()
+                scope_for_assessment = (existing.scope_summary if existing and existing.scope_summary else (item.get("scope_summary", "") or item.get("item_category", "") or ""))
+                to_for_assessment = (existing.turnover_required if existing and existing.turnover_required and not existing.turnover_required.startswith("Check") else str(item.get("turnover") or item.get("turnover_required") or ""))
+                mse_for_assessment = (existing.mse_relaxation if existing and existing.mse_relaxation else "")
+                st_for_assessment = (existing.startup_relaxation if existing and existing.startup_relaxation else "")
+                emd_for_assessment = (existing.emd_amount if existing and existing.emd_amount and not existing.emd_amount.startswith("Check") else str(item.get("emd") or item.get("emd_amount") or ""))
+
                 status, partner, notes, score = EligibilityService.assess(
-                    item.get("title", ""),
-                    item.get("organisation", ""),
-                    item.get("matched_keywords", "") or item.get("keyword", ""),
-                    profile
+                    tender_title=item.get("title", ""),
+                    organisation=item.get("organisation", ""),
+                    keyword=item.get("matched_keywords", "") or item.get("keyword", ""),
+                    profile=profile,
+                    scope_summary=scope_for_assessment,
+                    full_text=existing.extracted_pdf_text if existing else "",
+                    turnover_required=to_for_assessment,
+                    bidder_turnover=existing.bidder_turnover if existing else "",
+                    oem_turnover=existing.oem_turnover if existing else "",
+                    mse_relaxation=mse_for_assessment,
+                    startup_relaxation=st_for_assessment,
+                    emd_amount=emd_for_assessment,
+                    estimated_value=existing.estimated_value if existing else str(item.get("estimated_value") or "")
                 )
 
                 url = str(item.get("url") or "")

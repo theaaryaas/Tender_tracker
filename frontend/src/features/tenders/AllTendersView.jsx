@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { tenderApi, exportApi } from '../../utils/api';
 
-export const TendersView = () => {
+export const AllTendersView = () => {
   const { openTenderDrawer, showNotification } = useApp();
   const [tenders, setTenders] = useState([]);
   const [total, setTotal] = useState(0);
@@ -351,14 +351,14 @@ export const TendersView = () => {
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold border ${isDirect
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold border ${(t.fit_score || 0) >= 75
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : isPartner
+                              : (t.fit_score || 0) >= 50
                                 ? 'bg-amber-50 text-amber-800 border-amber-200'
                                 : 'bg-slate-100 text-slate-700 border-slate-200'
                               }`}
                           >
-                            {isDirect ? 'Direct Fit' : isPartner ? 'SI Partner' : 'Review'}
+                            {(t.fit_score || 0) >= 75 ? 'Direct Fit' : (t.fit_score || 0) >= 50 ? 'SI Partner' : 'Not Aligned'}
                           </span>
                           <span className="font-bold text-slate-700 text-xs">
                             {t.fit_score}%
@@ -458,6 +458,7 @@ export const TendersView = () => {
   );
 };
 
-export default TendersView;
+export default AllTendersView;
+export { AllTendersView as TendersView };
 
 

@@ -17,11 +17,11 @@ def get_analytics_overview(db: Session = Depends(get_db)):
 
     direct_fit = sum(
         1 for t in all_tenders
-        if any(w in (t.eligibility_assessment or "").lower() for w in ["direct fit", "direct technical alignment", "direct"])
+        if any(w in (t.eligibility_assessment or "").lower() for w in ["direct fit", "direct technical alignment", "direct"]) or (t.fit_score or 0) >= 70
     )
     partner_route = sum(
         1 for t in all_tenders
-        if "partner" in (t.eligibility_assessment or "").lower() and not any(w in (t.eligibility_assessment or "").lower() for w in ["direct fit", "direct technical alignment"])
+        if (t.fit_score or 0) < 70 and ("partner" in (t.eligibility_assessment or "").lower() or (t.fit_score or 0) >= 50)
     )
     review_count = max(0, total - direct_fit - partner_route)
 

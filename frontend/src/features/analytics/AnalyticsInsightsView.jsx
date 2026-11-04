@@ -11,7 +11,7 @@ import {
   FileSearch
 } from 'lucide-react';
 
-export const AnalyticsView = () => {
+export const AnalyticsInsightsView = () => {
   const { stats } = useApp();
 
   if (!stats) return <div className="text-center py-12 text-[#8C82A0]">Loading analytics...</div>;
@@ -246,4 +246,5 @@ export const AnalyticsView = () => {
   );
 };
 
-export default AnalyticsView;
+export default AnalyticsInsightsView;
+export { AnalyticsInsightsView as AnalyticsView };

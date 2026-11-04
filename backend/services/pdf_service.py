@@ -64,12 +64,15 @@ class PDFService:
                 result["scope_summary"] = "PDF document contains scanned images without text layer."
                 return result
 
-            # Clean readable text for user inspection in UI drawer (filter out Devanagari noise & control chars)
-            raw_excerpt = "\n\n--- PAGE EXCERPT ---\n\n".join(
-                p.strip() for p in pages_text[:4] if p.strip()
-            )
-            clean_t = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', raw_excerpt)
-            clean_t = re.sub(r'[\u0900-\u097F]+', '', clean_t)
+            # Clean readable text for user inspection in UI drawer (filter out Devanagari noise & control chars across all pages)
+            page_blocks = []
+            for i, p in enumerate(pages_text):
+                clean_p = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', p.strip())
+                clean_p = re.sub(r'[\u0900-\u097F]+', '', clean_p)
+                if clean_p.strip():
+                    page_blocks.append(f"\n--- [PAGE {i+1} OF {num_pages}] ---\n" + clean_p.strip())
+
+            clean_t = "\n\n".join(page_blocks)
             clean_t = re.sub(r'Turnover\s+of\s+the\s+bidder\s*\(For\s+the\s+last\s+3:?\s*Financial\s+Years\)', 'Turnover of the bidder (For 3 Years)', clean_t, flags=re.I)
             clean_t = re.sub(r'MSE\s+Relaxation\s+for\s+Years\s+Of\s+Experience:?\s+and\s+Turnover:?\s+Yes', 'MSE Relaxation for Years of Experience and Turnover: Yes', clean_t, flags=re.I)
             clean_t = re.sub(r'Startup\s+Relaxation\s+for\s+Years\s+Of:?\s+Experience\s+and\s+Turnover:?\s+Yes', 'Startup Relaxation for Years of Experience and Turnover: Yes', clean_t, flags=re.I)
@@ -83,7 +86,7 @@ class PDFService:
                 # Drop isolated icon font glyphs / table bullets (E, F, H, I, J, L, P, FJ, X, Y, a, c, e)
                 if len(l) <= 2 and l.lower() not in valid_words and not l.isdigit():
                     continue
-                if re.match(r'^[^\w\s]+$', l):
+                if re.match(r'^[^\w\s]+$', l) and not l.startswith('---'):
                     continue
                 if filtered_lines and filtered_lines[-1].lower() == l.lower():
                     continue
@@ -124,27 +127,39 @@ class PDFService:
                 formatted_lines.append(line)
                 idx += 1
 
-            result["extracted_pdf_text"] = "\n".join(formatted_lines)[:7000]
+            # Store the complete multi-page document text layer across all pages
+            result["extracted_pdf_text"] = "\n".join(formatted_lines)
 
-            # 1. EMD Amount & Exemption Parsing (GeM & general)
-            emd_section = re.search(r"/(?:EMD Detail|ईएमड[\s\S]*?ववरण)[\s\S]{1,150}?(?:आवPयकता|Required)[\s\S]{1,40}?(No|Yes)", full_text, re.I)
-            if emd_section:
-                val = emd_section.group(1).strip().capitalize()
-                if val == "No":
-                    result["emd_amount"] = "Nil / Not Required"
-                    result["emd_exemption"] = "EMD is not required for this bid"
-                else:
-                    amt_match = re.search(r"EMD\s+Amount[\s\S]{1,60}?(?:INR|Rs\.?|₹)?\s*([0-9,]+(?:\.\d{2})?)", full_text, re.I)
-                    if amt_match:
-                        result["emd_amount"] = f"₹ {amt_match.group(1).strip()}"
-                        result["emd_exemption"] = "EMD mandatory (Verify MSME / Startup exemption in ATC)"
-                    else:
-                        result["emd_amount"] = "Required (See ATC for Amount)"
+            # 1. EMD Amount & Exemption Parsing (Schedule-wise & general)
+            emd_schedules = re.findall(r"Schedule\s+(\d+)[\s\S]*?EMD\s+Amount\s*(?:\(In\s*INR\))?\s*[:\-]?\s*([0-9]+)", full_text, re.I)
+            if emd_schedules:
+                seen_scheds = {}
+                for s_num, s_amt in emd_schedules:
+                    n = int(s_num)
+                    if n not in seen_scheds:
+                        seen_scheds[n] = int(s_amt)
+                total_emd = sum(seen_scheds.values())
+                result["emd_amount"] = f"₹ {total_emd:,} ({len(seen_scheds)} Schedules)"
+                result["emd_exemption"] = "Exemption granted for registered MSE Manufacturers & DPIIT Startups"
             else:
-                amt_match = re.search(r"EMD\s+(?:Amount|Required|Value)?\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([0-9,]+(?:\.\d{2})?)", full_text, re.I)
-                amt_match = re.search(r"EMD\s+(?:Amount|Required|Value)?\s*[:\-]?\s*(?:INR|Rs\.?|₹)\s*([0-9,]+(?:\.\d{2})?)", full_text, re.I)
-                if amt_match and amt_match.group(1).replace(",", "") not in ("0", "00"):
-                    result["emd_amount"] = f"₹ {amt_match.group(1).strip()}"
+                amt_match = None
+                emd_section = re.search(r"/(?:EMD Detail|ईएमड[\s\S]*?ववरण)[\s\S]{1,150}?(?:आवPयकता|Required)[\s\S]{1,40}?(No|Yes)", full_text, re.I)
+                if emd_section:
+                    val = emd_section.group(1).strip().capitalize()
+                    if val == "No":
+                        result["emd_amount"] = "Nil / Not Required"
+                        result["emd_exemption"] = "EMD is not required for this bid"
+                    else:
+                        amt_match = re.search(r"EMD\s+Amount[\s\S]{1,60}?(?:INR|Rs\.?|₹)?\s*([0-9,]+(?:\.\d{2})?)", full_text, re.I)
+                        if amt_match and amt_match.group(1).replace(",", "") not in ("0", "00"):
+                            result["emd_amount"] = f"₹ {amt_match.group(1).strip()}"
+                            result["emd_exemption"] = "EMD mandatory (Verify MSME / Startup exemption in ATC)"
+                        else:
+                            result["emd_amount"] = "Required (See ATC for Amount)"
+                else:
+                    amt_match = re.search(r"EMD\s+(?:Amount|Required|Value)?\s*[:\-]?\s*(?:INR|Rs\.?|₹)?\s*([0-9,]+(?:\.\d{2})?)", full_text, re.I)
+                    if amt_match and amt_match.group(1).replace(",", "") not in ("0", "00"):
+                        result["emd_amount"] = f"₹ {amt_match.group(1).strip()}"
 
             # 2. ePBG / Performance Bank Guarantee
             epbg_pct = re.search(r"ePBG\s+Percentage\s*(?:\(%?\))?\s*[\r\n\s]*([0-9.]+)", full_text, re.I)
@@ -284,14 +299,28 @@ class PDFService:
             elif startup_rel:
                 result["experience_required"] += " (Exempted for DPIIT Recognized Startups)"
 
-            # 7. Scope Summary / Item Category
-            scope_cat = re.search(r"/Item Category\s*\n\s*([^\n\r]+)", full_text, re.I)
+            # 7. Scope Summary / Item Category (Capture clean equipment list without clause or Hindi bleed)
+            scope_cat = re.search(
+                r"(?:/|\b)Item\s+Category\s*[:\-]?\s*\n?\s*([\s\S]{5,2500}?)(?=\n\s*(?:Bid\s+Number|Bid\s+Document|Total\s+Quantity|Minimum\s+Average|Years\s+of\s+Past|Contract\s+Period|Past\s+Experience|MSE\s+Relaxation|Startup\s+Relaxation|Document\s+required|Estimated\s+Bid|BOQ\s+Title|GeMARPTS|\d+\s*/\s*\d+|Turnover|Relaxation|[\u0900-\u097F]|[\x00-\x08\x0B\x0C\x0E-\x1F]|\Z))",
+                full_text,
+                re.I
+            )
+            raw_scope = ""
             if scope_cat:
-                result["scope_summary"] = scope_cat.group(1).strip()
+                raw_scope = scope_cat.group(1).strip()
             else:
-                scope_alt = re.search(r"(?:Scope\s+of\s+Work|Brief\s+Description)[:\-]?\s*([^\n\r]{20,250})", full_text, re.I)
+                scope_alt = re.search(r"(?:Scope\s+of\s+Work|Brief\s+Description)[:\-]?\s*([^\n\r]{10,250})", full_text, re.I)
                 if scope_alt:
-                    result["scope_summary"] = scope_alt.group(1).strip()
+                    raw_scope = scope_alt.group(1).strip()
+
+            if raw_scope:
+                s = raw_scope
+                s = re.split(r'[\u0900-\u097F]', s)[0]
+                s = re.split(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', s)[0]
+                s = re.split(r'(?i)(?:/|\b)(?:Minimum\s+Average|Turnover|Experience|Relaxation|Past\s+Performance|GeMARPTS)', s)[0]
+                s = re.sub(r'(?i)\s*\(\s*Q\s*\d+\s*\)', '', s)
+                cleaned_cat = re.sub(r'[\s\n\r]+', ' ', s).strip(" :,-;")
+                result["scope_summary"] = cleaned_cat
 
         except Exception as e:
             result["scope_summary"] = f"Extraction note: {str(e)[:100]}"

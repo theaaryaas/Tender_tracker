@@ -24,6 +24,7 @@ export const AppProvider = ({ children }) => {
   const [selectedTender, setSelectedTender] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
   const isAuthenticated = Boolean(user);
@@ -154,6 +155,9 @@ export const AppProvider = ({ children }) => {
     setIsDrawerOpen(true);
   };
 
+  const openNotificationModal = () => setIsNotificationModalOpen(true);
+  const closeNotificationModal = () => setIsNotificationModalOpen(false);
+
   const closeTenderDrawer = () => {
     setIsDrawerOpen(false);
     setSelectedTender(null);
@@ -179,6 +183,9 @@ export const AppProvider = ({ children }) => {
         isDrawerOpen,
         isCommandPaletteOpen,
         setIsCommandPaletteOpen,
+        isNotificationModalOpen,
+        openNotificationModal,
+        closeNotificationModal,
         notification,
         showNotification,
       }}

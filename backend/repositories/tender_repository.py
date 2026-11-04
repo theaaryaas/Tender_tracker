@@ -45,9 +45,8 @@ class TenderRepository:
             if elig_clean in ("direct fit", "direct", "direct technical alignment"):
                 query = query.filter(
                     or_(
-                        Tender.eligibility_assessment.ilike("%direct fit%"),
-                        Tender.eligibility_assessment.ilike("%direct technical alignment%"),
-                        Tender.eligibility_assessment.ilike("%direct%")
+                        Tender.eligibility_assessment.ilike("%direct%"),
+                        Tender.fit_score >= 70
                     )
                 )
             elif elig_clean in ("partner", "si partner", "si-partner"):
@@ -118,6 +117,8 @@ class TenderRepository:
             for key, val in data.items():
                 if key in ["status", "priority", "user_notes", "assigned_to", "is_starred"]:
                     continue # Preserve user annotations
+                if key in ["scope_summary", "extracted_pdf_text", "bidder_turnover", "oem_turnover", "mse_relaxation", "startup_relaxation"] and not val:
+                    continue # Preserve rich PDF extracted data
                 if hasattr(existing, key) and val is not None:
                     setattr(existing, key, val)
             existing.updated_at = datetime.now(timezone.utc)

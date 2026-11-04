@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
+import { tenderApi } from '../../utils/api';
 import { 
   RefreshCw, 
   ChevronDown, 
-  ChevronRight,
   LogOut, 
-  LogIn,
-  User,
-  Bell
+  LogIn, 
+  User, 
+  Bell 
 } from 'lucide-react';
 
 const INDIAN_STATES = [
@@ -37,62 +37,76 @@ const INDIAN_STATES = [
 ];
 
 export const Navbar = () => {
-  const { syncState, setCurrentTab, user, logout, isAuthenticated } = useApp();
+  const { 
+    syncState, 
+    setCurrentTab, 
+    user, 
+    logout, 
+    isAuthenticated, 
+    openNotificationModal, 
+    isNotificationModalOpen 
+  } = useApp();
   const [profileOpen, setProfileOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const profileRef = useRef(null);
-  const notifRef = useRef(null);
 
-  // Live Tender Notifications State
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: 'High-Value GeM Tender Matched',
-      desc: 'AI Surveillance & Video Analytics - UP Police HQ (₹14.8 Cr, 96% Match)',
-      time: '12m ago',
-      unread: true,
-    },
-    {
-      id: 2,
-      title: 'Corrigendum Notice Issued',
-      desc: 'Integrated Smart CCTV - RailTel Western Railway (Technical Specs Revised)',
-      time: '1h ago',
-      unread: true,
-    },
-    {
-      id: 3,
-      title: 'Submission Due in 24 Hours',
-      desc: 'Smart Traffic Video Management - BMC Mumbai (Technical Bid Closing)',
-      time: '3h ago',
-      unread: true,
-    },
-    {
-      id: 4,
-      title: 'GeM Bid Status Evaluation',
-      desc: 'CCTV Surveillance System - CPWD Delhi moved to Technical Scoring',
-      time: '1d ago',
-      unread: false,
-    },
-  ]);
+  // Live Tender Notifications State for Badge Counter
+  const [notifications, setNotifications] = useState([]);
+  const [readIds, setReadIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('bitvivid_read_notifications');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
-  const unreadCount = notifications.filter(n => n.unread).length;
+  // Fetch real notifications for badge counting
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await tenderApi.getNotifications({ limit: 40 });
+      if (res.data?.notifications) {
+        setNotifications(res.data.notifications);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications count:', err);
+    }
+  }, []);
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  };
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, fetchNotifications]);
 
-  const markAsRead = (id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
-  };
+  // Synchronize readIds when modal updates read status
+  useEffect(() => {
+    const handleUpdate = () => {
+      try {
+        const saved = localStorage.getItem('bitvivid_read_notifications');
+        if (saved) setReadIds(JSON.parse(saved));
+      } catch (e) {}
+    };
+    window.addEventListener('notifications:updated', handleUpdate);
+    return () => window.removeEventListener('notifications:updated', handleUpdate);
+  }, []);
 
-  // Close dropdowns on click outside
+  // Re-fetch automatically when sync completes
+  useEffect(() => {
+    if (!syncState.is_running && isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [syncState.is_running, isAuthenticated, fetchNotifications]);
+
+  // Unread count based on active notifications
+  const unreadCount = notifications.filter(n => !readIds.includes(n.id)).length;
+
+  // Close profile dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setProfileOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
-        setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -174,89 +188,23 @@ export const Navbar = () => {
           </>
         )}
 
-        {/* 🔔 2. Notification Icon with Dropdown Drawer */}
-        <div className="relative" ref={notifRef}>
-          <button
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
-            className={`relative p-2 rounded-xl transition cursor-pointer select-none border ${
-              notificationsOpen
-                ? 'bg-[#E6E6FA] border-[#D8BFD8] text-[#6B46C1]'
-                : 'border-transparent text-[#584E6B] hover:bg-[#FAF9FD] hover:border-[#E2DEEC] hover:text-[#1E182B]'
-            }`}
-            title="Tender Alerts & Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-              </span>
-            )}
-          </button>
-
-          {/* Notification Dropdown Drawer */}
-          {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-88 bg-white rounded-2xl shadow-2xl border border-[#E2DEEC] p-3 z-50 animate-in fade-in slide-in-from-top-1 duration-150 space-y-2">
-              <div className="flex items-center justify-between px-2 pb-2 border-b border-[#E2DEEC]">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-bold text-[#1E182B]">Tender Radar Alerts</span>
-                  {unreadCount > 0 && (
-                    <span className="text-[10px] font-bold bg-[#E6E6FA] text-[#6B46C1] px-1.5 py-0.2 rounded-full border border-[#D8BFD8]">
-                      {unreadCount} new
-                    </span>
-                  )}
-                </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllAsRead}
-                    className="text-[10.5px] font-semibold text-[#6B46C1] hover:text-[#553C9A] transition cursor-pointer hover:underline"
-                  >
-                    Mark all read
-                  </button>
-                )}
-              </div>
-
-              <div className="max-h-72 overflow-y-auto space-y-1.5 pr-0.5">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => markAsRead(n.id)}
-                    className={`p-2.5 rounded-xl border transition cursor-pointer text-left ${
-                      n.unread
-                        ? 'bg-[#FAF9FD] border-[#E2DEEC] hover:border-[#D8BFD8]'
-                        : 'bg-white border-transparent hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between space-x-2">
-                      <span className="text-xs font-bold text-[#1E182B] leading-snug">
-                        {n.title}
-                      </span>
-                      <span className="text-[9.5px] font-mono text-[#8C82A0] shrink-0 mt-0.5">
-                        {n.time}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#584E6B] mt-1 leading-normal">
-                      {n.desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="border-t border-[#E2DEEC] pt-2 text-center">
-                <button
-                  onClick={() => {
-                    setNotificationsOpen(false);
-                    setCurrentTab('sync');
-                  }}
-                  className="text-[11px] font-semibold text-[#6B46C1] hover:text-[#553C9A] transition cursor-pointer inline-flex items-center space-x-1"
-                >
-                  <span>View All Alerts in Sync Center</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
+        {/* 🔔 Live Notification Bell Icon - Triggers Pop-Up Window */}
+        <button
+          onClick={openNotificationModal}
+          className={`relative p-2 rounded-xl transition cursor-pointer select-none border ${
+            isNotificationModalOpen
+              ? 'bg-[#E6E6FA] border-[#D8BFD8] text-[#6B46C1] shadow-2xs'
+              : 'border-transparent text-[#584E6B] hover:bg-[#FAF9FD] hover:border-[#E2DEEC] hover:text-[#1E182B]'
+          }`}
+          title="Open Tender Radar & Alert Center Pop-up Window"
+        >
+          <Bell className="w-4 h-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold shadow-xs animate-in zoom-in-75 duration-100">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           )}
-        </div>
+        </button>
 
         {isAuthenticated && user ? (
           <div className="flex items-center space-x-2">
@@ -296,7 +244,7 @@ export const Navbar = () => {
                 />
               </button>
 
-              {/* Clean Minimal Account Dropdown (Removed role pill, company name, verified badge) */}
+              {/* Clean Minimal Account Dropdown */}
               {profileOpen && (
                 <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-[#E2DEEC] p-2 z-50 animate-in fade-in slide-in-from-top-1 duration-100 space-y-1.5">
                   {/* Account Info */}

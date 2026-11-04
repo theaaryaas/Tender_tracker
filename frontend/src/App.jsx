@@ -3,19 +3,20 @@ import { useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { DashboardView } from './features/dashboard/DashboardView';
-import { TendersView } from './features/tenders/TendersView';
-import { KanbanView } from './features/tenders/KanbanView';
+import { AllTendersView } from './features/tenders/AllTendersView';
+import { BidPipelineView } from './features/tenders/BidPipelineView';
 import { SyncCenterView } from './features/sync/SyncCenterView';
-import { AnalyticsView } from './features/analytics/AnalyticsView';
-import { SettingsView } from './features/settings/SettingsView';
+import { AnalyticsInsightsView } from './features/analytics/AnalyticsInsightsView';
+import { CompanySettingsView } from './features/settings/CompanySettingsView';
 import { AuthView } from './features/auth/AuthView';
 import { TenderDrawer } from './features/tenders/TenderDrawer';
 import { CommandPalette } from './components/common/CommandPalette';
+import { NotificationModal } from './components/layout/NotificationModal';
 import { TenderBackground } from './components/common/TenderBackground';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 export const App = () => {
-  const { currentTab, notification, isAuthenticated } = useApp();
+  const { currentTab, setCurrentTab, notification, isAuthenticated, isNotificationModalOpen, closeNotificationModal, openTenderDrawer } = useApp();
 
   // If user is not authenticated, present the Lavender Dream Login & Sign Up page
   if (!isAuthenticated) {
@@ -59,11 +60,11 @@ export const App = () => {
 
           <main className="flex-1 px-6 py-5 w-full relative z-10">
             {currentTab === 'dashboard' && <DashboardView />}
-            {currentTab === 'tenders' && <TendersView />}
-            {currentTab === 'kanban' && <KanbanView />}
+            {currentTab === 'tenders' && <AllTendersView />}
+            {currentTab === 'kanban' && <BidPipelineView />}
             {currentTab === 'sync' && <SyncCenterView />}
-            {currentTab === 'analytics' && <AnalyticsView />}
-            {currentTab === 'settings' && <SettingsView />}
+            {currentTab === 'analytics' && <AnalyticsInsightsView />}
+            {currentTab === 'settings' && <CompanySettingsView />}
           </main>
         </div>
       </div>
@@ -73,6 +74,15 @@ export const App = () => {
 
       {/* Global Command Palette (Ctrl + K) */}
       <CommandPalette />
+
+      {/* Tender Radar & Alerts Pop-up Window Modal */}
+      <NotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={closeNotificationModal}
+        onSelectTender={openTenderDrawer}
+        onNavigateSync={() => setCurrentTab('sync')}
+        onNavigateDashboard={() => setCurrentTab('dashboard')}
+      />
 
       {/* Global Notification Toast */}
       {notification && (
