@@ -35,7 +35,15 @@ class TenderRepository:
             )
 
         if portal and portal.lower() != "all":
-            query = query.filter(Tender.portal.ilike(f"%{portal}%"))
+            p_clean = portal.lower().strip()
+            if p_clean in ("cppp", "central", "cppp / central", "central eprocurement"):
+                query = query.filter(or_(Tender.portal.ilike("%central%"), Tender.portal.ilike("%cppp%")))
+            elif p_clean in ("gem", "gem bidplus"):
+                query = query.filter(Tender.portal.ilike("%gem%"))
+            elif p_clean in ("railtel", "rail"):
+                query = query.filter(Tender.portal.ilike("%rail%"))
+            else:
+                query = query.filter(Tender.portal.ilike(f"%{portal}%"))
 
         if status and status.lower() != "all":
             query = query.filter(Tender.status == status)

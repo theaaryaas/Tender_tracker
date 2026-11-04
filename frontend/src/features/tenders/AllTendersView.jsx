@@ -11,7 +11,8 @@ import {
   FileSpreadsheet,
   FileText,
   Eye,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import { tenderApi, exportApi } from '../../utils/api';
 
@@ -48,13 +49,13 @@ export const AllTendersView = () => {
     }
   };
 
-  const fetchTenders = async () => {
+  const fetchTenders = async (searchOverride) => {
     setLoading(true);
     try {
       const res = await tenderApi.getTenders({
         page,
         limit,
-        search: search || undefined,
+        search: (searchOverride !== undefined ? searchOverride : search) || undefined,
         portal: portal !== 'all' ? portal : undefined,
         status: status !== 'all' ? status : undefined,
         eligibility: eligibility !== 'all' ? eligibility : undefined,
@@ -89,6 +90,12 @@ export const AllTendersView = () => {
     window.addEventListener('tender:updated', handleUpdate);
     return () => window.removeEventListener('tender:updated', handleUpdate);
   }, []);
+
+  const handleClearSearch = () => {
+    setSearch('');
+    setPage(1);
+    fetchTenders('');
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -138,9 +145,25 @@ export const AllTendersView = () => {
               type="text"
               placeholder="Search by tender ID, title, organization, or keyword..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (!e.target.value) {
+                  setPage(1);
+                  fetchTenders('');
+                }
+              }}
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </form>
 
           <div className="flex items-center space-x-2 shrink-0">
