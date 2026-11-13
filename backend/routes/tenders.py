@@ -7,7 +7,13 @@ from backend.core.db import get_db, SessionLocal
 from backend.core.date_utils import parse_closing_datetime, IST
 from backend.models.tender import Tender
 from backend.models.sync_log import SyncLog
-from backend.schemas.tender import TenderResponse, TenderListResponse, TenderUpdate
+from backend.schemas.tender import (
+    TenderResponse,
+    TenderListResponse,
+    TenderUpdate,
+    TenderBulkImportRequest,
+    TenderBulkImportResponse
+)
 from backend.repositories.tender_repository import TenderRepository
 from backend.services.pdf_service import PDFService
 from backend.services.eligibility_service import EligibilityService
@@ -82,6 +88,125 @@ async def batch_parse_tenders(
         "status": "processing",
         "count": len(items_to_parse),
         "message": f"Parsing {len(items_to_parse)} tender documents in background (ordered by fit score)"
+    }
+
+@router.post("/import-bulk", response_model=TenderBulkImportResponse)
+def import_bulk_tenders(
+    req: TenderBulkImportRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk import tenders from GeM or external tools (e.g. Chrome Extension).
+    Automatically deduplicates by tender_id using TenderRepository.upsert,
+    evaluates initial eligibility/fit score, and optionally triggers background PDF extraction.
+    """
+    if not req.tenders:
+        return {
+            "status": "success",
+            "total_received": 0,
+            "tenders_added": 0,
+            "tenders_updated": 0,
+            "message": "No tenders provided in payload.",
+            "tender_ids": []
+        }
+
+    # Fetch company profile for eligibility scoring
+    profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
+    profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+
+    added_count = 0
+    updated_count = 0
+    processed_ids = []
+    tenders_for_pdf_parse = []
+
+    for item in req.tenders:
+        tender_code = (item.tender_id or item.reference or "").strip()
+        if not tender_code:
+            continue
+
+        tender_dict = item.model_dump()
+        # Clean doc_url if relative
+        doc_url = tender_dict.get("doc_url") or ""
+        if doc_url.startswith("/"):
+            tender_dict["doc_url"] = f"https://bidplus.gem.gov.in{doc_url}"
+        elif doc_url and not doc_url.startswith("http"):
+            tender_dict["doc_url"] = f"https://bidplus.gem.gov.in/{doc_url}"
+
+        # Clean url if relative
+        item_url = tender_dict.get("url") or ""
+        if item_url.startswith("/"):
+            tender_dict["url"] = f"https://bidplus.gem.gov.in{item_url}"
+
+        # Merge quantity into scope_summary if provided
+        scope_parts = []
+        if item.quantity:
+            scope_parts.append(f"Quantity: {item.quantity}")
+        if tender_dict.get("scope_summary"):
+            scope_parts.append(tender_dict["scope_summary"])
+        if scope_parts:
+            tender_dict["scope_summary"] = " • ".join(scope_parts)
+
+        # Calculate initial fit score & eligibility
+        status, partner, notes, score = EligibilityService.assess(
+            tender_title=item.title,
+            organisation=item.organisation or "",
+            keyword=item.matched_keywords or item.title,
+            profile=profile,
+            scope_summary=tender_dict.get("scope_summary") or "",
+            turnover_required=item.turnover_required or "Check tender PDF / ATC",
+            emd_amount=item.emd_amount or "Check tender PDF / ATC",
+            estimated_value=item.estimated_value or "Check tender PDF / ATC"
+        )
+        tender_dict["eligibility_assessment"] = status
+        tender_dict["si_partner_route"] = partner
+        tender_dict["assessment_notes"] = notes
+        tender_dict["fit_score"] = score
+
+        # Filter strictly to valid Tender table columns to prevent keyword argument errors
+        valid_cols = {c.name for c in Tender.__table__.columns}
+        cleaned_data = {k: v for k, v in tender_dict.items() if k in valid_cols}
+
+        tender_obj, is_new = TenderRepository.upsert(db, cleaned_data)
+        if tender_obj:
+            processed_ids.append(tender_obj.tender_id)
+            if is_new:
+                added_count += 1
+            else:
+                updated_count += 1
+
+            if req.auto_parse_pdf and tender_obj.doc_url:
+                tenders_for_pdf_parse.append((tender_obj.id, tender_obj.doc_url))
+
+    # Optional background PDF clause extraction
+    if req.auto_parse_pdf and tenders_for_pdf_parse and background_tasks:
+        async def _parse_worker(items):
+            db_worker = SessionLocal()
+            try:
+                for tid, doc_link in items:
+                    try:
+                        c = await PDFService.extract_clauses_from_url(doc_link)
+                        t_db = db_worker.query(Tender).filter(Tender.id == tid).first()
+                        if t_db:
+                            for k, v in c.items():
+                                if v and hasattr(t_db, k):
+                                    setattr(t_db, k, v)
+                            db_worker.commit()
+                    except Exception as ex:
+                        print(f"Error parsing imported tender {tid}: {ex}")
+                    await asyncio.sleep(0.3)
+            finally:
+                db_worker.close()
+
+        background_tasks.add_task(_parse_worker, tenders_for_pdf_parse)
+
+    return {
+        "status": "success",
+        "total_received": len(req.tenders),
+        "tenders_added": added_count,
+        "tenders_updated": updated_count,
+        "message": f"Successfully processed {len(processed_ids)} tenders: {added_count} added, {updated_count} updated.",
+        "tender_ids": processed_ids
     }
 
 @router.get("/", response_model=TenderListResponse)

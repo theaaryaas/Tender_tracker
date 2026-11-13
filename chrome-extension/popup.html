@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BitVivid GeM Tender Sync</title>
+  <style>
+    :root {
+      --bg: #FAF9FD;
+      --card-bg: #FFFFFF;
+      --border: #E2DEEC;
+      --primary: #6B46C1;
+      --primary-hover: #553C9A;
+      --text-main: #1E182B;
+      --text-muted: #584E6B;
+      --lavender: #E6E6FA;
+      --lavender-border: #D8BFD8;
+      --success: #2E7D32;
+      --success-bg: #E8F5E9;
+      --error: #C53030;
+      --error-bg: #FFF5F5;
+      --warning: #B7791F;
+      --warning-bg: #FEFCBF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      width: 360px;
+      background: var(--bg);
+      color: var(--text-main);
+      padding: 16px;
+      font-size: 13px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-main);
+      letter-spacing: -0.3px;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: #EDF2F7;
+      color: #4A5568;
+    }
+
+    .badge-status.online {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #A8C2A3;
+    }
+
+    .badge-status.offline {
+      background: var(--error-bg);
+      color: var(--error);
+      border: 1px solid #FEB2B2;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: #EFEBF8;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 12px;
+      gap: 3px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+
+    .tab-btn.active {
+      background: #FFFFFF;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(107, 70, 193, 0.12);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(30, 24, 43, 0.04);
+    }
+
+    .tender-counter-box {
+      text-align: center;
+      padding: 6px 0 10px 0;
+    }
+
+    .counter-number {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1;
+    }
+
+    .counter-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 10px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      background: var(--bg);
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+      background: #FFFFFF;
+    }
+
+    .presets-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .preset-chip {
+      flex: 1;
+      padding: 5px 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+
+    .preset-chip:hover, .preset-chip.active {
+      background: var(--lavender);
+      border-color: var(--lavender-border);
+      color: var(--primary);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 9px 14px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 12.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.99);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #FFFFFF;
+      box-shadow: 0 2px 4px rgba(107, 70, 193, 0.2);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-danger {
+      background: #E53E3E;
+      color: #FFFFFF;
+      margin-top: 6px;
+    }
+
+    .btn-danger:hover {
+      background: #C53030;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .options {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    /* Live Progress Card */
+    .progress-box {
+      margin-top: 10px;
+      display: none;
+      background: #FAF9FD;
+      border: 1px solid var(--lavender-border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .progress-title-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #E2DEEC;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6B46C1, #9F7AEA);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-stats-row {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .alert {
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      line-height: 1.4;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .alert.success {
+      display: block;
+      background: var(--success-bg);
+      border: 1px solid #A8C2A3;
+      color: #1B5E20;
+    }
+
+    .alert.error {
+      display: block;
+      background: var(--error-bg);
+      border: 1px solid #FEB2B2;
+      color: #9B2C2C;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .link {
+      font-size: 11px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #FFFFFF;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <span class="brand-title">BitVivid Tender Sync</span>
+    </div>
+    <div id="statusBadge" class="badge-status">
+      <span class="dot"></span>
+      <span id="statusText">Checking...</span>
+    </div>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="tabs">
+    <button id="tabCurrent" class="tab-btn active">Current Page</button>
+    <button id="tabCustom" class="tab-btn">⚡ Custom Scraper</button>
+  </div>
+
+  <!-- View 1: Current Page Sync -->
+  <div id="viewCurrent">
+    <div class="card">
+      <div class="tender-counter-box">
+        <div id="tenderCount" class="counter-number">0</div>
+        <div id="counterSubtitle" class="counter-label">Tenders detected on this screen</div>
+      </div>
+
+      <div class="options">
+        <label class="checkbox-label">
+          <input type="checkbox" id="autoParsePdfCurrent" checked>
+          <span>Auto-extract PDF clauses in background</span>
+        </label>
+      </div>
+    </div>
+
+    <button id="syncCurrentBtn" class="btn btn-primary" disabled>
+      <span id="syncCurrentIcon">⚡</span>
+      <span id="syncCurrentText">Sync Visible Tenders</span>
+    </button>
+  </div>
+
+  <!-- View 2: Custom Multi-Page Scraper -->
+  <div id="viewCustom" style="display: none;">
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">How many pages to scrape?</label>
+        <div class="presets-row">
+          <div class="preset-chip active" data-pages="5">5 Pgs (~25)</div>
+          <div class="preset-chip" data-pages="10">10 Pgs (~50)</div>
+          <div class="preset-chip" data-pages="20">20 Pgs (~100)</div>
+          <div class="preset-chip" data-pages="50">50 Pgs (~250)</div>
+        </div>
+        <input type="number" id="customPagesInput" class="form-input" min="1" max="500" value="5" placeholder="Enter number of pages">
+      </div>
+
+      <div class="options">
+        <label class="checkbox-label">
+          <input type="checkbox" id="autoParsePdfCustom" checked>
+          <span>Auto-extract PDF clauses in background</span>
+        </label>
+      </div>
+
+      <!-- Live Crawling Progress Box -->
+      <div id="progressBox" class="progress-box">
+        <div class="progress-title-row">
+          <span id="progressPageText">Scraping Page 1 of 5...</span>
+          <span id="progressPercent">20%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progressBarFill" class="progress-bar-fill"></div>
+        </div>
+        <div class="progress-stats-row">
+          <span id="progressCollectedText">Tenders gathered: 5</span>
+          <span>Zero duplicates</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="startCrawlBtn" class="btn btn-primary">
+      <span id="crawlIcon">🚀</span>
+      <span id="crawlText">Start Multi-Page Scrape</span>
+    </button>
+
+    <button id="stopCrawlBtn" class="btn btn-danger" style="display: none;">
+      <span>⏹️ Stop & Sync Collected Bids</span>
+    </button>
+  </div>
+
+  <!-- Result Banner -->
+  <div id="resultAlert" class="alert" style="margin-top: 12px;"></div>
+
+  <!-- Open Website Link -->
+  <div class="footer">
+    <a href="http://localhost:3000" target="_blank" class="link">
+      Open BitVivid Dashboard (localhost:3000) &rarr;
+    </a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
