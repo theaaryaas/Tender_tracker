@@ -30,6 +30,7 @@ export const AllTendersView = () => {
   const [status, setStatus] = useState('all');
   const [eligibility, setEligibility] = useState('all');
   const [priority, setPriority] = useState('all');
+  const [isStarredOnly, setIsStarredOnly] = useState(false);
   const [sortBy, setSortBy] = useState('id');
   const [sortDesc, setSortDesc] = useState(true);
   const [batchParsing, setBatchParsing] = useState(false);
@@ -60,6 +61,7 @@ export const AllTendersView = () => {
         status: status !== 'all' ? status : undefined,
         eligibility: eligibility !== 'all' ? eligibility : undefined,
         priority: priority !== 'all' ? priority : undefined,
+        is_starred: isStarredOnly ? true : undefined,
         sort_by: sortBy,
         sort_desc: sortDesc,
       });
@@ -75,7 +77,7 @@ export const AllTendersView = () => {
 
   useEffect(() => {
     fetchTenders();
-  }, [page, limit, portal, status, eligibility, priority, sortBy, sortDesc]);
+  }, [page, limit, portal, status, eligibility, priority, sortBy, sortDesc, isStarredOnly]);
 
   // Real-time synchronization when tender is updated from drawer or actions
   useEffect(() => {
@@ -177,7 +179,7 @@ export const AllTendersView = () => {
               <span>{batchParsing ? 'Extracting...' : 'Auto-Extract Criteria'}</span>
             </button>
             <a
-              href={exportApi.getExcelUrl({ search, portal, status, eligibility })}
+              href={exportApi.getExcelUrl({ search, portal, status, eligibility, is_starred: isStarredOnly ? true : undefined })}
               className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-xs font-semibold shadow-sm transition"
               download
             >
@@ -185,7 +187,7 @@ export const AllTendersView = () => {
               <span>Export Excel</span>
             </a>
             <a
-              href={exportApi.getCsvUrl({ search, portal, status, eligibility })}
+              href={exportApi.getCsvUrl({ search, portal, status, eligibility, is_starred: isStarredOnly ? true : undefined })}
               className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-[#FAF9FD] hover:bg-[#E6E6FA] text-[#3B2961] border border-[#E2DEEC] text-xs font-semibold transition"
               download
             >
@@ -261,16 +263,24 @@ export const AllTendersView = () => {
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Sort By</label>
             <select
-              value={`${sortBy}-${sortDesc}`}
+              value={isStarredOnly ? 'favorites-true' : `${sortBy}-${sortDesc}`}
               onChange={(e) => {
-                const [sb, sd] = e.target.value.split('-');
-                setSortBy(sb);
-                setSortDesc(sd === 'true');
-                setPage(1);
+                const val = e.target.value;
+                if (val === 'favorites-true') {
+                  setIsStarredOnly(true);
+                  setPage(1);
+                } else {
+                  const [sb, sd] = val.split('-');
+                  setIsStarredOnly(false);
+                  setSortBy(sb);
+                  setSortDesc(sd === 'true');
+                  setPage(1);
+                }
               }}
-              className="w-full p-1.5 rounded-md border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full p-1.5 rounded-md border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             >
               <option value="id-true">Latest Discovered</option>
+              <option value="favorites-true">⭐ Favorites</option>
               <option value="fit_score-true">Highest Fit Score</option>
               <option value="closing_date-false">Closing Date (Earliest)</option>
             </select>
@@ -284,7 +294,23 @@ export const AllTendersView = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#FAF9FD] border-b border-[#E2DEEC] text-[#584E6B] font-semibold uppercase tracking-wider">
               <tr>
-                <th className="py-3 px-3 w-10 text-center">⭐</th>
+                <th className="py-2.5 px-3 w-12 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsStarredOnly((prev) => !prev);
+                      setPage(1);
+                    }}
+                    title={isStarredOnly ? "Showing ⭐ Favorites only — Click to show all" : "Click to show ⭐ Favorites only"}
+                    className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer ${
+                      isStarredOnly
+                        ? "bg-amber-100 text-amber-500 ring-2 ring-amber-400 shadow-xs"
+                        : "text-slate-400 hover:text-amber-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Star className={`w-4 h-4 ${isStarredOnly ? "fill-amber-400 text-amber-500" : ""}`} />
+                  </button>
+                </th>
                 <th className="py-3 px-4 w-44">Tender ID / Portal</th>
                 <th className="py-3 px-4 min-w-[280px]">Tender Title & Department</th>
                 <th className="py-3 px-4 w-36">Closing Date</th>
@@ -307,7 +333,25 @@ export const AllTendersView = () => {
               ) : tenders.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="py-12 text-center text-slate-400">
-                    No tenders match your search and filter criteria.
+                    {isStarredOnly ? (
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <Star className="w-8 h-8 text-amber-400 fill-amber-400/30" />
+                        <p className="font-semibold text-slate-700">No favorite tenders found</p>
+                        <p className="text-xs text-slate-400">Click the star icon next to any tender to save it to your Favorites.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsStarredOnly(false);
+                            setPage(1);
+                          }}
+                          className="mt-2 px-3 py-1 text-xs text-[#6B46C1] bg-[#E6E6FA] hover:bg-[#D8BFD8] rounded-md font-semibold cursor-pointer transition"
+                        >
+                          Show All Tenders
+                        </button>
+                      </div>
+                    ) : (
+                      "No tenders match your search and filter criteria."
+                    )}
                   </td>
                 </tr>
               ) : (
