@@ -49,6 +49,11 @@ export const tenderApi = {
   batchParseTenders: (limit = 20) => api.post('/tenders/batch-parse', null, { params: { limit } }),
 };
 
+export const chatbotApi = {
+  query: (data) => api.post('/chatbot/query', data),
+  getSuggested: (tenderId) => api.get(`/chatbot/suggested/${tenderId}`),
+};
+
 export const syncApi = {
   triggerSync: (data) => api.post('/sync/run', data),
   getStatus: () => api.get('/sync/status'),

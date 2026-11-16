@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Ensure root directory is in sys.path to access root-level modules like 'chatbot'
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -12,6 +20,10 @@ from backend.routes import (
     export_router,
     auth_router
 )
+try:
+    from chatbot.routes import router as chatbot_router
+except ImportError:
+    chatbot_router = None
 from backend.seed_data import seed_database
 
 from pathlib import Path
@@ -134,6 +146,8 @@ app.include_router(sync_router, prefix=settings.API_V1_STR)
 app.include_router(analytics_router, prefix=settings.API_V1_STR)
 app.include_router(settings_router, prefix=settings.API_V1_STR)
 app.include_router(export_router, prefix=settings.API_V1_STR)
+if chatbot_router:
+    app.include_router(chatbot_router, prefix=settings.API_V1_STR)
 
 @app.get("/health", tags=["System"])
 def health_check():

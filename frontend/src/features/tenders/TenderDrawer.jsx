@@ -37,10 +37,13 @@ import {
   Cpu,
   FileCheck,
   ShieldAlert,
-  Info
+  Info,
+  Bot,
+  MessageSquare
 } from 'lucide-react';
 import { tenderApi } from '../../utils/api';
 import { formatIndianDateTime } from '../../utils/dateUtils';
+import { TenderChatModal } from '../chatbot/TenderChatModal';
 
 // Defensive sanitizer to prevent Hindi mojibake, control chars or clause bleed
 const cleanScopeText = (raw) => {
@@ -109,6 +112,7 @@ export const TenderDrawer = () => {
   const [docTab, setDocTab] = useState('structured');
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [scheduleSearch, setScheduleSearch] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     if (selectedTender) {
@@ -116,6 +120,7 @@ export const TenderDrawer = () => {
       setNotes(selectedTender.user_notes || '');
       setStatus(selectedTender.status || 'New');
       setPriority(selectedTender.priority || 'Normal');
+      setIsChatOpen(false);
     }
   }, [selectedTender]);
 
@@ -1711,6 +1716,54 @@ export const TenderDrawer = () => {
           </button>
         </div>
       </div>
+
+      {/* Floating Circular Chatbot Icon in Right Bottom Corner */}
+      <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-55 flex items-center space-x-2 group">
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none bg-[#1E182B] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-purple-900/20 whitespace-nowrap hidden sm:inline-block">
+          Ask Tender AI Chat
+        </span>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsChatOpen(true);
+          }}
+          className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#553C9A] via-[#6B46C1] to-[#805AD5] hover:from-[#44307B] hover:to-[#6B46C1] active:scale-95 text-white shadow-xl shadow-purple-900/35 flex items-center justify-center transition-all duration-200 cursor-pointer ring-4 ring-white/95 hover:ring-purple-200"
+          title="Ask Tender AI Chatbot"
+        >
+          <div className="relative flex items-center justify-center">
+            <Bot className="w-6 h-6 text-white transition-transform group-hover:scale-110" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-300 absolute -top-1.5 -right-2 animate-pulse" />
+          </div>
+
+          {/* Dynamic Status Dot Indicator */}
+          {tender.extracted_pdf_text ? (
+            <span
+              className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-xs"
+              title="AI Ready (PDF Parsed)"
+            >
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            </span>
+          ) : (
+            <span
+              className="absolute top-0 right-0 w-3.5 h-3.5 bg-amber-400 rounded-full border-2 border-white shadow-xs"
+              title="Basic Mode (Click Parse to extract clauses)"
+            ></span>
+          )}
+        </button>
+      </div>
+
+      {/* Separate Dedicated Chatbot Modal */}
+      <TenderChatModal
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        tender={tender}
+        onTenderParsed={(updatedTender) => {
+          setTender(updatedTender);
+          setShowExcerpt(true);
+        }}
+      />
     </div>
   );
 };
