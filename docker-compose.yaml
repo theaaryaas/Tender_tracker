@@ -30,6 +30,7 @@ services:
     volumes:
       - tender_data:/app/data
       - ./backend:/app/backend
+      - ./chatbot:/app/chatbot
     env_file:
       - .env
     depends_on:

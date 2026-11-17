@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from backend.repositories.tender_repository import TenderRepository
 from backend.repositories.sync_repository import SyncRepository
 from backend.models.setting import Setting
+from backend.models.tender import Tender
 from backend.services.eligibility_service import EligibilityService
 
 try:
