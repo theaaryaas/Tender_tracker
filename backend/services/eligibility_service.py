@@ -127,12 +127,34 @@ class EligibilityService:
             to_score = 25
             notes_parts.append("Turnover criteria not mandated or fully exempted for MSE/Startups.")
         else:
+            val_in_lakhs = None
             num_match = re.search(r"(\d+(?:\.\d+)?)\s*(lakh|cr|crore)", to_str, re.I)
             if num_match:
                 val = float(num_match.group(1))
                 unit = num_match.group(2).lower()
                 val_in_lakhs = val * 100 if "cr" in unit else val
-                if val_in_lakhs <= 25:
+            else:
+                raw_num = re.search(r"(\d+(?:,\d+)*(?:\.\d+)?)", to_str)
+                if raw_num:
+                    clean_num = float(raw_num.group(1).replace(",", ""))
+                    if clean_num > 0:
+                        if clean_num >= 10000:
+                            val_in_lakhs = clean_num / 100000.0
+                        else:
+                            val_in_lakhs = clean_num
+
+            if val_in_lakhs is not None:
+                # Check against company profile annual turnover if configured
+                company_turnover_inr = profile.get("average_annual_turnover_inr")
+                company_turnover_lakhs = (float(company_turnover_inr) / 100000.0) if company_turnover_inr and str(company_turnover_inr).replace('.', '', 1).isdigit() else None
+
+                if company_turnover_lakhs and val_in_lakhs <= company_turnover_lakhs:
+                    to_score = 25
+                    notes_parts.append(f"Turnover (₹ {val_in_lakhs:g} Lakhs) is fully within BitVivid's profile capacity (₹ {company_turnover_lakhs:g} Lakhs).")
+                elif company_turnover_lakhs and val_in_lakhs > company_turnover_lakhs:
+                    to_score = 8
+                    notes_parts.append(f"Turnover requirement (₹ {val_in_lakhs/100:.2f} Cr) exceeds BitVivid turnover capacity (₹ {company_turnover_lakhs/100:.2f} Cr).")
+                elif val_in_lakhs <= 25:
                     to_score = 24
                     notes_parts.append(f"Accessible turnover requirement: ₹ {val_in_lakhs:g} Lakhs.")
                 elif val_in_lakhs <= 60:

@@ -40,7 +40,21 @@ export const CompanySettingsView = () => {
           settingsApi.getProfile(),
           settingsApi.getKeywords(),
         ]);
-        setProfile(profRes.data || {});
+        const defaultProfile = {
+          company_name: 'BitVivid Solutions Private Limited',
+          direct_bidder_type: 'Software/Product OEM and Solution Provider',
+          msme_status: 'Micro Enterprise - Services',
+          udyam_registered: false,
+          dpiit_startup_recognised: false,
+          gem_registered: false,
+          blacklisting_status_confirmed: false,
+          known_certifications: [],
+          known_project_experience: [],
+          average_annual_turnover_inr: null,
+          net_worth_inr: null,
+          ...(profRes.data || {})
+        };
+        setProfile(defaultProfile);
         setKeywords(kwRes.data?.keywords || []);
       } catch (e) {
         console.error('Failed to load settings', e);
@@ -51,12 +65,21 @@ export const CompanySettingsView = () => {
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
+    if (profile.average_annual_turnover_inr !== null && profile.average_annual_turnover_inr !== undefined && profile.average_annual_turnover_inr < 0) {
+      showNotification('Turnover cannot be a negative number', 'error');
+      return;
+    }
+    if (profile.net_worth_inr !== null && profile.net_worth_inr !== undefined && profile.net_worth_inr < 0) {
+      showNotification('Net worth cannot be a negative number', 'error');
+      return;
+    }
     setSavingProfile(true);
     try {
       await settingsApi.updateProfile(profile);
       showNotification('Company profile updated successfully', 'success');
     } catch (err) {
-      showNotification('Failed to update company profile', 'error');
+      const errMsg = err?.response?.data?.detail?.[0]?.msg || 'Failed to update company profile';
+      showNotification(errMsg, 'error');
     } finally {
       setSavingProfile(false);
     }
@@ -104,7 +127,7 @@ export const CompanySettingsView = () => {
   };
 
   const formatAmountPreview = (amount) => {
-    if (!amount || isNaN(amount)) return '';
+    if (amount === null || amount === undefined || isNaN(amount) || amount < 0) return '';
     const num = parseFloat(amount);
     if (num >= 10000000) {
       return `≈ ₹ ${(num / 10000000).toFixed(2)} Cr`;
@@ -217,9 +240,23 @@ export const CompanySettingsView = () => {
             </div>
             <input
               type="number"
+              min="0"
               placeholder="50000000"
-              value={profile.average_annual_turnover_inr || ''}
-              onChange={(e) => setProfile({ ...profile, average_annual_turnover_inr: parseFloat(e.target.value) || null })}
+              value={profile.average_annual_turnover_inr ?? ''}
+              onKeyDown={(e) => {
+                if (['-', '+', 'e', 'E'].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setProfile({ ...profile, average_annual_turnover_inr: null });
+                } else {
+                  const val = Math.max(0, parseFloat(raw) || 0);
+                  setProfile({ ...profile, average_annual_turnover_inr: val });
+                }
+              }}
               className="w-full px-3 py-2 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
           </div>
@@ -237,9 +274,23 @@ export const CompanySettingsView = () => {
             </div>
             <input
               type="number"
+              min="0"
               placeholder="25000000"
-              value={profile.net_worth_inr || ''}
-              onChange={(e) => setProfile({ ...profile, net_worth_inr: parseFloat(e.target.value) || null })}
+              value={profile.net_worth_inr ?? ''}
+              onKeyDown={(e) => {
+                if (['-', '+', 'e', 'E'].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setProfile({ ...profile, net_worth_inr: null });
+                } else {
+                  const val = Math.max(0, parseFloat(raw) || 0);
+                  setProfile({ ...profile, net_worth_inr: val });
+                }
+              }}
               className="w-full px-3 py-2 rounded-lg bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-medium text-[#1E182B] placeholder:text-[#8C82A0] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] transition"
             />
           </div>

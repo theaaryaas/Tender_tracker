@@ -130,7 +130,19 @@ class ScraperService:
             if not target_sites:
                 target_sites = ["gem"]
 
-            target_keywords = keywords or DEFAULT_KEYWORDS
+            # Load active keywords from database if not explicitly passed
+            if not keywords:
+                kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
+                if kw_setting and kw_setting.value_json:
+                    try:
+                        loaded_kw = json.loads(kw_setting.value_json).get("keywords", [])
+                        target_keywords = loaded_kw if loaded_kw else DEFAULT_KEYWORDS
+                    except Exception:
+                        target_keywords = DEFAULT_KEYWORDS
+                else:
+                    target_keywords = DEFAULT_KEYWORDS
+            else:
+                target_keywords = keywords
 
             gem_session = None
             if "gem" in target_sites:

@@ -36,6 +36,7 @@ def seed_database():
         if not existing_kw:
             db.add(Setting(key="keywords", value_json=json.dumps({"keywords": DEFAULT_KEYWORDS}), description="Active search keywords"))
             print("Seeded default keywords")
+        db.commit()
 
         # 3. Seed Existing Tenders from CSV if database is empty
         tender_count = db.query(Tender).count()
