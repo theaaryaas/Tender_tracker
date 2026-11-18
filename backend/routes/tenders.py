@@ -32,19 +32,26 @@ async def batch_parse_tenders(
     Finds up to `limit` unparsed tenders (ordered by fit score) and parses their PDFs in the background.
     """
     unparsed = db.query(Tender).filter(
-        Tender.doc_url.isnot(None),
-        Tender.doc_url != "",
-        (Tender.turnover_required == "Check tender PDF / ATC") | (Tender.turnover_required.like("%₹ ,%"))
+        ((Tender.doc_url.isnot(None)) & (Tender.doc_url != "")) | ((Tender.url.isnot(None)) & (Tender.url != "")),
+        (Tender.turnover_required == "Check tender PDF / ATC") | (Tender.turnover_required.like("%₹ ,%")) | (Tender.emd_amount == "Check tender PDF / ATC")
     ).order_by(Tender.fit_score.desc()).limit(limit).all()
 
-    items_to_parse = [(t.id, t.doc_url) for t in unparsed]
+    items_to_parse = [
+        (t.id, t.doc_url or t.url, t.matched_keywords, t.tender_id, t.title) 
+        for t in unparsed
+    ]
 
     async def _worker(items):
         db_worker = SessionLocal()
         try:
-            for tid, doc_url in items:
+            for tid, doc_url, kw, tender_code, title in items:
                 try:
-                    c = await PDFService.extract_clauses_from_url(doc_url)
+                    c = await PDFService.extract_clauses_from_url(
+                        doc_url,
+                        keyword=kw,
+                        tender_id=tender_code,
+                        tender_title=title
+                    )
                     t_db = db_worker.query(Tender).filter(Tender.id == tid).first()
                     if t_db:
                         for k, v in c.items():
@@ -510,10 +517,16 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
     
-    if not tender.doc_url:
-        raise HTTPException(status_code=400, detail="Tender does not have a valid document URL")
+    target_url = tender.doc_url or tender.url
+    if not target_url:
+        raise HTTPException(status_code=400, detail="Tender does not have a valid document URL or portal link")
 
-    clauses = await PDFService.extract_clauses_from_url(tender.doc_url)
+    clauses = await PDFService.extract_clauses_from_url(
+        target_url,
+        keyword=tender.matched_keywords,
+        tender_id=tender.tender_id,
+        tender_title=tender.title
+    )
     for k, v in clauses.items():
         if v and hasattr(tender, k):
             setattr(tender, k, v)

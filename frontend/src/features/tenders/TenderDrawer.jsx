@@ -745,12 +745,23 @@ export const TenderDrawer = () => {
   const experienceYears = getExperienceYears();
 
   const emdVal = (tender.emd_amount || '').toLowerCase();
-  const isEmdExempt = !tender.emd_amount || 
-    emdVal.includes('nil') || 
+  const emdExemptVal = (tender.emd_exemption || '').toLowerCase();
+  const mseRelaxVal = (tender.mse_relaxation || '').toLowerCase();
+
+  const isEmdNil = !tender.emd_amount || 
+    emdVal === 'nil' || 
+    emdVal.includes('nil / not required') || 
     emdVal.includes('not required') || 
-    emdVal.includes('check tender') || 
     emdVal === '0' || 
     emdVal === '₹ 0';
+
+  const isEmdToVerify = emdVal.includes('check tender') || (!tender.emd_amount && !isEmdNil);
+
+  const hasEmdExemption = emdExemptVal === 'yes' || 
+    emdExemptVal.includes('exempt') || 
+    mseRelaxVal.includes('emd exemption');
+
+  const isEmdExempt = isEmdNil || hasEmdExemption;
 
   const epbgVal = (tender.epbg_required || '').toLowerCase();
   const isEpbgExempt = !tender.epbg_required || 
@@ -974,16 +985,32 @@ export const TenderDrawer = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[#8C82A0] font-semibold">EMD Amount</span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
-                    isEmdExempt ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#4A337A] bg-[#E6E6FA] border-[#D8BFD8]'
+                    isEmdNil 
+                      ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' 
+                      : (hasEmdExemption
+                          ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
+                          : (isEmdToVerify 
+                              ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
+                              : 'text-[#4A337A] bg-[#E6E6FA] border-[#D8BFD8]'))
                   }`}>
-                    {isEmdExempt ? 'Exempt / Nil' : 'Mandatory'}
+                    {isEmdNil 
+                      ? 'Exempt / Nil' 
+                      : (hasEmdExemption 
+                          ? 'MSE / Startup Exempt' 
+                          : (isEmdToVerify ? 'To Verify' : 'Mandatory'))}
                   </span>
                 </div>
                 <p className="font-bold text-[#1E182B] text-sm">
                   {dossier?.financials?.totalEmd || tender.emd_amount || 'Nil / Not Required'}
                 </p>
                 <span className="text-[10px] text-[#584E6B] block leading-tight">
-                  {isEmdExempt ? 'Zero earnest money required; no capital lock-in.' : `Advisory Bank: ${dossier?.financials?.emdBank || 'ICICI'}. Exempt for MSE & Startups.`}
+                  {isEmdNil 
+                    ? 'Zero earnest money required; no capital lock-in.' 
+                    : (hasEmdExemption
+                        ? 'Exemption allowed for registered MSEs & Startups; payable for others.'
+                        : (isEmdToVerify 
+                            ? 'Verify exact EMD in tender document or ATC.'
+                            : `Advisory Bank: ${dossier?.financials?.emdBank || 'Buyer Designated'}. EMD mandatory.`))}
                 </span>
               </div>
 

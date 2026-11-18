@@ -503,3 +503,59 @@ def test_cleanup_expired_endpoint():
     assert data["status"] == "success"
     assert "purged_count" in data
     assert isinstance(data["purged_count"], int)
+
+
+# ============================================================================
+# 8. HTML Web Extractor for Portals without Direct PDFs
+# ============================================================================
+
+def test_html_web_tender_extraction():
+    """
+    Verifies that HTMLExtractorService accurately parses CPPP / GePNIC
+    HTML web pages with structured tables (EMD, Exemption, Scope, Doc links).
+    """
+    from backend.services.html_extractor_service import HTMLExtractorService
+
+    sample_gepnic_html = """
+    <html>
+      <body>
+        <table>
+          <tr><td>Tender Reference Number:</td><td>N-22/5/2025-DIC 3153771</td></tr>
+          <tr><td>Tender ID:</td><td>2026_DIT_929901_1</td></tr>
+          <tr><td>Work Description:</td><td>RFE Empanelment of AI-Enabled Software Development Partners</td></tr>
+          <tr><td>Product Category:</td><td>Info. Tech. Services</td></tr>
+          <tr><td>EMD Amount in ₹:</td><td>5,00,000</td></tr>
+          <tr><td>EMD Exemption Allowed:</td><td>Yes</td></tr>
+          <tr><td>Tender Value in ₹:</td><td>25,00,000</td></tr>
+          <tr><td>Bid Submission End Date:</td><td>01-Dec-2026 06:00 PM</td></tr>
+        </table>
+        <div>
+          <a href="/eprocure/app?component=docDownload&service=direct">Tendernotice_1.pdf</a>
+        </div>
+      </body>
+    </html>
+    """
+
+    data = HTMLExtractorService.parse_html_content(sample_gepnic_html, base_url="https://eprocure.gov.in/eprocure/app")
+    assert data["tender_id"] == "2026_DIT_929901_1"
+    assert data["reference"] == "N-22/5/2025-DIC 3153771"
+    assert data["emd_amount"] == "₹ 500,000"
+    assert data["emd_exemption"] == "Yes"
+    assert "EMD Exemption Allowed" in data["mse_relaxation"]
+    assert "RFE Empanelment of AI-Enabled Software Development Partners" in data["scope_summary"]
+    assert "Info. Tech. Services" in data["scope_summary"]
+    assert "Tendernotice_1.pdf" in data["doc_url"] or "docDownload" in data["doc_url"]
+    assert "PORTAL METADATA EXTRACTED FROM HTML" in data["extracted_pdf_text"]
+
+
+@pytest.mark.asyncio
+async def test_pdf_service_defaults_do_not_falsely_claim_nil_emd():
+    """
+    Verifies that when PDFService encounters an unresolvable URL,
+    it defaults emd_amount to 'Check tender PDF / ATC' rather than falsely declaring 'Nil / Not Required'.
+    """
+    from backend.services.pdf_service import PDFService
+    res = await PDFService.extract_clauses_from_url("")
+    assert res["emd_amount"] == "Check tender PDF / ATC"
+    assert res["emd_exemption"] == "Verify MSME / Startup rules"
+

@@ -7,15 +7,21 @@ from backend.core.config import settings
 
 class PDFService:
     @staticmethod
-    async def extract_clauses_from_url(pdf_url: str, client: Optional[httpx.AsyncClient] = None) -> Dict[str, Any]:
+    async def extract_clauses_from_url(
+        pdf_url: str,
+        client: Optional[httpx.AsyncClient] = None,
+        keyword: Optional[str] = None,
+        tender_id: Optional[str] = None,
+        tender_title: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Downloads a tender notice PDF and parses commercial, financial, and technical clauses.
-        Returns: { estimated_value, emd_amount, emd_exemption, epbg_required, turnover_required, experience_required, scope_summary, extracted_pdf_text }
+        Downloads a tender notice PDF or parses an HTML tender detail page.
+        Returns structured commercial, financial, and technical clauses.
         """
         result = {
             "estimated_value": "Not Disclosed by Buyer on GeM",
-            "emd_amount": "Nil / Not Required",
-            "emd_exemption": "EMD not required for this bid",
+            "emd_amount": "Check tender PDF / ATC",
+            "emd_exemption": "Verify MSME / Startup rules",
             "epbg_required": "Not Required",
             "turnover_required": "No Minimum Turnover Mandated",
             "bidder_turnover": None,
@@ -43,11 +49,35 @@ class PDFService:
             }
             response = await client.get(pdf_url, headers=headers)
 
-            if close_client:
-                await client.aclose()
+            if response.status_code != 200 or len(response.content) < 100:
+                result["scope_summary"] = f"Could not retrieve document (HTTP {response.status_code})"
+                return result
 
-            if response.status_code != 200 or len(response.content) < 500:
-                result["scope_summary"] = f"Could not retrieve PDF (HTTP {response.status_code})"
+            # If response is HTML web page (e.g. CPPP / GePNIC portal details), parse with HTMLExtractorService
+            content_type = response.headers.get("content-type", "").lower()
+            is_html = (
+                "text/html" in content_type 
+                or response.content.strip().startswith(b"<!DOCTYPE") 
+                or response.content.strip().startswith(b"<html")
+                or b"<table" in response.content[:1024].lower()
+            )
+
+            if is_html:
+                from backend.services.html_extractor_service import HTMLExtractorService
+                if "stale session" in response.text.lower() or len(response.text) < 2000:
+                    html_data = await HTMLExtractorService.extract_from_url(
+                        pdf_url,
+                        keyword=keyword,
+                        tender_id=tender_id,
+                        tender_title=tender_title,
+                        client=client
+                    )
+                else:
+                    html_data = HTMLExtractorService.parse_html_content(response.text, base_url=str(response.url))
+
+                for k, v in html_data.items():
+                    if v:
+                        result[k] = v
                 return result
 
             # Parse PDF bytes
