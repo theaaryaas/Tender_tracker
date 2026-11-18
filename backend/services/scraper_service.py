@@ -110,6 +110,14 @@ class ScraperService:
         sync_log = SyncRepository.create(db, portal_filter=",".join(sites) if sites else "all")
 
         try:
+            # Auto-purge expired tenders in stage 'New' before fetching fresh bids
+            try:
+                purged_count = TenderRepository.purge_expired_unactioned(db)
+                if purged_count > 0:
+                    cls._current_sync_state["current_task"] = f"Auto-purged {purged_count} expired tenders..."
+            except Exception as pe:
+                print(f"[ScraperSync] Warning during expired tender cleanup: {pe}")
+
             # Load company profile for eligibility
             profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
             profile = json.loads(profile_setting.value_json) if profile_setting else COMPANY_PROFILE_DEFAULT

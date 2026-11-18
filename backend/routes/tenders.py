@@ -209,6 +209,19 @@ def import_bulk_tenders(
         "tender_ids": processed_ids
     }
 
+@router.post("/cleanup-expired")
+def cleanup_expired_tenders(db: Session = Depends(get_db)):
+    """
+    Purges tenders whose closing_date has passed and are still in status 'New'
+    without stars/bookmarks. Preserves active pipeline deals.
+    """
+    deleted_count = TenderRepository.purge_expired_unactioned(db)
+    return {
+        "status": "success",
+        "purged_count": deleted_count,
+        "message": f"Successfully purged {deleted_count} expired unacted tenders from database."
+    }
+
 @router.get("/", response_model=TenderListResponse)
 def get_tenders(
     page: int = Query(1, ge=1),

@@ -164,3 +164,30 @@ class TenderRepository:
         db.commit()
         return True
 
+    @staticmethod
+    def purge_expired_unactioned(db: Session) -> int:
+        """
+        Deletes tenders that have expired (closing_date < now in IST)
+        AND remained in pipeline stage 'New' without stars/bookmarks.
+        Preserves all tenders in 'Reviewing', 'Bid Ready', 'Submitted', 'Won', 'Lost', etc.
+        """
+        from backend.core.date_utils import parse_closing_datetime, IST
+        now = datetime.now(IST)
+
+        candidates = db.query(Tender).filter(
+            Tender.status == "New",
+            Tender.is_starred == False
+        ).all()
+
+        deleted_count = 0
+        for tender in candidates:
+            closing_dt = parse_closing_datetime(tender.closing_date)
+            if closing_dt and closing_dt < now:
+                db.delete(tender)
+                deleted_count += 1
+
+        if deleted_count > 0:
+            db.commit()
+
+        return deleted_count
+

@@ -408,3 +408,98 @@ def test_bulk_tender_import_stores_matched_keywords_and_deduplicates(db_session)
     # Cleanup test tender
     db_session.query(Tender).filter(Tender.tender_id == "UNIT-TEST-GEM-001").delete()
     db_session.commit()
+
+
+# ============================================================================
+# 7. Automatic Purge of Expired Unactioned Tenders
+# ============================================================================
+
+def test_purge_expired_unactioned_tenders(db_session):
+    """
+    Verifies that TenderRepository.purge_expired_unactioned:
+    - Deletes tenders past closing date ONLY IF status == 'New' and is_starred is False.
+    - Preserves expired tenders that were moved to 'Reviewing', 'Bid Ready', etc.
+    - Preserves expired tenders that are starred (is_starred == True).
+    - Preserves future / active tenders in stage 'New'.
+    """
+    from backend.repositories.tender_repository import TenderRepository
+
+    # Clean up any leftover test rows
+    test_ids = ["TEST-PURGE-1", "TEST-PURGE-2", "TEST-PURGE-3", "TEST-PURGE-4"]
+    db_session.query(Tender).filter(Tender.tender_id.in_(test_ids)).delete()
+    db_session.commit()
+
+    # 1. Past closing date + 'New' + not starred -> Should be purged
+    t1 = Tender(
+        tender_id="TEST-PURGE-1",
+        title="Expired Unacted Bid",
+        portal="GeM BidPlus",
+        site_key="gem",
+        status="New",
+        is_starred=False,
+        closing_date="01-Nov-2026 10:00 AM" # Expired past date
+    )
+    # 2. Past closing date + 'Reviewing' -> Protected (in pipeline)
+    t2 = Tender(
+        tender_id="TEST-PURGE-2",
+        title="Expired But Reviewing Bid",
+        portal="GeM BidPlus",
+        site_key="gem",
+        status="Reviewing",
+        is_starred=False,
+        closing_date="01-Nov-2026 10:00 AM"
+    )
+    # 3. Past closing date + 'New' + is_starred=True -> Protected (bookmarked)
+    t3 = Tender(
+        tender_id="TEST-PURGE-3",
+        title="Expired But Starred Bid",
+        portal="GeM BidPlus",
+        site_key="gem",
+        status="New",
+        is_starred=True,
+        closing_date="01-Nov-2026 10:00 AM"
+    )
+    # 4. Future closing date + 'New' -> Protected (active ongoing tender)
+    t4 = Tender(
+        tender_id="TEST-PURGE-4",
+        title="Future Ongoing Bid",
+        portal="GeM BidPlus",
+        site_key="gem",
+        status="New",
+        is_starred=False,
+        closing_date="31-Dec-2026 05:00 PM"
+    )
+
+    db_session.add_all([t1, t2, t3, t4])
+    db_session.commit()
+
+    # Run purge
+    purged_count = TenderRepository.purge_expired_unactioned(db_session)
+    assert purged_count >= 1
+
+    # Verify t1 was purged
+    r1 = db_session.query(Tender).filter(Tender.tender_id == "TEST-PURGE-1").first()
+    assert r1 is None, "T1 (expired + New) should have been deleted"
+
+    # Verify t2, t3, t4 were preserved
+    r2 = db_session.query(Tender).filter(Tender.tender_id == "TEST-PURGE-2").first()
+    r3 = db_session.query(Tender).filter(Tender.tender_id == "TEST-PURGE-3").first()
+    r4 = db_session.query(Tender).filter(Tender.tender_id == "TEST-PURGE-4").first()
+
+    assert r2 is not None, "T2 (Reviewing stage) must be preserved"
+    assert r3 is not None, "T3 (Starred) must be preserved"
+    assert r4 is not None, "T4 (Future deadline) must be preserved"
+
+    # Cleanup
+    db_session.query(Tender).filter(Tender.tender_id.in_(test_ids)).delete()
+    db_session.commit()
+
+
+def test_cleanup_expired_endpoint():
+    """Verifies POST /api/v1/tenders/cleanup-expired API contract."""
+    res = client.post("/api/v1/tenders/cleanup-expired")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "purged_count" in data
+    assert isinstance(data["purged_count"], int)
