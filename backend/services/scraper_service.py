@@ -268,6 +268,7 @@ class ScraperService:
                 mse_for_assessment = (existing.mse_relaxation if existing and existing.mse_relaxation else "")
                 st_for_assessment = (existing.startup_relaxation if existing and existing.startup_relaxation else "")
                 emd_for_assessment = (existing.emd_amount if existing and existing.emd_amount and not existing.emd_amount.startswith("Check") else str(item.get("emd") or item.get("emd_amount") or ""))
+                ex_for_assessment = (existing.emd_exemption if existing and existing.emd_exemption else str(item.get("emd_exemption") or ""))
 
                 status, partner, notes, score = EligibilityService.assess(
                     tender_title=item.get("title", ""),
@@ -282,7 +283,8 @@ class ScraperService:
                     mse_relaxation=mse_for_assessment,
                     startup_relaxation=st_for_assessment,
                     emd_amount=emd_for_assessment,
-                    estimated_value=existing.estimated_value if existing else str(item.get("estimated_value") or "")
+                    estimated_value=existing.estimated_value if existing else str(item.get("estimated_value") or ""),
+                    emd_exemption=ex_for_assessment
                 )
 
                 url = str(item.get("url") or "")

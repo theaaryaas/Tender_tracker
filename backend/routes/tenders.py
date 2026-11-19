@@ -74,7 +74,8 @@ async def batch_parse_tenders(
                             mse_relaxation=t_db.mse_relaxation,
                             startup_relaxation=t_db.startup_relaxation,
                             emd_amount=t_db.emd_amount,
-                            estimated_value=t_db.estimated_value
+                            estimated_value=t_db.estimated_value,
+                            emd_exemption=t_db.emd_exemption
                         )
                         t_db.eligibility_assessment = st
                         t_db.si_partner_route = pa
@@ -548,7 +549,8 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
         mse_relaxation=tender.mse_relaxation,
         startup_relaxation=tender.startup_relaxation,
         emd_amount=tender.emd_amount,
-        estimated_value=tender.estimated_value
+        estimated_value=tender.estimated_value,
+        emd_exemption=tender.emd_exemption
     )
     tender.eligibility_assessment = status
     tender.si_partner_route = partner

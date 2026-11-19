@@ -1,0 +1,28 @@
+# ==========================================
+# BitVivid Tender Tracker - Environment Config
+# ==========================================
+
+# PostgreSQL Database Credentials
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=MCGaZ189
+POSTGRES_DB=tender_tracker
+POSTGRES_HOST=157.20.211.42
+POSTGRES_PORT=5432
+# SQLAlchemy / Alembic Database URL
+DATABASE_URL=postgresql+psycopg2://postgres:MCGaZ189@157.20.211.42:5432/tender_tracker
+
+# Application Settings
+PROJECT_NAME="BitVivid Tender Intelligence"
+API_V1_STR=/api/v1
+DEFAULT_DELAY_SECONDS=1.0
+DEFAULT_GEM_PAGES=3
+
+# Ports
+APP_PORT=8090
+
+# Authentication & JWT Security
+JWT_SECRET_KEY=bitvivid_super_secret_jwt_key_2026_tender_intelligence_production
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=43200
+
+

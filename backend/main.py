@@ -157,6 +157,31 @@ def health_check():
         "version": "1.0.0"
     }
 
+# -------------------------------------------------------------
+# Serve React Frontend from backend/public (SPA Single Container)
+# -------------------------------------------------------------
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+from fastapi import HTTPException
+
+PUBLIC_DIR = Path(__file__).resolve().parent / "public"
+
+if PUBLIC_DIR.exists():
+    assets_dir = PUBLIC_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        # Do not catch docs, redoc, openapi, or unmatched /api routes
+        if full_path.startswith("api/") or full_path in ("docs", "redoc", "openapi.json"):
+            raise HTTPException(status_code=404, detail="Not Found")
+
+        target_file = PUBLIC_DIR / full_path
+        if target_file.exists() and target_file.is_file():
+            return FileResponse(str(target_file))
+        return FileResponse(str(PUBLIC_DIR / "index.html"))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)

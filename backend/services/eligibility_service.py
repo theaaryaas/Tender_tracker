@@ -5,10 +5,13 @@ TIER_1_AI_SOFTWARE = [
     "video analytics", "vms", "video management system", "video management", "anpr",
     "automatic number plate", "itms", "atms", "traffic management", "crowd management",
     "crowd analytics", "facial recognition", "frs", "genai", "generative ai",
-    "artificial intelligence", "command and control", "iccc", "smart city surveillance",
+    "artificial intelligence", "ai", "ai-enabled", "ai enabled", "ai solution", "ai solutions",
+    "ai platform", "software development", "software developer", "software partner", "ai partner",
+    "machine learning", "ml", "command and control", "iccc", "smart city surveillance",
     "safe city", "red light violation", "rlvd", "fire and smoke detection", "video search",
     "deep learning", "computer vision", "video synopsis", "perimeter intrusion",
-    "perimeter intrusion detection", "speed violation", "traffic enforcement"
+    "perimeter intrusion detection", "speed violation", "traffic enforcement",
+    "data analytics", "analytics software"
 ]
 
 TIER_2_CCTV_HARDWARE = [
@@ -64,7 +67,8 @@ class EligibilityService:
         mse_relaxation: str = "",
         startup_relaxation: str = "",
         emd_amount: str = "",
-        estimated_value: str = ""
+        estimated_value: str = "",
+        emd_exemption: str = ""
     ) -> Tuple[str, str, str, int]:
         """
         Assesses a tender against BitVivid's capabilities using a 4-dimensional scoring model:
@@ -91,7 +95,7 @@ class EligibilityService:
 
         # Explicit surveillance anchor: true surveillance noun
         explicit_surveillance = bool(
-            re.search(r"\b(cctv|surveillance|camera|ip camera|video recorder|video analytics|nvr|dvr|ptz)\b", tech_text, re.I)
+            re.search(r"\b(cctv|surveillance|camera|ip camera|video recorder|video analytics|nvr|dvr|ptz|ai|vms|artificial intelligence|genai|computer vision|deep learning|software development)\b", tech_text, re.I)
         )
         is_unrelated = bool(matched_neg) and not explicit_surveillance
 
@@ -203,10 +207,22 @@ class EligibilityService:
         # 4. EMD & FINANCIAL SECURITY (0 - 15 points)
         # ---------------------------------------------------------
         emd_str = (emd_amount or "").lower()
-        if "nil" in emd_str or "not required" in emd_str or emd_str == "0" or emd_str == "₹ 0":
+        ex_str = (emd_exemption or "").lower()
+        mse_str_lower = (mse_relaxation or "").lower()
+        is_emd_exempt = (
+            ex_str == "yes" 
+            or "exempt" in ex_str 
+            or "emd exemption" in mse_str_lower 
+            or "exempt" in emd_str
+        )
+
+        if "nil" in emd_str or "not required" in emd_str or emd_str in ("0", "₹ 0"):
             emd_score = 15
             notes_parts.append("Zero EMD requirement (Nil).")
-        elif "exempt" in emd_str or "schedule" in emd_str:
+        elif is_emd_exempt:
+            emd_score = 14
+            notes_parts.append("EMD exemption granted for registered MSEs/Startups.")
+        elif "schedule" in emd_str:
             emd_score = 13
             notes_parts.append("EMD is schedule-wise or exempt for MSE manufacturers.")
         else:
