@@ -1,10 +1,35 @@
 /**
  * BitVivid Tender Sync - Popup Controller
- * Supports Current Page and Custom Multi-Page Scraping for GeM and Tenderlelo
+ * Supports Configurable Server URL, Current Page, and Custom Multi-Page Scraping for GeM and Tenderlelo
  */
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
-const HEALTH_URL = 'http://localhost:8000/health';
+const DEFAULT_PROD_URL = 'http://157.20.211.42:8090';
+const DEFAULT_LOCAL_URL = 'http://localhost:8000';
+let currentServerUrl = DEFAULT_PROD_URL;
+
+function normalizeUrl(url) {
+  let cleaned = (url || '').trim();
+  if (!cleaned) return DEFAULT_PROD_URL;
+  if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    cleaned = 'http://' + cleaned;
+  }
+  return cleaned.replace(/\/+$/, '');
+}
+
+async function getStoredServerUrl() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['serverUrl'], (res) => {
+      resolve(normalizeUrl(res.serverUrl || DEFAULT_PROD_URL));
+    });
+  });
+}
+
+async function saveStoredServerUrl(url) {
+  const clean = normalizeUrl(url);
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ serverUrl: clean }, () => resolve(clean));
+  });
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Elements
@@ -15,6 +40,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tabCustom = document.getElementById('tabCustom');
   const viewCurrent = document.getElementById('viewCurrent');
   const viewCustom = document.getElementById('viewCustom');
+
+  // Settings Elements
+  const settingsToggleBtn = document.getElementById('settingsToggleBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const serverUrlInput = document.getElementById('serverUrlInput');
+  const presetProdBtn = document.getElementById('presetProdBtn');
+  const presetLocalBtn = document.getElementById('presetLocalBtn');
+  const saveServerUrlBtn = document.getElementById('saveServerUrlBtn');
+  const settingsAlert = document.getElementById('settingsAlert');
+  const dashboardLink = document.getElementById('dashboardLink');
 
   // Current View Elements
   const tenderCountEl = document.getElementById('tenderCount');
@@ -42,8 +78,82 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let detectedTenders = [];
   let isCrawling = false;
+  let isBackendHealthy = false;
 
-  // 1. Tab Switching
+  // Initialize Configured Server URL
+  currentServerUrl = await getStoredServerUrl();
+  if (serverUrlInput) serverUrlInput.value = currentServerUrl;
+  if (dashboardLink) dashboardLink.href = currentServerUrl;
+
+  const getApiBaseUrl = () => `${currentServerUrl}/api/v1`;
+  const getHealthUrl = () => `${currentServerUrl}/health`;
+
+  // 1. Settings Panel Controls
+  if (settingsToggleBtn && settingsPanel) {
+    settingsToggleBtn.addEventListener('click', () => {
+      const isVisible = settingsPanel.style.display === 'block';
+      settingsPanel.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible && serverUrlInput) {
+        serverUrlInput.value = currentServerUrl;
+        if (settingsAlert) settingsAlert.style.display = 'none';
+      }
+    });
+  }
+
+  if (closeSettingsBtn && settingsPanel) {
+    closeSettingsBtn.addEventListener('click', () => {
+      settingsPanel.style.display = 'none';
+    });
+  }
+
+  if (presetProdBtn && serverUrlInput) {
+    presetProdBtn.addEventListener('click', () => {
+      serverUrlInput.value = DEFAULT_PROD_URL;
+    });
+  }
+
+  if (presetLocalBtn && serverUrlInput) {
+    presetLocalBtn.addEventListener('click', () => {
+      serverUrlInput.value = DEFAULT_LOCAL_URL;
+    });
+  }
+
+  if (saveServerUrlBtn && serverUrlInput) {
+    saveServerUrlBtn.addEventListener('click', async () => {
+      saveServerUrlBtn.disabled = true;
+      saveServerUrlBtn.innerText = 'Testing...';
+      const clean = normalizeUrl(serverUrlInput.value);
+      serverUrlInput.value = clean;
+
+      await saveStoredServerUrl(clean);
+      currentServerUrl = clean;
+      if (dashboardLink) dashboardLink.href = currentServerUrl;
+
+      const ok = await checkBackendHealth();
+      saveServerUrlBtn.disabled = false;
+      saveServerUrlBtn.innerText = 'Save & Connect';
+
+      if (settingsAlert) {
+        settingsAlert.style.display = 'block';
+        if (ok) {
+          settingsAlert.style.color = '#2E7D32';
+          settingsAlert.innerText = '✅ Connected successfully to ' + clean;
+          setTimeout(() => {
+            if (settingsPanel) settingsPanel.style.display = 'none';
+          }, 1200);
+        } else {
+          settingsAlert.style.color = '#C53030';
+          settingsAlert.innerText = '⚠️ Saved, but could not reach ' + clean + '/health';
+        }
+      }
+
+      if (detectedTenders.length > 0 && ok) {
+        syncCurrentBtn.disabled = false;
+      }
+    });
+  }
+
+  // 2. Tab Switching
   tabCurrent.addEventListener('click', () => {
     tabCurrent.classList.add('active');
     tabCustom.classList.remove('active');
@@ -60,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     resultAlert.style.display = 'none';
   });
 
-  // 2. Preset Chips Selection
+  // 3. Preset Chips Selection
   presetChips.forEach((chip) => {
     chip.addEventListener('click', () => {
       presetChips.forEach((c) => c.classList.remove('active'));
@@ -79,24 +189,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // 3. Check Backend Connectivity
+  // 4. Check Backend Connectivity
   async function checkBackendHealth() {
     try {
-      const res = await fetch(HEALTH_URL, { method: 'GET', signal: AbortSignal.timeout(2500) });
+      const res = await fetch(getHealthUrl(), { method: 'GET', signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         statusBadge.className = 'badge-status online';
         statusText.innerText = 'Online';
+        isBackendHealthy = true;
         return true;
       }
     } catch (e) {}
     statusBadge.className = 'badge-status offline';
-    statusText.innerText = 'Backend Offline';
+    statusText.innerText = 'Offline (Click ⚙️)';
+    isBackendHealthy = false;
     return false;
   }
 
-  const isBackendHealthy = await checkBackendHealth();
+  isBackendHealthy = await checkBackendHealth();
 
-  // 4. Query Current Active Tab
+  // 5. Query Current Active Tab
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (!activeTab || !activeTab.url) {
@@ -125,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     portalBadge.style.display = 'inline-block';
   }
 
-  // 5. Initial Visible Tender Scan for Tab 1
+  // 6. Initial Visible Tender Scan for Tab 1
   try {
     const response = await chrome.tabs.sendMessage(activeTab.id, { action: 'GET_VISIBLE_TENDERS' });
     if (response && response.success) {
@@ -160,14 +272,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Helper: Send Tenders to Localhost Backend
+  // Helper: Send Tenders to Configured Backend
   async function postTendersToBackend(tendersList, autoParsePdf) {
     const payload = {
       tenders: tendersList,
       auto_parse_pdf: autoParsePdf
     };
 
-    const response = await fetch(`${API_BASE_URL}/tenders/import-bulk`, {
+    const targetEndpoint = `${getApiBaseUrl()}/tenders/import-bulk`;
+    const response = await fetch(targetEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -180,7 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return data;
   }
 
-  // 6. Sync Current Page Button
+  // 7. Sync Current Page Button
   syncCurrentBtn.addEventListener('click', async () => {
     if (detectedTenders.length === 0) return;
 
@@ -196,20 +309,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         <strong>Sync Successful!</strong><br/>
         • <strong>${data.tenders_added}</strong> new tenders added<br/>
         • <strong>${data.tenders_updated}</strong> existing updated (0 duplicates)<br/>
-        <em>All records scored in BitVivid.</em>
+        <em>All records saved to ${currentServerUrl}.</em>
       `;
       syncCurrentIcon.innerHTML = '✅';
       syncCurrentText.innerText = 'Tenders Synced!';
     } catch (err) {
       resultAlert.className = 'alert error';
-      resultAlert.innerHTML = `<strong>Error syncing:</strong> ${err.message || 'Could not connect to localhost:8000'}`;
+      resultAlert.innerHTML = `<strong>Error syncing:</strong> ${err.message || `Could not connect to ${currentServerUrl}. Check settings ⚙️`}`;
       syncCurrentIcon.innerHTML = '⚠️';
       syncCurrentText.innerText = 'Retry Sync';
       syncCurrentBtn.disabled = false;
     }
   });
 
-  // 7. Multi-Page Scraper Progress Listener
+  // 8. Multi-Page Scraper Progress Listener
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'CRAWL_PROGRESS' && msg.progress) {
       const p = msg.progress;
@@ -221,7 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 8. Start Multi-Page Scrape Button
+  // 9. Start Multi-Page Scrape Button
   startCrawlBtn.addEventListener('click', async () => {
     const pagesToScrape = parseInt(customPagesInput.value, 10) || 5;
 
@@ -251,7 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         throw new Error('No tenders could be extracted from the navigated pages.');
       }
 
-      progressPageText.innerText = `Sending ${collected.length} tenders to BitVivid...`;
+      progressPageText.innerText = `Sending ${collected.length} tenders to BitVivid (${currentServerUrl})...`;
       progressBarFill.style.width = '100%';
 
       // Post collected batch to backend
@@ -263,11 +376,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         • <strong>${data.total_received}</strong> total tenders scanned<br/>
         • <strong>${data.tenders_added}</strong> new tenders added<br/>
         • <strong>${data.tenders_updated}</strong> existing updated (0 duplicates)<br/>
-        <em>All records scored in BitVivid.</em>
+        <em>All records saved to ${currentServerUrl}.</em>
       `;
     } catch (err) {
       resultAlert.className = 'alert error';
-      resultAlert.innerHTML = `<strong>Scrape Note:</strong> ${err.message || 'Operation ended'}`;
+      resultAlert.innerHTML = `<strong>Scrape Note:</strong> ${err.message || `Operation ended. Could not reach ${currentServerUrl}`}`;
     } finally {
       isCrawling = false;
       startCrawlBtn.style.display = 'block';
@@ -275,7 +388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 9. Stop Button
+  // 10. Stop Button
   stopCrawlBtn.addEventListener('click', async () => {
     try {
       await chrome.tabs.sendMessage(activeTab.id, { action: 'STOP_MULTI_PAGE_SCRAPE' });

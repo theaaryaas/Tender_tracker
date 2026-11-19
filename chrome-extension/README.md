@@ -29,7 +29,8 @@ This extension lets you sync **all visible tenders** from your active browser se
 
 ## 📋 How to Sync Tenders from Tenderlelo or GeM
 
-1. Ensure your local BitVivid backend is running (`http://localhost:8000`).
+1. Ensure your BitVivid backend is running (Production: `http://157.20.211.42:8090` or Local: `http://localhost:8000`).
+   - Click the **⚙️ icon** in the extension popup to switch between **Production Server** and **Localhost** or enter any custom URL.
 2. Open any search or browse page on **Tenderlelo** (`https://tenderlelo.com/tenders`) or **GeM BidPlus** (`https://bidplus.gem.gov.in`).
 3. Click the **BitVivid extension icon** in your toolbar:
    - The extension will automatically detect the portal (`Tenderlelo` or `GeM BidPlus`).

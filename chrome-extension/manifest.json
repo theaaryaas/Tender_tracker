@@ -12,8 +12,11 @@
     "https://*.gem.gov.in/*",
     "https://tenderlelo.com/*",
     "https://*.tenderlelo.com/*",
+    "http://157.20.211.42:8090/*",
     "http://localhost:8000/*",
-    "http://127.0.0.1:8000/*"
+    "http://127.0.0.1:8000/*",
+    "http://*/*",
+    "https://*/*"
   ],
   "action": {
     "default_popup": "popup.html",
