@@ -1,6 +1,6 @@
 /**
- * BitVivid GeM Tender Sync - Popup Controller
- * Supports Current Page and Custom Multi-Page Scraping
+ * BitVivid Tender Sync - Popup Controller
+ * Supports Current Page and Custom Multi-Page Scraping for GeM and Tenderlelo
  */
 
 const API_BASE_URL = 'http://localhost:8000/api/v1';
@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Elements
   const statusBadge = document.getElementById('statusBadge');
   const statusText = document.getElementById('statusText');
+  const portalBadge = document.getElementById('portalBadge');
   const tabCurrent = document.getElementById('tabCurrent');
   const tabCustom = document.getElementById('tabCustom');
   const viewCurrent = document.getElementById('viewCurrent');
@@ -104,13 +105,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const isGemPage = activeTab.url.includes('gem.gov.in');
+  const isTenderleloPage = activeTab.url.includes('tenderlelo.com');
+  const isSupportedPage = isGemPage || isTenderleloPage;
 
-  if (!isGemPage) {
+  if (!isSupportedPage) {
     tenderCountEl.innerText = '—';
-    counterSubtitleEl.innerText = 'Navigate to a GeM page (bidplus.gem.gov.in) to sync.';
+    counterSubtitleEl.innerText = 'Open GeM (gem.gov.in) or Tenderlelo (tenderlelo.com) to sync.';
+    if (portalBadge) {
+      portalBadge.style.display = 'none';
+    }
     syncCurrentBtn.disabled = true;
     startCrawlBtn.disabled = true;
     return;
+  }
+
+  const portalDisplayName = isTenderleloPage ? 'Tenderlelo' : 'GeM BidPlus';
+  if (portalBadge) {
+    portalBadge.innerText = portalDisplayName;
+    portalBadge.style.display = 'inline-block';
   }
 
   // 5. Initial Visible Tender Scan for Tab 1
@@ -121,10 +133,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       tenderCountEl.innerText = detectedTenders.length;
 
       if (detectedTenders.length > 0) {
-        counterSubtitleEl.innerText = `${detectedTenders.length} tenders ready on this page`;
+        counterSubtitleEl.innerText = `${detectedTenders.length} ${portalDisplayName} tenders ready on this page`;
         if (isBackendHealthy) syncCurrentBtn.disabled = false;
       } else {
-        counterSubtitleEl.innerText = 'No tenders detected on this page. Scroll or check bid list.';
+        counterSubtitleEl.innerText = `No ${portalDisplayName} tenders detected on this page. Scroll or check list.`;
       }
     }
   } catch (err) {
@@ -139,6 +151,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         detectedTenders = retryResponse.tenders || [];
         tenderCountEl.innerText = detectedTenders.length;
         if (detectedTenders.length > 0 && isBackendHealthy) {
+          counterSubtitleEl.innerText = `${detectedTenders.length} ${portalDisplayName} tenders ready on this page`;
           syncCurrentBtn.disabled = false;
         }
       }
@@ -224,7 +237,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     progressCollectedText.innerText = 'Initializing...';
 
     try {
-      // Send crawl command to content script in GeM tab
       const crawlResult = await chrome.tabs.sendMessage(activeTab.id, {
         action: 'START_MULTI_PAGE_SCRAPE',
         pages: pagesToScrape

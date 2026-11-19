@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BitVivid GeM Tender Sync</title>
+  <title>BitVivid Tender Sync (GeM & Tenderlelo)</title>
   <style>
     :root {
       --bg: #FAF9FD;
@@ -50,7 +50,7 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .brand-title {
@@ -58,6 +58,16 @@
       font-size: 14px;
       color: var(--text-main);
       letter-spacing: -0.3px;
+    }
+
+    .badge-portal {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #EFEBF8;
+      color: var(--primary);
+      letter-spacing: 0.2px;
     }
 
     .badge-status {
@@ -366,7 +376,8 @@
   <!-- Header -->
   <div class="header">
     <div class="brand">
-      <span class="brand-title">BitVivid Tender Sync</span>
+      <span class="brand-title">BitVivid Sync</span>
+      <span id="portalBadge" class="badge-portal" style="display: none;">GeM / Tenderlelo</span>
     </div>
     <div id="statusBadge" class="badge-status">
       <span class="dot"></span>
@@ -454,6 +465,9 @@
 
   <!-- Open Website Link -->
   <div class="footer">
+    <div style="font-size: 10.5px; color: var(--text-muted); margin-bottom: 6px;">
+      Supports <strong>GeM BidPlus</strong> & <strong>Tenderlelo</strong>
+    </div>
     <a href="http://localhost:3000" target="_blank" class="link">
       Open BitVivid Dashboard (localhost:3000) &rarr;
     </a>

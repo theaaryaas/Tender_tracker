@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "BitVivid GeM Tender Sync",
-  "version": "1.0.0",
-  "description": "1-Click sync of all visible GeM tenders to your local BitVivid Tender Tracker.",
+  "name": "BitVivid Tender Sync (GeM & Tenderlelo)",
+  "version": "1.1.0",
+  "description": "1-Click sync of visible tenders from GeM BidPlus and Tenderlelo to your local BitVivid Tender Tracker.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,6 +10,8 @@
   ],
   "host_permissions": [
     "https://*.gem.gov.in/*",
+    "https://tenderlelo.com/*",
+    "https://*.tenderlelo.com/*",
     "http://localhost:8000/*",
     "http://127.0.0.1:8000/*"
   ],
@@ -25,7 +27,9 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.gem.gov.in/*"
+        "https://*.gem.gov.in/*",
+        "https://tenderlelo.com/*",
+        "https://*.tenderlelo.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
