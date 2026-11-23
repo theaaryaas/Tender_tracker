@@ -17,12 +17,15 @@ def seed_database():
         existing_profile = db.query(Setting).filter(Setting.key == "company_profile").first()
         if not existing_profile:
             candidate_paths = [
+                Path(__file__).resolve().parent / "data" / "company_profile.json",
+                BASE_DIR / "backend" / "data" / "company_profile.json",
+                Path("/app/backend/data/company_profile.json"),
                 BASE_DIR / "company_profile.json",
                 Path("/app/company_profile.json"),
                 Path("company_profile.json")
             ]
             for p in candidate_paths:
-                if p.exists():
+                if p.exists() and p.is_file():
                     content = p.read_text(encoding="utf-8")
                     db.add(Setting(key="company_profile", value_json=content, description="BitVivid Company Profile"))
                     print(f"Seeded company profile from {p}")
@@ -33,6 +36,7 @@ def seed_database():
         if not existing_kw:
             db.add(Setting(key="keywords", value_json=json.dumps({"keywords": DEFAULT_KEYWORDS}), description="Active search keywords"))
             print("Seeded default keywords")
+        db.commit()
 
         # 3. Seed Existing Tenders from CSV if database is empty
         tender_count = db.query(Tender).count()
@@ -42,7 +46,7 @@ def seed_database():
                 Path("/app/BitVivid_Tender_Tracker_GeM.csv"),
                 Path("BitVivid_Tender_Tracker_GeM.csv")
             ]
-            csv_path = next((p for p in csv_candidates if p.exists()), None)
+            csv_path = next((p for p in csv_candidates if p.exists() and p.is_file()), None)
             if csv_path:
                 print(f"Importing legacy tenders from {csv_path.name}...")
                 with open(csv_path, mode="r", encoding="utf-8-sig") as f:
@@ -94,4 +98,3 @@ def seed_database():
 
 if __name__ == "__main__":
     seed_database()
-

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
         "*"
     ]
     
+    # JWT Security
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "bitvivid_super_secret_jwt_key_2026_tender_intelligence_production")
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30 # 30 days
+    
     # Scraping Defaults
     DEFAULT_DELAY_SECONDS: float = 1.0
     DEFAULT_GEM_PAGES: int = 3

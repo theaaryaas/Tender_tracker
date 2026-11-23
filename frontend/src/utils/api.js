@@ -7,13 +7,51 @@ const api = axios.create({
   },
 });
 
+// Attach Authorization header if JWT token is stored
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('tender_tracker_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+// Response interceptor to clear stale credentials on 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const url = error.config?.url || '';
+      if (!url.includes('/auth/login') && !url.includes('/auth/signup')) {
+        localStorage.removeItem('tender_tracker_token');
+        localStorage.removeItem('bitvivid_user');
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const authApi = {
+  signup: (data) => api.post('/auth/signup', data),
+  login: (data) => api.post('/auth/login', data),
+  getMe: () => api.get('/auth/me'),
+};
+
 export const tenderApi = {
   getTenders: (params) => api.get('/tenders/', { params }),
+  getUpcomingDeadlines: (params) => api.get('/tenders/upcoming-deadlines', { params }),
+  getNotifications: (params) => api.get('/tenders/notifications', { params }),
   getTender: (id) => api.get(`/tenders/${id}`),
   updateTender: (id, data) => api.patch(`/tenders/${id}`, data),
-  deleteTender: (id) => api.delete(`/tenders/${id}`),
   parseTenderPdf: (id) => api.post(`/tenders/${id}/parse-pdf`),
   batchParseTenders: (limit = 20) => api.post('/tenders/batch-parse', null, { params: { limit } }),
+};
+
+export const chatbotApi = {
+  query: (data) => api.post('/chatbot/query', data),
+  getSuggested: (tenderId) => api.get(`/chatbot/suggested/${tenderId}`),
 };
 
 export const syncApi = {
@@ -46,4 +84,3 @@ export const exportApi = {
 };
 
 export default api;
-

@@ -1,12 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import asyncio
+from datetime import datetime, timezone
 from backend.core.db import get_db, SessionLocal
+from backend.core.date_utils import parse_closing_datetime, IST
 from backend.models.tender import Tender
-from backend.schemas.tender import TenderResponse, TenderListResponse, TenderUpdate
+from backend.models.sync_log import SyncLog
+from backend.schemas.tender import (
+    TenderResponse,
+    TenderListResponse,
+    TenderUpdate,
+    TenderBulkImportRequest,
+    TenderBulkImportResponse
+)
 from backend.repositories.tender_repository import TenderRepository
 from backend.services.pdf_service import PDFService
+from backend.services.eligibility_service import EligibilityService
+from backend.models.setting import Setting
+import json
 
 router = APIRouter(prefix="/tenders", tags=["Tenders"])
 
@@ -20,24 +32,56 @@ async def batch_parse_tenders(
     Finds up to `limit` unparsed tenders (ordered by fit score) and parses their PDFs in the background.
     """
     unparsed = db.query(Tender).filter(
-        Tender.doc_url.isnot(None),
-        Tender.doc_url != "",
-        (Tender.turnover_required == "Check tender PDF / ATC") | (Tender.turnover_required.like("%₹ ,%"))
+        ((Tender.doc_url.isnot(None)) & (Tender.doc_url != "")) | ((Tender.url.isnot(None)) & (Tender.url != "")),
+        (Tender.turnover_required == "Check tender PDF / ATC") | (Tender.turnover_required.like("%₹ ,%")) | (Tender.emd_amount == "Check tender PDF / ATC")
     ).order_by(Tender.fit_score.desc()).limit(limit).all()
 
-    items_to_parse = [(t.id, t.doc_url) for t in unparsed]
+    items_to_parse = [
+        (t.id, t.doc_url or t.url, t.matched_keywords, t.tender_id, t.title) 
+        for t in unparsed
+    ]
 
     async def _worker(items):
         db_worker = SessionLocal()
         try:
-            for tid, doc_url in items:
+            for tid, doc_url, kw, tender_code, title in items:
                 try:
-                    c = await PDFService.extract_clauses_from_url(doc_url)
+                    c = await PDFService.extract_clauses_from_url(
+                        doc_url,
+                        keyword=kw,
+                        tender_id=tender_code,
+                        tender_title=title
+                    )
                     t_db = db_worker.query(Tender).filter(Tender.id == tid).first()
                     if t_db:
                         for k, v in c.items():
                             if v and hasattr(t_db, k):
                                 setattr(t_db, k, v)
+
+                        # Recalculate dynamic fit score with newly parsed clauses
+                        prof_setting = db_worker.query(Setting).filter(Setting.key == "company_profile").first()
+                        prof = json.loads(prof_setting.value_json) if (prof_setting and prof_setting.value_json) else {}
+                        st, pa, no, sc = EligibilityService.assess(
+                            tender_title=t_db.title,
+                            organisation=t_db.organisation,
+                            keyword=t_db.matched_keywords,
+                            profile=prof,
+                            scope_summary=t_db.scope_summary,
+                            full_text=t_db.extracted_pdf_text,
+                            turnover_required=t_db.turnover_required,
+                            bidder_turnover=t_db.bidder_turnover,
+                            oem_turnover=t_db.oem_turnover,
+                            mse_relaxation=t_db.mse_relaxation,
+                            startup_relaxation=t_db.startup_relaxation,
+                            emd_amount=t_db.emd_amount,
+                            estimated_value=t_db.estimated_value,
+                            emd_exemption=t_db.emd_exemption
+                        )
+                        t_db.eligibility_assessment = st
+                        t_db.si_partner_route = pa
+                        t_db.assessment_notes = no
+                        t_db.fit_score = sc
+
                         db_worker.commit()
                 except Exception as ex:
                     print(f"Error parsing tender {tid}: {ex}")
@@ -54,10 +98,142 @@ async def batch_parse_tenders(
         "message": f"Parsing {len(items_to_parse)} tender documents in background (ordered by fit score)"
     }
 
+@router.post("/import-bulk", response_model=TenderBulkImportResponse)
+def import_bulk_tenders(
+    req: TenderBulkImportRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk import tenders from GeM or external tools (e.g. Chrome Extension).
+    Automatically deduplicates by tender_id using TenderRepository.upsert,
+    evaluates initial eligibility/fit score, and optionally triggers background PDF extraction.
+    """
+    if not req.tenders:
+        return {
+            "status": "success",
+            "total_received": 0,
+            "tenders_added": 0,
+            "tenders_updated": 0,
+            "message": "No tenders provided in payload.",
+            "tender_ids": []
+        }
+
+    # Fetch company profile for eligibility scoring
+    profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
+    profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+
+    added_count = 0
+    updated_count = 0
+    processed_ids = []
+    tenders_for_pdf_parse = []
+
+    for item in req.tenders:
+        tender_code = (item.tender_id or item.reference or "").strip()
+        if not tender_code:
+            continue
+
+        tender_dict = item.model_dump()
+        # Clean doc_url if relative
+        doc_url = tender_dict.get("doc_url") or ""
+        if doc_url.startswith("/"):
+            tender_dict["doc_url"] = f"https://bidplus.gem.gov.in{doc_url}"
+        elif doc_url and not doc_url.startswith("http"):
+            tender_dict["doc_url"] = f"https://bidplus.gem.gov.in/{doc_url}"
+
+        # Clean url if relative
+        item_url = tender_dict.get("url") or ""
+        if item_url.startswith("/"):
+            tender_dict["url"] = f"https://bidplus.gem.gov.in{item_url}"
+
+        # Merge quantity into scope_summary if provided
+        scope_parts = []
+        if item.quantity:
+            scope_parts.append(f"Quantity: {item.quantity}")
+        if tender_dict.get("scope_summary"):
+            scope_parts.append(tender_dict["scope_summary"])
+        if scope_parts:
+            tender_dict["scope_summary"] = " • ".join(scope_parts)
+
+        # Calculate initial fit score & eligibility
+        status, partner, notes, score = EligibilityService.assess(
+            tender_title=item.title,
+            organisation=item.organisation or "",
+            keyword=item.matched_keywords or item.title,
+            profile=profile,
+            scope_summary=tender_dict.get("scope_summary") or "",
+            turnover_required=item.turnover_required or "Check tender PDF / ATC",
+            emd_amount=item.emd_amount or "Check tender PDF / ATC",
+            estimated_value=item.estimated_value or "Check tender PDF / ATC"
+        )
+        tender_dict["eligibility_assessment"] = status
+        tender_dict["si_partner_route"] = partner
+        tender_dict["assessment_notes"] = notes
+        tender_dict["fit_score"] = score
+
+        # Filter strictly to valid Tender table columns to prevent keyword argument errors
+        valid_cols = {c.name for c in Tender.__table__.columns}
+        cleaned_data = {k: v for k, v in tender_dict.items() if k in valid_cols}
+
+        tender_obj, is_new = TenderRepository.upsert(db, cleaned_data)
+        if tender_obj:
+            processed_ids.append(tender_obj.tender_id)
+            if is_new:
+                added_count += 1
+            else:
+                updated_count += 1
+
+            if req.auto_parse_pdf and tender_obj.doc_url:
+                tenders_for_pdf_parse.append((tender_obj.id, tender_obj.doc_url))
+
+    # Optional background PDF clause extraction
+    if req.auto_parse_pdf and tenders_for_pdf_parse and background_tasks:
+        async def _parse_worker(items):
+            db_worker = SessionLocal()
+            try:
+                for tid, doc_link in items:
+                    try:
+                        c = await PDFService.extract_clauses_from_url(doc_link)
+                        t_db = db_worker.query(Tender).filter(Tender.id == tid).first()
+                        if t_db:
+                            for k, v in c.items():
+                                if v and hasattr(t_db, k):
+                                    setattr(t_db, k, v)
+                            db_worker.commit()
+                    except Exception as ex:
+                        print(f"Error parsing imported tender {tid}: {ex}")
+                    await asyncio.sleep(0.3)
+            finally:
+                db_worker.close()
+
+        background_tasks.add_task(_parse_worker, tenders_for_pdf_parse)
+
+    return {
+        "status": "success",
+        "total_received": len(req.tenders),
+        "tenders_added": added_count,
+        "tenders_updated": updated_count,
+        "message": f"Successfully processed {len(processed_ids)} tenders: {added_count} added, {updated_count} updated.",
+        "tender_ids": processed_ids
+    }
+
+@router.post("/cleanup-expired")
+def cleanup_expired_tenders(db: Session = Depends(get_db)):
+    """
+    Purges tenders whose closing_date has passed and are still in status 'New'
+    without stars/bookmarks. Preserves active pipeline deals.
+    """
+    deleted_count = TenderRepository.purge_expired_unactioned(db)
+    return {
+        "status": "success",
+        "purged_count": deleted_count,
+        "message": f"Successfully purged {deleted_count} expired unacted tenders from database."
+    }
+
 @router.get("/", response_model=TenderListResponse)
 def get_tenders(
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     search: Optional[str] = None,
     portal: Optional[str] = None,
     status: Optional[str] = None,
@@ -91,6 +267,230 @@ def get_tenders(
         "items": items
     }
 
+@router.get("/upcoming-deadlines")
+def get_upcoming_deadlines(
+    limit: int = Query(50, ge=1, le=1000),
+    days: Optional[int] = Query(None, description="Filter within next N days"),
+    include_expired: bool = Query(False, description="Whether to include expired deadlines"),
+    db: Session = Depends(get_db)
+):
+    all_tenders = db.query(Tender).filter(
+        Tender.closing_date.isnot(None),
+        Tender.closing_date != ""
+    ).all()
+
+    now = datetime.now(IST)
+    deadline_items = []
+    
+    closing_24h_count = 0
+    closing_48h_count = 0
+    closing_7d_count = 0
+
+    for t in all_tenders:
+        dt = parse_closing_datetime(t.closing_date)
+        if not dt:
+            continue
+
+        diff_seconds = (dt - now).total_seconds()
+        is_expired = diff_seconds < 0
+
+        if not include_expired and is_expired:
+            continue
+
+        if 0 <= diff_seconds <= 86400:
+            closing_24h_count += 1
+        if 0 <= diff_seconds <= 172800:
+            closing_48h_count += 1
+        if 0 <= diff_seconds <= 7 * 86400:
+            closing_7d_count += 1
+
+        if days is not None and not is_expired:
+            if diff_seconds > (days * 86400):
+                continue
+
+        # Format human-readable time remaining
+        if is_expired:
+            time_left = "Expired"
+            urgency = "expired"
+        elif diff_seconds < 3600:
+            minutes = max(1, int(diff_seconds // 60))
+            time_left = f"{minutes}m left"
+            urgency = "critical"
+        elif diff_seconds < 86400:
+            hours = int(diff_seconds // 3600)
+            mins = int((diff_seconds % 3600) // 60)
+            time_left = f"{hours}h {mins}m left"
+            urgency = "critical"
+        elif diff_seconds < 172800:
+            hours = int((diff_seconds - 86400) // 3600)
+            time_left = f"1d {hours}h left"
+            urgency = "urgent"
+        elif diff_seconds < 7 * 86400:
+            d = int(diff_seconds // 86400)
+            time_left = f"{d} days left"
+            urgency = "upcoming"
+        else:
+            d = int(diff_seconds // 86400)
+            time_left = f"{d} days left"
+            urgency = "normal"
+
+        deadline_items.append({
+            "tender": TenderResponse.model_validate(t),
+            "closing_datetime": dt.isoformat(),
+            "time_left": time_left,
+            "diff_seconds": diff_seconds,
+            "urgency": urgency,
+            "is_expired": is_expired,
+            "closing_date": t.closing_date,
+        })
+
+    # Sort strictly chronologically: nearest deadline FIRST
+    deadline_items.sort(key=lambda x: x["diff_seconds"])
+
+    total = len(deadline_items)
+    items = deadline_items[:limit]
+
+    return {
+        "total": total,
+        "items": items,
+        "counts": {
+            "critical_24h": closing_24h_count,
+            "urgent_48h": closing_48h_count,
+            "week_7d": closing_7d_count,
+            "total_upcoming": total
+        }
+    }
+
+@router.get("/notifications")
+def get_tender_notifications(
+    limit: int = Query(30, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    now = datetime.now(IST)
+    all_tenders = db.query(Tender).all()
+
+    # 1. Approaching Deadlines (<= 48h)
+    deadline_items = []
+    for t in all_tenders:
+        dt = parse_closing_datetime(t.closing_date)
+        if not dt:
+            continue
+        diff_seconds = (dt - now).total_seconds()
+        if 0 <= diff_seconds <= 48 * 3600:
+            if diff_seconds < 3600:
+                mins = max(1, int(diff_seconds // 60))
+                time_left = f"{mins}m left"
+                title_text = f"Bid Due in {mins}m"
+            elif diff_seconds < 86400:
+                h = int(diff_seconds // 3600)
+                m = int((diff_seconds % 3600) // 60)
+                time_left = f"{h}h {m}m left"
+                title_text = f"Bid Due in {h}h {m}m"
+            else:
+                h = int((diff_seconds - 86400) // 3600)
+                time_left = f"1d {h}h left"
+                title_text = f"Bid Due in 1d {h}h"
+
+            urgency = "critical" if diff_seconds < 86400 else "urgent"
+            tender_dict = TenderResponse.model_validate(t).model_dump()
+            deadline_items.append({
+                "id": f"deadline_{t.id}",
+                "tender_id": t.id,
+                "type": "deadline",
+                "title": title_text,
+                "desc": f"{t.title} • {t.organisation or 'GeM BidPlus'}",
+                "badge": time_left,
+                "time": t.closing_date or "Closing Soon",
+                "urgency": urgency,
+                "diff_seconds": diff_seconds,
+                "tender": tender_dict
+            })
+
+    # Sort deadlines nearest first
+    deadline_items.sort(key=lambda x: x["diff_seconds"])
+
+    # 2. Top Direct Fit Opportunities (fit_score >= 85)
+    direct_fits = [t for t in all_tenders if (t.fit_score or 0) >= 85]
+    direct_fits.sort(key=lambda t: (t.fit_score or 0, t.id), reverse=True)
+    fit_items = []
+    for t in direct_fits[:12]:
+        tender_dict = TenderResponse.model_validate(t).model_dump()
+        fit_items.append({
+            "id": f"fit_{t.id}",
+            "tender_id": t.id,
+            "type": "direct_fit",
+            "title": f"High Direct Fit ({t.fit_score}% Match)",
+            "desc": f"{t.title} • {t.organisation or 'GeM BidPlus'}",
+            "badge": f"{t.fit_score}% FIT",
+            "time": "AI Synergy Match",
+            "urgency": "high",
+            "tender": tender_dict
+        })
+
+    # 3. Latest Portal Sync Activity
+    recent_syncs = db.query(SyncLog).order_by(SyncLog.id.desc()).limit(3).all()
+    sync_items = []
+    now_utc = datetime.now(timezone.utc)
+    for s in recent_syncs:
+        t_ref = s.completed_at or s.started_at
+        if t_ref:
+            if t_ref.tzinfo is None:
+                t_ref = t_ref.replace(tzinfo=timezone.utc)
+            sec_ago = max(0, (now_utc - t_ref).total_seconds())
+            if sec_ago < 60:
+                time_ago = "Just now"
+            elif sec_ago < 3600:
+                time_ago = f"{int(sec_ago // 60)}m ago"
+            elif sec_ago < 86400:
+                time_ago = f"{int(sec_ago // 3600)}h ago"
+            else:
+                time_ago = f"{int(sec_ago // 86400)}d ago"
+        else:
+            time_ago = "Recently"
+
+        status_text = "Sync Finished" if s.status == "COMPLETED" else f"Sync {s.status.title()}"
+        if s.status == "COMPLETED":
+            desc_text = f"Scanned {s.tenders_found} bids: {s.tenders_added} added, {s.tenders_updated} updated."
+        elif s.status == "FAILED":
+            desc_text = "Sync encountered an issue. View details in Sync Center."
+        else:
+            desc_text = f"Sync status: {s.status} ({s.portal_filter or 'All'})"
+
+        sync_items.append({
+            "id": f"sync_{s.id}",
+            "tender_id": None,
+            "type": "sync",
+            "title": f"GeM Portal {status_text}",
+            "desc": desc_text,
+            "badge": s.status,
+            "time": time_ago,
+            "urgency": "info" if s.status == "COMPLETED" else "warning",
+            "tender": None
+        })
+
+    # Combined prioritized list: Critical deadlines -> High Direct Fit -> Urgent deadlines -> Sync logs
+    critical_deadlines = [d for d in deadline_items if d["urgency"] == "critical"]
+    urgent_deadlines = [d for d in deadline_items if d["urgency"] == "urgent"]
+
+    combined = []
+    combined.extend(critical_deadlines)
+    combined.extend(fit_items[:6])
+    combined.extend(urgent_deadlines)
+    combined.extend(sync_items)
+
+    return {
+        "notifications": combined[:limit],
+        "all_deadlines": deadline_items,
+        "all_direct_fit": fit_items,
+        "all_sync": sync_items,
+        "counts": {
+            "all": len(combined[:limit]),
+            "deadlines": len(deadline_items),
+            "direct_fit": len(fit_items),
+            "sync": len(sync_items),
+        }
+    }
+
 @router.get("/{tender_id}", response_model=TenderResponse)
 def get_tender(tender_id: int, db: Session = Depends(get_db)):
     tender = TenderRepository.get_by_id(db, tender_id)
@@ -118,13 +518,63 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
     
-    if not tender.doc_url:
-        raise HTTPException(status_code=400, detail="Tender does not have a valid document URL")
+    target_url = tender.doc_url or tender.url
+    if not target_url:
+        raise HTTPException(status_code=400, detail="Tender does not have a valid document URL or portal link")
 
-    clauses = await PDFService.extract_clauses_from_url(tender.doc_url)
+    clauses = await PDFService.extract_clauses_from_url(
+        target_url,
+        keyword=tender.matched_keywords,
+        tender_id=tender.tender_id,
+        tender_title=tender.title
+    )
     for k, v in clauses.items():
         if v and hasattr(tender, k):
             setattr(tender, k, v)
+
+    # Ensure extracted_pdf_text is populated with structured clauses for RAG and UI
+    if not tender.extracted_pdf_text or len(tender.extracted_pdf_text.strip()) < 30:
+        clauses_summary = [
+            f"Tender Reference: {tender.tender_id}",
+            f"Tender Title: {tender.title}",
+            f"Organisation / Department: {tender.organisation or 'Central Ministry / Department'}",
+            f"Portal: {tender.portal or 'GeM BidPlus'}",
+            f"Estimated Contract Value: {tender.estimated_value or 'Not Disclosed on Portal'}",
+            f"Earnest Money Deposit (EMD): {tender.emd_amount or 'Verify in ATC clauses'}",
+            f"EMD Exemption: {tender.emd_exemption or 'Standard MSME / Startup rules apply'}",
+            f"Bidder Turnover Mandate: {tender.bidder_turnover or tender.turnover_required or 'No Minimum Turnover'}",
+            f"OEM Turnover Mandate: {tender.oem_turnover or 'N/A'}",
+            f"Experience Criteria: {tender.experience_required or 'Past project experience required'}",
+            f"MSE Purchase Preference & Relaxation: {tender.mse_relaxation or 'Applicable as per GFR'}",
+            f"Startup Exemption: {tender.startup_relaxation or 'DPIIT recognized relaxation'}",
+            f"Equipment & BOQ Scope: {tender.scope_summary or tender.title}",
+        ]
+        tender.extracted_pdf_text = "\n".join(clauses_summary)
+
+    # Recalculate dynamic fit score & eligibility with newly extracted PDF clauses
+    profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
+    profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+
+    status, partner, notes, score = EligibilityService.assess(
+        tender_title=tender.title,
+        organisation=tender.organisation,
+        keyword=tender.matched_keywords,
+        profile=profile,
+        scope_summary=tender.scope_summary,
+        full_text=tender.extracted_pdf_text,
+        turnover_required=tender.turnover_required,
+        bidder_turnover=tender.bidder_turnover,
+        oem_turnover=tender.oem_turnover,
+        mse_relaxation=tender.mse_relaxation,
+        startup_relaxation=tender.startup_relaxation,
+        emd_amount=tender.emd_amount,
+        estimated_value=tender.estimated_value,
+        emd_exemption=tender.emd_exemption
+    )
+    tender.eligibility_assessment = status
+    tender.si_partner_route = partner
+    tender.assessment_notes = notes
+    tender.fit_score = score
 
     db.commit()
     db.refresh(tender)

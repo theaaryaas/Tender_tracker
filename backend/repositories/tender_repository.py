@@ -3,7 +3,7 @@ from sqlalchemy import or_, desc, asc
 from typing import Optional, List, Tuple
 from datetime import datetime, timezone
 from backend.models.tender import Tender
-from backend.schemas.tender import TenderCreate, TenderUpdate
+from backend.schemas.tender import TenderUpdate
 
 class TenderRepository:
     @staticmethod
@@ -35,13 +35,40 @@ class TenderRepository:
             )
 
         if portal and portal.lower() != "all":
-            query = query.filter(Tender.portal.ilike(f"%{portal}%"))
+            p_clean = portal.lower().strip()
+            if p_clean in ("cppp", "central", "cppp / central", "central eprocurement"):
+                query = query.filter(or_(Tender.portal.ilike("%central%"), Tender.portal.ilike("%cppp%")))
+            elif p_clean in ("gem", "gem bidplus"):
+                query = query.filter(Tender.portal.ilike("%gem%"))
+            elif p_clean in ("railtel", "rail"):
+                query = query.filter(Tender.portal.ilike("%rail%"))
+            else:
+                query = query.filter(Tender.portal.ilike(f"%{portal}%"))
 
         if status and status.lower() != "all":
             query = query.filter(Tender.status == status)
 
         if eligibility and eligibility.lower() != "all":
-            query = query.filter(Tender.eligibility_assessment.ilike(f"%{eligibility}%"))
+            elig_clean = eligibility.lower().strip()
+            if elig_clean in ("direct fit", "direct", "direct technical alignment"):
+                query = query.filter(
+                    or_(
+                        Tender.eligibility_assessment.ilike("%direct%"),
+                        Tender.fit_score >= 70
+                    )
+                )
+            elif elig_clean in ("partner", "si partner", "si-partner"):
+                query = query.filter(Tender.eligibility_assessment.ilike("%partner%"))
+            elif elig_clean in ("review", "manual review"):
+                query = query.filter(
+                    or_(
+                        Tender.eligibility_assessment.ilike("%review%"),
+                        Tender.eligibility_assessment.ilike("%manual%"),
+                        Tender.eligibility_assessment.ilike("%not determined%")
+                    )
+                )
+            else:
+                query = query.filter(Tender.eligibility_assessment.ilike(f"%{eligibility}%"))
 
         if priority and priority.lower() != "all":
             query = query.filter(Tender.priority == priority)
@@ -51,7 +78,23 @@ class TenderRepository:
 
         total = query.count()
 
-        # Sorting
+        # Sorting: Chronological date sort for closing_date, standard SQL sort otherwise
+        if sort_by == "closing_date":
+            from backend.core.date_utils import parse_closing_datetime, IST
+            all_matching = query.all()
+            max_dt = datetime.max.replace(tzinfo=IST)
+            min_dt = datetime.min.replace(tzinfo=IST)
+
+            def get_sort_key(t):
+                dt = parse_closing_datetime(t.closing_date)
+                if dt:
+                    return dt
+                return min_dt if sort_desc else max_dt
+
+            all_matching.sort(key=get_sort_key, reverse=sort_desc)
+            items = all_matching[skip : skip + limit]
+            return items, total
+
         sort_col = getattr(Tender, sort_by, Tender.id)
         if sort_desc:
             query = query.order_by(desc(sort_col))
@@ -82,6 +125,8 @@ class TenderRepository:
             for key, val in data.items():
                 if key in ["status", "priority", "user_notes", "assigned_to", "is_starred"]:
                     continue # Preserve user annotations
+                if key in ["scope_summary", "extracted_pdf_text", "bidder_turnover", "oem_turnover", "mse_relaxation", "startup_relaxation"] and not val:
+                    continue # Preserve rich PDF extracted data
                 if hasattr(existing, key) and val is not None:
                     setattr(existing, key, val)
             existing.updated_at = datetime.now(timezone.utc)
@@ -118,4 +163,31 @@ class TenderRepository:
         db.delete(tender)
         db.commit()
         return True
+
+    @staticmethod
+    def purge_expired_unactioned(db: Session) -> int:
+        """
+        Deletes tenders that have expired (closing_date < now in IST)
+        AND remained in pipeline stage 'New' without stars/bookmarks.
+        Preserves all tenders in 'Reviewing', 'Bid Ready', 'Submitted', 'Won', 'Lost', etc.
+        """
+        from backend.core.date_utils import parse_closing_datetime, IST
+        now = datetime.now(IST)
+
+        candidates = db.query(Tender).filter(
+            Tender.status == "New",
+            Tender.is_starred == False
+        ).all()
+
+        deleted_count = 0
+        for tender in candidates:
+            closing_dt = parse_closing_datetime(tender.closing_date)
+            if closing_dt and closing_dt < now:
+                db.delete(tender)
+                deleted_count += 1
+
+        if deleted_count > 0:
+            db.commit()
+
+        return deleted_count
 

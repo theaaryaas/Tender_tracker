@@ -15,30 +15,42 @@ from sqlalchemy.orm import Session
 from backend.repositories.tender_repository import TenderRepository
 from backend.repositories.sync_repository import SyncRepository
 from backend.models.setting import Setting
+from backend.models.tender import Tender
 from backend.services.eligibility_service import EligibilityService
 
 try:
-    from bitvivid_tender_tracker import (
+    from backend.legacy.bitvivid_tender_tracker import (
         get_portal_names,
         search_site,
         GeMSession,
         DEFAULT_KEYWORDS as TRACKER_KEYWORDS,
         COMPANY_PROFILE_DEFAULT,
-        fetch_and_analyze_pdf,
-        assess_eligibility as tracker_assess
+        fetch_and_analyze_pdf
     )
     ALL_PORTALS = get_portal_names()
     DEFAULT_KEYWORDS = TRACKER_KEYWORDS
 except ImportError:
-    ALL_PORTALS = {}
-    DEFAULT_KEYWORDS = [
-        "CCTV surveillance", "video surveillance system", "AI video analytics",
-        "video management system", "VMS", "automatic number plate recognition",
-        "ANPR", "intelligent traffic management system", "ITMS",
-        "red light violation detection", "facial recognition system", "crowd management",
-        "integrated command and control centre", "fire and smoke detection",
-        "video analytics", "GenAI video search",
-    ]
+    try:
+        from bitvivid_tender_tracker import (
+            get_portal_names,
+            search_site,
+            GeMSession,
+            DEFAULT_KEYWORDS as TRACKER_KEYWORDS,
+            COMPANY_PROFILE_DEFAULT,
+            fetch_and_analyze_pdf
+        )
+        ALL_PORTALS = get_portal_names()
+        DEFAULT_KEYWORDS = TRACKER_KEYWORDS
+    except ImportError:
+        ALL_PORTALS = {}
+        DEFAULT_KEYWORDS = [
+            "CCTV surveillance", "video surveillance system", "AI video analytics",
+            "video management system", "VMS", "automatic number plate recognition",
+            "ANPR", "intelligent traffic management system", "ITMS",
+            "red light violation detection", "facial recognition system", "crowd management",
+            "integrated command and control centre", "fire and smoke detection",
+            "video analytics", "GenAI video search",
+        ]
 
 # Construct PORTALS_DEF for API settings and UI selection (all 23+ portals)
 PORTALS_DEF = {
@@ -98,6 +110,14 @@ class ScraperService:
         sync_log = SyncRepository.create(db, portal_filter=",".join(sites) if sites else "all")
 
         try:
+            # Auto-purge expired tenders in stage 'New' before fetching fresh bids
+            try:
+                purged_count = TenderRepository.purge_expired_unactioned(db)
+                if purged_count > 0:
+                    cls._current_sync_state["current_task"] = f"Auto-purged {purged_count} expired tenders..."
+            except Exception as pe:
+                print(f"[ScraperSync] Warning during expired tender cleanup: {pe}")
+
             # Load company profile for eligibility
             profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
             profile = json.loads(profile_setting.value_json) if profile_setting else COMPANY_PROFILE_DEFAULT
@@ -118,7 +138,19 @@ class ScraperService:
             if not target_sites:
                 target_sites = ["gem"]
 
-            target_keywords = keywords or DEFAULT_KEYWORDS
+            # Load active keywords from database if not explicitly passed
+            if not keywords:
+                kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
+                if kw_setting and kw_setting.value_json:
+                    try:
+                        loaded_kw = json.loads(kw_setting.value_json).get("keywords", [])
+                        target_keywords = loaded_kw if loaded_kw else DEFAULT_KEYWORDS
+                    except Exception:
+                        target_keywords = DEFAULT_KEYWORDS
+                else:
+                    target_keywords = DEFAULT_KEYWORDS
+            else:
+                target_keywords = keywords
 
             gem_session = None
             if "gem" in target_sites:
@@ -172,28 +204,48 @@ class ScraperService:
                 seen_refs.add(identity)
                 deduped.append(row)
 
-            # Optional PDF clause extraction
+            # Optional clause extraction (from PDF or HTML web details)
             if extract_pdfs and deduped:
-                pdf_targets = [
-                    r for r in deduped
-                    if r.get("url") and ("showbidDocument" in r.get("url") or r.get("url", "").lower().endswith(".pdf"))
-                ]
-                total_pdfs = len(pdf_targets)
-                for idx, r in enumerate(pdf_targets, 1):
+                parse_targets = [r for r in deduped if r.get("url")]
+                total_targets = len(parse_targets)
+                for idx, r in enumerate(parse_targets, 1):
                     code = str(r.get("tender_id") or r.get("reference") or f"Item {idx}")
-                    cls._current_sync_state["current_task"] = f"[{idx}/{total_pdfs}] Extracting clauses from PDF for {code}..."
-                    cls._current_sync_state["progress"] = min(92, 75 + int((idx / max(1, total_pdfs)) * 17))
+                    cls._current_sync_state["current_task"] = f"[{idx}/{total_targets}] Extracting clauses/metadata for {code}..."
+                    cls._current_sync_state["progress"] = min(92, 75 + int((idx / max(1, total_targets)) * 17))
                     try:
-                        clauses = await asyncio.to_thread(fetch_and_analyze_pdf, r["url"], 25, True)
+                        target_u = r.get("url", "")
+                        if "showbidDocument" in target_u or target_u.lower().endswith(".pdf"):
+                            clauses = await asyncio.to_thread(fetch_and_analyze_pdf, target_u, 25, True)
+                        else:
+                            from backend.services.html_extractor_service import HTMLExtractorService
+                            clauses = await HTMLExtractorService.extract_from_url(
+                                target_u,
+                                keyword=r.get("matched_keywords") or r.get("keyword"),
+                                tender_id=code,
+                                tender_title=r.get("title")
+                            )
+
                         if clauses:
-                            if clauses.get("emd"):
-                                r["emd"] = clauses["emd"]
-                            if clauses.get("turnover"):
-                                r["turnover"] = clauses["turnover"]
-                            if clauses.get("experience"):
-                                r["experience"] = clauses["experience"]
-                            if clauses.get("emd") or clauses.get("turnover") or clauses.get("experience"):
-                                r["source_note"] = f"Extracted from tender PDF (EMD: {r.get('emd') or 'N/A'}; TO: {r.get('turnover') or 'N/A'})."
+                            if clauses.get("emd") or clauses.get("emd_amount"):
+                                r["emd"] = clauses.get("emd") or clauses.get("emd_amount")
+                            if clauses.get("emd_exemption"):
+                                r["emd_exemption"] = clauses["emd_exemption"]
+                            if clauses.get("turnover") or clauses.get("turnover_required"):
+                                r["turnover"] = clauses.get("turnover") or clauses.get("turnover_required")
+                            if clauses.get("experience") or clauses.get("experience_required"):
+                                r["experience"] = clauses.get("experience") or clauses.get("experience_required")
+                            if clauses.get("scope_summary"):
+                                r["scope_summary"] = clauses["scope_summary"]
+                            if clauses.get("doc_url"):
+                                r["doc_url"] = clauses["doc_url"]
+                            if clauses.get("mse_relaxation"):
+                                r["mse_relaxation"] = clauses["mse_relaxation"]
+                            if clauses.get("startup_relaxation"):
+                                r["startup_relaxation"] = clauses["startup_relaxation"]
+                            if clauses.get("extracted_pdf_text"):
+                                r["extracted_pdf_text"] = clauses["extracted_pdf_text"]
+                            if r.get("emd") or r.get("turnover") or r.get("scope_summary"):
+                                r["source_note"] = f"Extracted from tender details (EMD: {r.get('emd') or 'N/A'}; TO: {r.get('turnover') or 'N/A'})."
                     except Exception as e:
                         pass
                     await asyncio.sleep(0.1)
@@ -210,15 +262,35 @@ class ScraperService:
                 if not code:
                     continue
 
+                existing = db.query(Tender).filter(Tender.tender_id == code).first()
+                scope_for_assessment = (existing.scope_summary if existing and existing.scope_summary else (item.get("scope_summary", "") or item.get("item_category", "") or ""))
+                to_for_assessment = (existing.turnover_required if existing and existing.turnover_required and not existing.turnover_required.startswith("Check") else str(item.get("turnover") or item.get("turnover_required") or ""))
+                mse_for_assessment = (existing.mse_relaxation if existing and existing.mse_relaxation else "")
+                st_for_assessment = (existing.startup_relaxation if existing and existing.startup_relaxation else "")
+                emd_for_assessment = (existing.emd_amount if existing and existing.emd_amount and not existing.emd_amount.startswith("Check") else str(item.get("emd") or item.get("emd_amount") or ""))
+                ex_for_assessment = (existing.emd_exemption if existing and existing.emd_exemption else str(item.get("emd_exemption") or ""))
+
                 status, partner, notes, score = EligibilityService.assess(
-                    item.get("title", ""),
-                    item.get("organisation", ""),
-                    item.get("matched_keywords", "") or item.get("keyword", ""),
-                    profile
+                    tender_title=item.get("title", ""),
+                    organisation=item.get("organisation", ""),
+                    keyword=item.get("matched_keywords", "") or item.get("keyword", ""),
+                    profile=profile,
+                    scope_summary=scope_for_assessment,
+                    full_text=existing.extracted_pdf_text if existing else "",
+                    turnover_required=to_for_assessment,
+                    bidder_turnover=existing.bidder_turnover if existing else "",
+                    oem_turnover=existing.oem_turnover if existing else "",
+                    mse_relaxation=mse_for_assessment,
+                    startup_relaxation=st_for_assessment,
+                    emd_amount=emd_for_assessment,
+                    estimated_value=existing.estimated_value if existing else str(item.get("estimated_value") or ""),
+                    emd_exemption=ex_for_assessment
                 )
 
                 url = str(item.get("url") or "")
-                doc_url = url if ("showbidDocument" in url or url.lower().endswith(".pdf")) else ""
+                doc_url = str(item.get("doc_url") or "")
+                if not doc_url:
+                    doc_url = url if ("showbidDocument" in url or url.lower().endswith(".pdf")) else url
 
                 data_to_save = {
                     "tender_id": code,
@@ -232,21 +304,23 @@ class ScraperService:
                     "opening_date": str(item.get("opening") or item.get("opening_date") or ""),
                     "url": url,
                     "doc_url": doc_url,
-                    "estimated_value": str(item.get("estimated_value") or "Check tender PDF / ATC"),
-                    "emd_amount": str(item.get("emd") or item.get("emd_amount") or "Check tender PDF / ATC"),
-                    "emd_exemption": "Verify MSME / Startup rules",
-                    "epbg_required": "Check tender PDF / ATC",
-                    "turnover_required": str(item.get("turnover") or item.get("turnover_required") or "Check tender PDF / ATC"),
-                    "experience_required": str(item.get("experience") or item.get("experience_required") or "Check tender PDF / ATC"),
-                    "scope_summary": "",
-                    "extracted_pdf_text": "",
+                    "estimated_value": str(item.get("estimated_value") or (existing.estimated_value if existing else "Check tender PDF / ATC")),
+                    "emd_amount": str(item.get("emd") or item.get("emd_amount") or (existing.emd_amount if existing else "Check tender PDF / ATC")),
+                    "emd_exemption": str(item.get("emd_exemption") or (existing.emd_exemption if existing else "Verify MSME / Startup rules")),
+                    "epbg_required": str(item.get("epbg_required") or (existing.epbg_required if existing else "Check tender PDF / ATC")),
+                    "turnover_required": str(item.get("turnover") or item.get("turnover_required") or (existing.turnover_required if existing else "Check tender PDF / ATC")),
+                    "experience_required": str(item.get("experience") or item.get("experience_required") or (existing.experience_required if existing else "Check tender PDF / ATC")),
+                    "mse_relaxation": str(item.get("mse_relaxation") or (existing.mse_relaxation if existing else "Verify in ATC / Standard MSME rules")),
+                    "startup_relaxation": str(item.get("startup_relaxation") or (existing.startup_relaxation if existing else "Verify in ATC / DPIIT certificate required")),
+                    "scope_summary": str(item.get("scope_summary") or (existing.scope_summary if existing else "")),
+                    "extracted_pdf_text": str(item.get("extracted_pdf_text") or (existing.extracted_pdf_text if existing else "")),
                     "eligibility_assessment": status,
                     "si_partner_route": partner,
                     "matched_keywords": str(item.get("matched_keywords") or item.get("keyword") or ""),
                     "assessment_notes": notes + " " + str(item.get("source_note") or ""),
                     "fit_score": score,
-                    "status": "New",
-                    "priority": "Normal",
+                    "status": existing.status if existing else "New",
+                    "priority": existing.priority if existing else "Normal",
                 }
 
                 _, is_new = TenderRepository.upsert(db, data_to_save)

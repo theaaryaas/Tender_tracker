@@ -14,6 +14,7 @@ def export_excel(
     portal: Optional[str] = None,
     status: Optional[str] = None,
     eligibility: Optional[str] = None,
+    is_starred: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     items, _ = TenderRepository.get_all(
@@ -23,7 +24,8 @@ def export_excel(
         search=search,
         portal=portal,
         status=status,
-        eligibility=eligibility
+        eligibility=eligibility,
+        is_starred=is_starred
     )
     buffer = ExportService.generate_excel(items)
     filename = f"BitVivid_Tender_Tracker_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
@@ -39,6 +41,7 @@ def export_csv(
     portal: Optional[str] = None,
     status: Optional[str] = None,
     eligibility: Optional[str] = None,
+    is_starred: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     items, _ = TenderRepository.get_all(
@@ -48,7 +51,8 @@ def export_csv(
         search=search,
         portal=portal,
         status=status,
-        eligibility=eligibility
+        eligibility=eligibility,
+        is_starred=is_starred
     )
     buffer = ExportService.generate_csv(items)
     filename = f"BitVivid_Tender_Tracker_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"

@@ -63,3 +63,35 @@ class TenderListResponse(BaseModel):
     pages: int
     items: List[TenderResponse]
 
+class TenderImportItem(BaseModel):
+    tender_id: str
+    title: str
+    reference: Optional[str] = None
+    organisation: Optional[str] = None
+    portal: Optional[str] = "GeM BidPlus"
+    site_key: Optional[str] = "gem"
+    published_date: Optional[str] = None
+    closing_date: Optional[str] = None
+    opening_date: Optional[str] = None
+    url: Optional[str] = None
+    doc_url: Optional[str] = None
+    estimated_value: Optional[str] = "Check tender PDF / ATC"
+    emd_amount: Optional[str] = "Check tender PDF / ATC"
+    turnover_required: Optional[str] = "Check tender PDF / ATC"
+    experience_required: Optional[str] = "Check tender PDF / ATC"
+    matched_keywords: Optional[str] = None
+    quantity: Optional[str] = None
+
+class TenderBulkImportRequest(BaseModel):
+    tenders: List[TenderImportItem]
+    auto_parse_pdf: Optional[bool] = False
+
+class TenderBulkImportResponse(BaseModel):
+    status: str
+    total_received: int
+    tenders_added: int
+    tenders_updated: int
+    message: str
+    tender_ids: Optional[List[str]] = []
+
+
