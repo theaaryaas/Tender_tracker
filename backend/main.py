@@ -180,7 +180,10 @@ if PUBLIC_DIR.exists():
         target_file = PUBLIC_DIR / full_path
         if target_file.exists() and target_file.is_file():
             return FileResponse(str(target_file))
-        return FileResponse(str(PUBLIC_DIR / "index.html"))
+        return FileResponse(
+            str(PUBLIC_DIR / "index.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
 
 if __name__ == "__main__":
     import uvicorn
