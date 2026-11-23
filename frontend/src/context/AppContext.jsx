@@ -123,26 +123,12 @@ export const AppProvider = ({ children }) => {
     return loggedUser;
   };
 
-  const signup = async ({ username, email, password, confirm_password }) => {
-    const res = await authApi.signup({
-      username,
-      email,
-      password,
-      confirm_password,
-    });
-    const { access_token, user: userData } = res.data;
-    const newUser = {
-      ...userData,
-      name: userData.username,
-      token: access_token,
-    };
-
-    localStorage.setItem('tender_tracker_token', access_token);
-    localStorage.setItem('bitvivid_user', JSON.stringify(newUser));
-    setUser(newUser);
-    showNotification(`Account created successfully! Welcome, ${newUser.username}.`, 'success');
-    return newUser;
-  };
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isManager = user?.role === 'manager';
+  const isExecutive = user?.role === 'executive';
+  const canViewAudit = isSuperAdmin || (user?.permissions || []).includes('can_view_audit');
+  const canManageUsers = isSuperAdmin || isManager;
+  const userRole = user?.role || 'executive';
 
   const logout = () => {
     localStorage.removeItem('tender_tracker_token');
@@ -168,9 +154,14 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider
       value={{
         user,
+        userRole,
+        isSuperAdmin,
+        isManager,
+        isExecutive,
+        canViewAudit,
+        canManageUsers,
         isAuthenticated,
         login,
-        signup,
         logout,
         currentTab,
         setCurrentTab,

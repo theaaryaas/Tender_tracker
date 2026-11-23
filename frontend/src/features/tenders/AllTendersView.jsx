@@ -15,9 +15,10 @@ import {
   X,
   RotateCcw,
   Building2,
-  Tag
+  Tag,
+  Zap
 } from 'lucide-react';
-import { tenderApi, exportApi } from '../../utils/api';
+import { tenderApi, exportApi, crmApi } from '../../utils/api';
 
 const cleanTenderTitle = (rawTitle, organisation = '') => {
   if (!rawTitle) return organisation ? `Tender Notice — ${organisation}` : 'Tender Notice Details';
@@ -37,12 +38,44 @@ const cleanTenderTitle = (rawTitle, organisation = '') => {
 };
 
 export const AllTendersView = () => {
-  const { openTenderDrawer, showNotification } = useApp();
+  const { user, isSuperAdmin, isManager, openTenderDrawer, showNotification } = useApp();
   const [tenders, setTenders] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [loading, setLoading] = useState(false);
+
+  const handlePickTender = async (t) => {
+    try {
+      await crmApi.pickTender(t.id);
+      setTenders((prev) =>
+        prev.map((item) =>
+          item.id === t.id
+            ? { ...item, is_claimed: true, assigned_to: user?.username || 'You', status: 'Under Review' }
+            : item
+        )
+      );
+      showNotification(`Tender ${t.tender_id} claimed and added to your Bidding CRM!`, 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to pick tender', 'error');
+    }
+  };
+
+  const handleUnpickTender = async (t) => {
+    try {
+      await crmApi.unpickTender(t.id);
+      setTenders((prev) =>
+        prev.map((item) =>
+          item.id === t.id
+            ? { ...item, is_claimed: false, assigned_to: null, status: item.status === 'Under Review' ? 'New' : item.status }
+            : item
+        )
+      );
+      showNotification(`Tender ${t.tender_id} released and unpicked!`, 'info');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to release tender', 'error');
+    }
+  };
 
   // Filters
   const [search, setSearch] = useState('');
@@ -119,7 +152,7 @@ export const AllTendersView = () => {
     fetchTenders();
   }, [page, limit, portal, status, eligibility, priority, sortBy, sortDesc, isStarredOnly]);
 
-  // Real-time synchronization when tender is updated from drawer or actions
+  // Real-time synchronization when tender is updated or deleted from drawer or actions
   useEffect(() => {
     const handleUpdate = (e) => {
       const updated = e.detail;
@@ -129,8 +162,19 @@ export const AllTendersView = () => {
         );
       }
     };
+    const handleDeleted = (e) => {
+      const deletedId = e.detail?.id;
+      if (deletedId) {
+        setTenders((prev) => prev.filter((t) => t.id !== deletedId));
+        setTotal((prev) => Math.max(0, prev - 1));
+      }
+    };
     window.addEventListener('tender:updated', handleUpdate);
-    return () => window.removeEventListener('tender:updated', handleUpdate);
+    window.addEventListener('tender:deleted', handleDeleted);
+    return () => {
+      window.removeEventListener('tender:updated', handleUpdate);
+      window.removeEventListener('tender:deleted', handleDeleted);
+    };
   }, []);
 
   const handleClearSearch = () => {
@@ -607,6 +651,40 @@ export const AllTendersView = () => {
                     </div>
 
                     <div className="flex items-center space-x-1.5 shrink-0">
+                      {t.is_claimed ? (
+                        <div className="inline-flex items-center space-x-1">
+                          <span className="h-8 px-2 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold inline-flex items-center space-x-1" title={`Claimed by ${t.assigned_to}`}>
+                            <span>👤 {t.assigned_to || 'Claimed'}</span>
+                          </span>
+                          {(isSuperAdmin || isManager || user?.username === t.assigned_to) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnpickTender(t);
+                              }}
+                              className="h-8 w-6 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition inline-flex items-center justify-center cursor-pointer"
+                              title="Release / Unpick tender"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePickTender(t);
+                          }}
+                          className="h-8 px-2.5 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] text-white text-xs font-semibold inline-flex items-center space-x-1 transition shadow-xs cursor-pointer"
+                          title="Pick tender and add to your active Bidding CRM"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>Pick</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => openTenderDrawer(t)}
@@ -822,10 +900,39 @@ export const AllTendersView = () => {
 
                       {/* Actions */}
                       <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1.5">
+                          {t.is_claimed ? (
+                            <div className="inline-flex items-center space-x-1">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title={`Claimed by ${t.assigned_to}`}>
+                                👤 {t.assigned_to || 'Claimed'}
+                              </span>
+                              {(isSuperAdmin || isManager || user?.username === t.assigned_to) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUnpickTender(t);
+                                  }}
+                                  className="p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                                  title="Release / Unpick tender"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handlePickTender(t)}
+                              className="px-2.5 py-1 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] text-white text-[11px] font-bold inline-flex items-center space-x-1 transition shadow-xs cursor-pointer"
+                              title="Pick and add to Bidding CRM"
+                            >
+                              <Zap className="w-3 h-3" />
+                              <span>Pick</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => openTenderDrawer(t)}
-                            className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                            className="p-1 text-slate-400 hover:text-blue-600 rounded transition cursor-pointer"
                             title="Inspect tender"
                           >
                             <Eye className="w-4 h-4" />
@@ -835,7 +942,7 @@ export const AllTendersView = () => {
                               href={t.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="p-1 text-slate-400 hover:text-slate-700 rounded transition"
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded transition cursor-pointer"
                               title="Open official portal link"
                             >
                               <ExternalLink className="w-4 h-4" />

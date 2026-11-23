@@ -40,7 +40,8 @@ import {
   ShieldAlert,
   Info,
   Bot,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { tenderApi } from '../../utils/api';
 import { formatIndianDateTime } from '../../utils/dateUtils';
@@ -102,7 +103,9 @@ const parseScopeItems = (scopeStr, fallbackTitle) => {
 };
 
 export const TenderDrawer = () => {
-  const { isDrawerOpen, selectedTender, closeTenderDrawer, showNotification, refreshStats } = useApp();
+  const { isDrawerOpen, selectedTender, closeTenderDrawer, showNotification, refreshStats, user, isSuperAdmin } = useApp();
+  const canDeleteTender = isSuperAdmin || (user?.permissions || []).includes('can_delete_tenders');
+
   const [tender, setTender] = useState(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('New');
@@ -114,6 +117,21 @@ export const TenderDrawer = () => {
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [scheduleSearch, setScheduleSearch] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const handleDeleteTender = async () => {
+    if (!tender) return;
+    const ref = tender.tender_id || tender.id;
+    if (!window.confirm(`Are you sure you want to permanently delete tender "${ref}"? This cannot be undone and will also remove any linked CRM records.`)) return;
+    try {
+      await tenderApi.deleteTender(tender.id);
+      showNotification(`Tender ${ref} deleted successfully`, 'info');
+      window.dispatchEvent(new CustomEvent('tender:deleted', { detail: { id: tender.id } }));
+      closeTenderDrawer();
+      if (refreshStats) refreshStats();
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to delete tender', 'error');
+    }
+  };
 
   useEffect(() => {
     if (selectedTender) {
@@ -1739,9 +1757,22 @@ export const TenderDrawer = () => {
 
         {/* Modal Footer */}
         <div className="px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-t border-[#E2DEEC] bg-[#FAF9FD] flex items-center justify-between shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-20">
-          <span className="text-[11px] text-[#8C82A0] font-medium">
-            Last updated: {tender.updated_at ? formatIndianDateTime(tender.updated_at) : 'N/A'}
-          </span>
+          <div className="flex items-center space-x-3">
+            <span className="text-[11px] text-[#8C82A0] font-medium hidden sm:inline">
+              Last updated: {tender.updated_at ? formatIndianDateTime(tender.updated_at) : 'N/A'}
+            </span>
+            {canDeleteTender && (
+              <button
+                type="button"
+                onClick={handleDeleteTender}
+                className="px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 text-xs font-semibold inline-flex items-center space-x-1.5 transition cursor-pointer shadow-2xs"
+                title="Permanently delete tender"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Tender</span>
+              </button>
+            )}
+          </div>
           <button
             type="button"
             disabled={saving}

@@ -24,7 +24,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       const url = error.config?.url || '';
-      if (!url.includes('/auth/login') && !url.includes('/auth/signup')) {
+      if (!url.includes('/auth/login')) {
         localStorage.removeItem('tender_tracker_token');
         localStorage.removeItem('bitvivid_user');
       }
@@ -34,7 +34,6 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  signup: (data) => api.post('/auth/signup', data),
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
 };
@@ -45,8 +44,29 @@ export const tenderApi = {
   getNotifications: (params) => api.get('/tenders/notifications', { params }),
   getTender: (id) => api.get(`/tenders/${id}`),
   updateTender: (id, data) => api.patch(`/tenders/${id}`, data),
+  deleteTender: (id) => api.delete(`/tenders/${id}`),
   parseTenderPdf: (id) => api.post(`/tenders/${id}/parse-pdf`),
   batchParseTenders: (limit = 20) => api.post('/tenders/batch-parse', null, { params: { limit } }),
+};
+
+export const crmApi = {
+  getRecords: (params) => api.get('/crm-records', { params }),
+  pickTender: (tenderId) => api.post(`/crm-records/pick/${tenderId}`),
+  unpickTender: (tenderId) => api.post(`/crm-records/unpick/${tenderId}`),
+  createManual: (data) => api.post('/crm-records/manual', data),
+  updateRecord: (id, data) => api.patch(`/crm-records/${id}`, data),
+  deleteRecord: (id) => api.delete(`/crm-records/${id}`),
+};
+
+export const usersApi = {
+  getUsers: () => api.get('/users'),
+  createUser: (data) => api.post('/users', data),
+  updatePermissions: (id, permissions) => api.patch(`/users/${id}/permissions`, { permissions }),
+  updateStatus: (id, is_active) => api.patch(`/users/${id}/status`, { is_active }),
+};
+
+export const auditApi = {
+  getLogs: (params) => api.get('/audit-logs', { params }),
 };
 
 export const chatbotApi = {

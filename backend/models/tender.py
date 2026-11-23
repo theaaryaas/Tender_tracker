@@ -47,6 +47,9 @@ class Tender(Base):
     priority = Column(String(20), index=True, default="Normal") # High, Normal, Low
     user_notes = Column(Text, default="")
     assigned_to = Column(String(100), nullable=True)
+    assigned_to_id = Column(Integer, nullable=True, index=True)
+    claimed_at = Column(DateTime, nullable=True)
+    is_claimed = Column(Boolean, default=False, index=True)
     is_starred = Column(Boolean, default=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

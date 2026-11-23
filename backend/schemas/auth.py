@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, model_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class UserSignup(BaseModel):
@@ -22,6 +22,10 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    role: str = "executive"
+    permissions: List[str] = Field(default_factory=list)
+    created_by_id: Optional[int] = None
+    is_active: bool = True
     created_at: Optional[datetime] = None
 
     class Config:
@@ -31,4 +35,3 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
-

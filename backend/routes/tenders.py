@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request, status
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 import asyncio
@@ -6,7 +6,11 @@ from datetime import datetime, timezone
 from backend.core.db import get_db, SessionLocal
 from backend.core.date_utils import parse_closing_datetime, IST
 from backend.models.tender import Tender
+from backend.models.user import User
+from backend.models.crm_record import CRMRecord
 from backend.models.sync_log import SyncLog
+from backend.services.auth_service import AuthService
+from backend.services.audit_service import AuditService
 from backend.schemas.tender import (
     TenderResponse,
     TenderListResponse,
@@ -506,11 +510,43 @@ def update_tender(tender_id: int, updates: TenderUpdate, db: Session = Depends(g
     return tender
 
 @router.delete("/{tender_id}")
-def delete_tender(tender_id: int, db: Session = Depends(get_db)):
+def delete_tender(
+    tender_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.get_current_user)
+):
+    user_perms = current_user.permissions or []
+    if current_user.role != "super_admin" and "can_delete_tenders" not in user_perms:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete tenders. Contact your administrator."
+        )
+
+    tender = TenderRepository.get_by_id(db, tender_id)
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+
+    tender_ref = tender.tender_id or str(tender_id)
+    # Clean up associated CRM records first
+    db.query(CRMRecord).filter(CRMRecord.tender_id == tender_id).delete()
+
     success = TenderRepository.delete(db, tender_id)
     if not success:
         raise HTTPException(status_code=404, detail="Tender not found")
-    return {"status": "success", "message": "Tender deleted"}
+
+    client_ip = request.client.host if request.client else None
+    AuditService.log(
+        db=db,
+        user=current_user,
+        action="DELETE",
+        entity_type="tender",
+        entity_id=tender_ref,
+        old_values={"id": tender_id, "tender_id": tender_ref, "title": tender.title[:60]},
+        ip_address=client_ip
+    )
+
+    return {"status": "success", "message": f"Tender {tender_ref} deleted"}
 
 @router.post("/{tender_id}/parse-pdf", response_model=TenderResponse)
 async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
