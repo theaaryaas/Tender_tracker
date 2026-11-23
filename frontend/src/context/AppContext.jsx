@@ -25,6 +25,7 @@ export const AppProvider = ({ children }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
   const isAuthenticated = Boolean(user);
@@ -186,6 +187,8 @@ export const AppProvider = ({ children }) => {
         isNotificationModalOpen,
         openNotificationModal,
         closeNotificationModal,
+        isMobileSidebarOpen,
+        setIsMobileSidebarOpen,
         notification,
         showNotification,
       }}

@@ -87,35 +87,35 @@ export const DashboardView = () => {
   return (
     <div className="space-y-4">
       {/* Top Banner - Lavender Dream Twilight with Stacked Contracts */}
-      <div className="bg-gradient-to-r from-[#141021] via-[#241C3B] to-[#3B2961] border border-[#553C9A]/40 shadow-xl rounded-2xl p-6 text-white relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-[#141021] via-[#241C3B] to-[#3B2961] border border-[#553C9A]/40 shadow-xl rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6">
         
         {/* Banner Left Content */}
-        <div className="relative z-10 max-w-2xl space-y-2.5">
-          <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-[#2E244D] text-[#D8BFD8] text-[11px] font-semibold border border-[#4E3D82]">
+        <div className="relative z-10 max-w-2xl space-y-2 sm:space-y-2.5 w-full">
+          <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-[#2E244D] text-[#D8BFD8] text-[10.5px] sm:text-[11px] font-semibold border border-[#4E3D82]">
             <Sparkles className="w-3.5 h-3.5 text-[#FFDAB9]" />
             <span>AI &amp; Government Tender Intelligence</span>
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+          <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight">
             BitVivid Opportunity Pipeline
           </h1>
 
-          <p className="text-[#E6E6FA]/90 text-xs leading-relaxed max-w-xl">
+          <p className="text-[#E6E6FA]/90 text-[11px] sm:text-xs leading-relaxed max-w-xl">
             Continuously discovering tenders across GeM BidPlus, CPPP, State Portals, and RailTel with automated
             eligibility matching against BitVivid's past projects &amp; certifications.
           </p>
 
-          <div className="pt-1 flex flex-wrap items-center gap-2.5">
+          <div className="pt-1 flex flex-col xs:flex-row items-stretch xs:items-center gap-2 sm:gap-2.5 w-full xs:w-auto">
             <button
               onClick={() => setCurrentTab('tenders')}
-              className="px-3.5 py-2 bg-gradient-to-r from-[#6B46C1] to-[#805AD5] hover:from-[#553C9A] hover:to-[#6B46C1] text-white rounded-lg text-xs font-bold shadow-md shadow-purple-950/40 transition inline-flex items-center space-x-2 cursor-pointer"
+              className="px-3.5 py-2 bg-gradient-to-r from-[#6B46C1] to-[#805AD5] hover:from-[#553C9A] hover:to-[#6B46C1] text-white rounded-lg text-xs font-bold shadow-md shadow-purple-950/40 transition inline-flex items-center justify-center space-x-2 cursor-pointer touch-manipulation"
             >
               <span>Explore All Tenders</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             <a
               href={exportApi.getExcelUrl()}
-              className="px-3.5 py-2 bg-[#26203A] hover:bg-[#322B4D] text-[#E6E6FA] rounded-lg text-xs font-semibold border border-[#3E355E] shadow-xs transition"
+              className="px-3.5 py-2 bg-[#26203A] hover:bg-[#322B4D] text-[#E6E6FA] rounded-lg text-xs font-semibold border border-[#3E355E] shadow-xs transition text-center justify-center touch-manipulation"
               download
             >
               Export Excel Report
@@ -133,107 +133,110 @@ export const DashboardView = () => {
         </div>
       </div>
 
-      {/* 4 Colored KPI Cards (Lavender Dream Palette) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 4 Colored KPI Cards (Lavender Dream Palette - 2x2 on Mobile, 4-col on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         
         {/* Card 1: Tracked Tenders (Royal Iris / Lavender #E6E6FA) */}
         <div 
           onClick={() => setCurrentTab('tenders')}
-          className="bg-gradient-to-br from-[#553C9A] via-[#6B46C1] to-[#7C3AED] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-purple-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          className="bg-gradient-to-br from-[#553C9A] via-[#6B46C1] to-[#7C3AED] text-white rounded-xl p-3 sm:p-4 border border-white/20 shadow-md shadow-purple-950/25 flex items-center justify-between min-h-[84px] sm:h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group touch-manipulation"
           title="Click to view all tracked tenders"
         >
-          <div>
+          <div className="min-w-0 pr-1">
             <div className="flex items-center space-x-1">
-              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#E6E6FA]">Tracked Tenders</p>
-              <ArrowRight className="w-3 h-3 text-[#E6E6FA] opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-[#E6E6FA] truncate">Tracked Tenders</p>
+              <ArrowRight className="w-3 h-3 text-[#E6E6FA] opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline" />
             </div>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.total_tenders || 525}</h3>
-            <p className="text-[11px] text-[#E6E6FA]/80 mt-1">Across 8+ portals</p>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.total_tenders || 525}</h3>
+            <p className="text-[10px] sm:text-[11px] text-[#E6E6FA]/80 mt-1 truncate">Across 8+ portals</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
-            <TrendingUp className="w-5 h-5" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform ml-1">
+            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
         {/* Card 2: Potential Direct Fit (Sage Mist #C8D8C4) */}
         <div
           onClick={() => setIsDirectFitModalOpen(true)}
-          className="bg-gradient-to-br from-[#2E5A36] via-[#386B42] to-[#468051] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-emerald-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          className="bg-gradient-to-br from-[#2E5A36] via-[#386B42] to-[#468051] text-white rounded-xl p-3 sm:p-4 border border-white/20 shadow-md shadow-emerald-950/25 flex items-center justify-between min-h-[84px] sm:h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group touch-manipulation"
           title="Click to view all potential direct fit opportunities in popup"
         >
-          <div>
+          <div className="min-w-0 pr-1">
             <div className="flex items-center space-x-1">
-              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#C8D8C4]">Potential Direct Fit</p>
-              <ArrowRight className="w-3 h-3 text-[#C8D8C4] opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-[#C8D8C4] truncate">Direct Fit</p>
+              <ArrowRight className="w-3 h-3 text-[#C8D8C4] opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline" />
             </div>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.direct_fit_count || 110}</h3>
-            <p className="text-[11px] text-[#C8D8C4]/80 mt-1">High technical synergy</p>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.direct_fit_count || 110}</h3>
+            <p className="text-[10px] sm:text-[11px] text-[#C8D8C4]/80 mt-1 truncate">Technical synergy</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
-            <CheckCircle2 className="w-5 h-5" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform ml-1">
+            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
         {/* Card 3: SI / OEM Route (Warm Peach Puff #FFDAB9) */}
         <div 
           onClick={() => setCurrentTab('tenders')}
-          className="bg-gradient-to-br from-[#8C4A1D] via-[#A85B24] to-[#C96E2E] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-amber-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          className="bg-gradient-to-br from-[#8C4A1D] via-[#A85B24] to-[#C96E2E] text-white rounded-xl p-3 sm:p-4 border border-white/20 shadow-md shadow-amber-950/25 flex items-center justify-between min-h-[84px] sm:h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group touch-manipulation"
           title="Click to view SI & OEM consortium tenders"
         >
-          <div>
+          <div className="min-w-0 pr-1">
             <div className="flex items-center space-x-1">
-              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#FFDAB9]">SI / OEM Route</p>
-              <ArrowRight className="w-3 h-3 text-[#FFDAB9] opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-[#FFDAB9] truncate">SI / OEM Route</p>
+              <ArrowRight className="w-3 h-3 text-[#FFDAB9] opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline" />
             </div>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.partner_route_count || 22}</h3>
-            <p className="text-[11px] text-[#FFDAB9]/80 mt-1">Consortium or OEM tie-up</p>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.partner_route_count || 22}</h3>
+            <p className="text-[10px] sm:text-[11px] text-[#FFDAB9]/80 mt-1 truncate">Consortium tie-up</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
-            <Users className="w-5 h-5" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform ml-1">
+            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
         {/* Card 4: Deadlines < 7 Days (Muted Rose / Thistle #D8BFD8) */}
         <div 
           onClick={() => setIsDeadlinesModalOpen(true)}
-          className="bg-gradient-to-br from-[#831843] via-[#9F1239] to-[#BE123C] text-white rounded-xl p-4 border border-white/20 shadow-md shadow-rose-950/25 flex items-center justify-between h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group"
+          className="bg-gradient-to-br from-[#831843] via-[#9F1239] to-[#BE123C] text-white rounded-xl p-3 sm:p-4 border border-white/20 shadow-md shadow-rose-950/25 flex items-center justify-between min-h-[84px] sm:h-[96px] relative overflow-hidden before:absolute before:inset-x-0 before:top-0 before:h-[1px] before:bg-white/40 cursor-pointer hover:shadow-lg hover:brightness-105 transition-all group touch-manipulation"
           title="Click to view all upcoming deadlines in popup"
         >
-          <div>
+          <div className="min-w-0 pr-1">
             <div className="flex items-center space-x-1">
-              <p className="text-[10.5px] font-bold uppercase tracking-wider text-rose-100/90">Deadlines &lt; 7 Days</p>
-              <ArrowRight className="w-3 h-3 text-rose-200 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-rose-100/90 truncate">Closing &lt; 7d</p>
+              <ArrowRight className="w-3 h-3 text-rose-200 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline" />
             </div>
-            <h3 className="text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.closing_soon_7d || 44}</h3>
-            <p className="text-[11px] text-rose-100/80 mt-1">{stats?.closing_soon_48h || 15} closing in 48h</p>
+            <h3 className="text-xl sm:text-2xl font-extrabold text-white mt-0.5 leading-none">{stats?.closing_soon_7d || 44}</h3>
+            <p className="text-[10px] sm:text-[11px] text-rose-100/80 mt-1 truncate">{stats?.closing_soon_48h || 15} in 48h</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform">
-            <Clock className="w-5 h-5" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-xs border border-white/30 flex items-center justify-center text-white shadow-inner shrink-0 group-hover:scale-105 transition-transform ml-1">
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
       </div>
 
       {/* Two Column Layout: Top Direct Fits & Urgent Bids */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4.5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4.5">
         
         {/* Direct Fit Opportunities Card */}
-        <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-5 space-y-3.5 transition-all">
+        <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-3.5 sm:p-5 space-y-3 sm:space-y-3.5 transition-all">
           <div className="flex items-center justify-between pb-2 border-b border-[#F0EDF7]">
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#E8F3E6] border border-[#C8D8C4] flex items-center justify-center text-[#2E7D32] shadow-2xs shrink-0">
-                <CheckCircle2 className="w-4 h-4" />
+            <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#E8F3E6] border border-[#C8D8C4] flex items-center justify-center text-[#2E7D32] shadow-2xs shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <div>
-                <h2 className="font-bold text-[#1E182B] text-sm tracking-tight">Top Direct Fit Opportunities</h2>
-                <p className="text-[11px] text-[#8C82A0] font-medium">Ranked by BitVivid technical capability synergy</p>
+              <div className="min-w-0">
+                <h2 className="font-bold text-[#1E182B] text-xs sm:text-sm tracking-tight truncate">
+                  Top Direct Fit Opportunities
+                </h2>
+                <p className="text-[10px] sm:text-[11px] text-[#8C82A0] font-medium truncate">Ranked by BitVivid technical capability synergy</p>
               </div>
             </div>
             <button
               onClick={() => setIsDirectFitModalOpen(true)}
-              className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer"
+              className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer shrink-0 touch-manipulation"
               title="View all potential direct fit opportunities in popup"
             >
-              <span>View all</span>
+              <span className="hidden xs:inline">View all</span>
+              <span className="xs:hidden">All</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -246,10 +249,10 @@ export const DashboardView = () => {
                   <div
                     key={t.id}
                     onClick={() => openTenderDrawer(t)}
-                    className="group p-3.5 rounded-xl bg-[#FAF9FD] hover:bg-white border border-[#E2DEEC] hover:border-[#D8BFD8] hover:shadow-xs transition duration-150 cursor-pointer flex items-center justify-between gap-4 min-h-[86px]"
+                    className="group p-3 sm:p-3.5 rounded-xl bg-[#FAF9FD] hover:bg-white border border-[#E2DEEC] hover:border-[#D8BFD8] hover:shadow-xs transition duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-4 min-h-0 sm:min-h-[86px] touch-manipulation"
                   >
-                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 min-h-[58px]">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 space-y-1 sm:space-y-0 min-h-0 sm:min-h-[58px] w-full">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:space-x-2">
                         <span className="font-mono text-[10.5px] font-bold text-[#1E182B] bg-white px-2 py-0.5 rounded border border-[#E2DEEC] shadow-2xs">
                           {t.tender_id}
                         </span>
@@ -258,24 +261,24 @@ export const DashboardView = () => {
                         </span>
                       </div>
                       <h4 
-                        className="text-[13px] font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition truncate leading-normal" 
+                        className="text-xs sm:text-[13px] font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition line-clamp-2 leading-snug break-words" 
                         title={t.title}
                       >
                         {t.title}
                       </h4>
-                      <p className="text-xs text-[#584E6B] truncate flex items-center space-x-1.5 leading-normal">
+                      <p className="text-[11px] sm:text-xs text-[#584E6B] truncate flex items-center space-x-1.5 leading-normal">
                         <Building2 className="w-3.5 h-3.5 text-[#8C82A0] shrink-0" />
                         <span>{cleanOrg(t.organisation)}</span>
                       </p>
                     </div>
 
                     {/* Status Column */}
-                    <div className="w-32 shrink-0 text-right flex flex-col items-end justify-center space-y-1.5">
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-[#E8F3E6] text-[#244E2C] border border-[#C8D8C4] rounded-full font-bold text-xs shadow-2xs">
+                    <div className="w-full sm:w-32 shrink-0 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center pt-2 sm:pt-0 border-t border-[#F0EDF7] sm:border-t-0 space-y-0 sm:space-y-1">
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 sm:py-1 bg-[#E8F3E6] text-[#244E2C] border border-[#C8D8C4] rounded-full font-bold text-[11px] sm:text-xs shadow-2xs">
                         <Sparkles className="w-3 h-3 text-[#2E7D32]" />
                         <span>{t.fit_score}% Fit</span>
                       </span>
-                      <span className="text-[11px] text-[#8C82A0] font-medium truncate">
+                      <span className="text-[10.5px] sm:text-[11px] text-[#8C82A0] font-medium truncate">
                         Closes {closing.date}
                       </span>
                     </div>
@@ -289,22 +292,25 @@ export const DashboardView = () => {
         </div>
 
         {/* Approaching Submission Deadlines Card */}
-        <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-5 space-y-3.5 transition-all">
+        <div className="bg-white rounded-2xl border border-[#E2DEEC] shadow-sm p-3.5 sm:p-5 space-y-3 sm:space-y-3.5 transition-all">
           <div className="flex items-center justify-between pb-2 border-b border-[#F0EDF7]">
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#FFF2E5] border border-[#FFDAB9] flex items-center justify-center text-[#9A3412] shadow-2xs shrink-0">
-                <Clock className="w-4 h-4" />
+            <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#FFF2E5] border border-[#FFDAB9] flex items-center justify-center text-[#9A3412] shadow-2xs shrink-0">
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <div>
-                <h2 className="font-bold text-[#1E182B] text-sm tracking-tight">Approaching Submission Deadlines</h2>
-                <p className="text-[11px] text-[#8C82A0] font-medium">Priority bids closing soon, nearest deadline first</p>
+              <div className="min-w-0">
+                <h2 className="font-bold text-[#1E182B] text-xs sm:text-sm tracking-tight truncate">
+                  Approaching Deadlines<span className="hidden xs:inline"> Submission</span>
+                </h2>
+                <p className="text-[10px] sm:text-[11px] text-[#8C82A0] font-medium truncate">Priority bids closing soon, nearest deadline first</p>
               </div>
             </div>
             <button
               onClick={() => setIsDeadlinesModalOpen(true)}
-              className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2.5 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer"
+              className="text-xs text-[#6B46C1] hover:text-[#553C9A] font-bold flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-[#E6E6FA]/60 transition cursor-pointer shrink-0 touch-manipulation"
             >
-              <span>View all</span>
+              <span className="hidden xs:inline">View all</span>
+              <span className="xs:hidden">All</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -325,10 +331,10 @@ export const DashboardView = () => {
                   <div
                     key={t.id}
                     onClick={() => openTenderDrawer(t)}
-                    className="group p-3.5 rounded-xl bg-[#FAF9FD] hover:bg-white border border-[#E2DEEC] hover:border-[#FFDAB9] hover:shadow-xs transition duration-150 cursor-pointer flex items-center justify-between gap-4 min-h-[86px]"
+                    className="group p-3 sm:p-3.5 rounded-xl bg-[#FAF9FD] hover:bg-white border border-[#E2DEEC] hover:border-[#FFDAB9] hover:shadow-xs transition duration-150 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-4 min-h-0 sm:min-h-[86px] touch-manipulation"
                   >
-                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 min-h-[58px]">
-                      <div className="flex items-center space-x-2">
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 space-y-1 sm:space-y-0 min-h-0 sm:min-h-[58px] w-full">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:space-x-2">
                         <span className="font-mono text-[10.5px] font-bold text-[#1E182B] bg-white px-2 py-0.5 rounded border border-[#E2DEEC] shadow-2xs">
                           {t.tender_id}
                         </span>
@@ -342,24 +348,24 @@ export const DashboardView = () => {
                         )}
                       </div>
                       <h4 
-                        className="text-[13px] font-bold text-[#1E182B] group-hover:text-[#9A3412] transition truncate leading-normal"
+                        className="text-xs sm:text-[13px] font-bold text-[#1E182B] group-hover:text-[#9A3412] transition line-clamp-2 leading-snug break-words"
                         title={t.title}
                       >
                         {t.title}
                       </h4>
-                      <p className="text-xs text-[#584E6B] truncate flex items-center space-x-1.5 leading-normal">
+                      <p className="text-[11px] sm:text-xs text-[#584E6B] truncate flex items-center space-x-1.5 leading-normal">
                         <Building2 className="w-3.5 h-3.5 text-[#8C82A0] shrink-0" />
                         <span>{cleanOrg(t.organisation)}</span>
                       </p>
                     </div>
 
                     {/* Symmetrical Fixed-Width Status Column */}
-                    <div className="w-32 shrink-0 text-right flex flex-col items-end justify-center space-y-1.5">
-                      <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-xs shadow-2xs border ${pillColor}`}>
+                    <div className="w-full sm:w-32 shrink-0 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center pt-2 sm:pt-0 border-t border-[#F0EDF7] sm:border-t-0 space-y-0 sm:space-y-1">
+                      <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 sm:py-1 rounded-full font-bold text-[11px] sm:text-xs shadow-2xs border ${pillColor}`}>
                         <Clock className="w-3 h-3 text-[#9A3412]" />
                         <span>{deadline.date}</span>
                       </span>
-                      <span className="text-[11px] text-[#9A3412] font-bold truncate">
+                      <span className="text-[10.5px] sm:text-[11px] text-[#9A3412] font-bold truncate">
                         {deadline.time || 'Closing Soon'}
                       </span>
                     </div>

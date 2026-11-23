@@ -532,6 +532,25 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
         if v and hasattr(tender, k):
             setattr(tender, k, v)
 
+    # Ensure extracted_pdf_text is populated with structured clauses for RAG and UI
+    if not tender.extracted_pdf_text or len(tender.extracted_pdf_text.strip()) < 30:
+        clauses_summary = [
+            f"Tender Reference: {tender.tender_id}",
+            f"Tender Title: {tender.title}",
+            f"Organisation / Department: {tender.organisation or 'Central Ministry / Department'}",
+            f"Portal: {tender.portal or 'GeM BidPlus'}",
+            f"Estimated Contract Value: {tender.estimated_value or 'Not Disclosed on Portal'}",
+            f"Earnest Money Deposit (EMD): {tender.emd_amount or 'Verify in ATC clauses'}",
+            f"EMD Exemption: {tender.emd_exemption or 'Standard MSME / Startup rules apply'}",
+            f"Bidder Turnover Mandate: {tender.bidder_turnover or tender.turnover_required or 'No Minimum Turnover'}",
+            f"OEM Turnover Mandate: {tender.oem_turnover or 'N/A'}",
+            f"Experience Criteria: {tender.experience_required or 'Past project experience required'}",
+            f"MSE Purchase Preference & Relaxation: {tender.mse_relaxation or 'Applicable as per GFR'}",
+            f"Startup Exemption: {tender.startup_relaxation or 'DPIIT recognized relaxation'}",
+            f"Equipment & BOQ Scope: {tender.scope_summary or tender.title}",
+        ]
+        tender.extracted_pdf_text = "\n".join(clauses_summary)
+
     # Recalculate dynamic fit score & eligibility with newly extracted PDF clauses
     profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
     profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}

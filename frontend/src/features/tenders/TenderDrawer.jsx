@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import {
   X,
@@ -833,27 +834,27 @@ export const TenderDrawer = () => {
   // Parsed Equipment Categories
   const scopeItems = parseScopeItems(tender.scope_summary, tender.title);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-[#141021]/60 backdrop-blur-xs p-2 sm:p-4 md:p-6 flex items-center justify-center animate-in fade-in duration-150"
+      className="fixed inset-0 z-[60] overflow-hidden bg-[#141021]/65 backdrop-blur-xs flex items-end sm:items-center justify-center animate-in fade-in duration-150 p-0 sm:p-4 md:p-6"
       onClick={closeTenderDrawer}
     >
       <div
-        className="relative w-full max-w-5xl xl:max-w-6xl h-[92vh] max-h-[920px] bg-white rounded-2xl shadow-2xl border border-[#E2DEEC] flex flex-col overflow-hidden my-auto animate-in zoom-in-95 duration-150 ring-1 ring-purple-950/5 text-left"
+        className="relative w-full h-[100dvh] sm:h-[92vh] sm:max-h-[920px] max-w-5xl xl:max-w-6xl bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-[#E2DEEC] flex flex-col overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-150 ring-1 ring-purple-950/5 text-left"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-5 sm:px-6 border-b border-[#E2DEEC] flex items-start justify-between bg-white shrink-0">
-          <div className="space-y-1.5 pr-4 flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-[#4A337A] bg-[#E6E6FA] px-2.5 py-0.5 rounded-lg border border-[#D8BFD8]">
+        <div className="px-3.5 sm:px-6 py-2.5 sm:py-4 border-b border-[#E2DEEC] flex items-start justify-between bg-white shrink-0 shadow-2xs z-20">
+          <div className="space-y-1 sm:space-y-1.5 pr-2 sm:pr-4 flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="text-[11px] sm:text-xs font-bold text-[#4A337A] bg-[#E6E6FA] px-2 sm:px-2.5 py-0.5 rounded-lg border border-[#D8BFD8] font-mono">
                 {tender.tender_id}
               </span>
-              <span className="text-xs text-[#584E6B] font-semibold px-2 py-0.5 bg-[#FAF9FD] rounded-lg border border-[#E2DEEC]">
+              <span className="text-[10px] sm:text-xs text-[#584E6B] font-semibold px-2 py-0.5 bg-[#FAF9FD] rounded-lg border border-[#E2DEEC]">
                 {tender.portal}
               </span>
               <span
-                className={`text-xs px-2.5 py-0.5 rounded-lg font-bold border ${
+                className={`text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center space-x-1 ${
                   (tender.fit_score || 0) >= 75
                     ? 'bg-[#E8F5E9] text-[#2E7D32] border-[#C8D8C4]'
                     : (tender.fit_score || 0) >= 50
@@ -861,95 +862,102 @@ export const TenderDrawer = () => {
                       : 'bg-[#F1F0F5] text-[#584E6B] border-[#E2DEEC]'
                 }`}
               >
-                {tender.fit_score}% Fit
+                <CheckCircle2 className="w-3 h-3" />
+                <span>{tender.fit_score}% Fit</span>
               </span>
               {dossier?.financials?.schedules?.length > 1 && (
-                <span className="text-xs font-bold text-[#6B46C1] bg-[#FAF5FF] border border-[#E9D8FD] px-2.5 py-0.5 rounded-lg">
-                  {dossier.financials.schedules.length} Itemized Schedules ({dossier.financials.totalQty} Units)
+                <span className="text-[10px] sm:text-xs font-bold text-[#6B46C1] bg-[#FAF5FF] border border-[#E9D8FD] px-2 py-0.5 rounded-lg">
+                  <span className="sm:hidden">{dossier.financials.schedules.length} Sched ({dossier.financials.totalQty} U)</span>
+                  <span className="hidden sm:inline">{dossier.financials.schedules.length} Itemized Schedules ({dossier.financials.totalQty} Units)</span>
                 </span>
               )}
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-[#1E182B] leading-snug line-clamp-2" title={tender.title}>
+            <h2 className="text-sm sm:text-base md:text-lg font-bold text-[#1E182B] leading-snug break-words" title={tender.title}>
               {getCleanTitle()}
             </h2>
           </div>
           <button
+            type="button"
             onClick={closeTenderDrawer}
-            className="w-9 h-9 rounded-xl text-[#8C82A0] hover:text-[#1E182B] hover:bg-[#FAF9FD] border border-transparent hover:border-[#E2DEEC] transition flex items-center justify-center shrink-0 cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-[#8C82A0] hover:text-[#1E182B] hover:bg-[#FAF9FD] active:bg-[#E2DEEC] border border-transparent hover:border-[#E2DEEC] transition flex items-center justify-center shrink-0 cursor-pointer"
             title="Close modal (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* Modal Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 text-xs text-[#584E6B] min-h-0 bg-white">
-          {/* Key Facts Ribbon */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-[#FAF9FD] p-4 rounded-xl border border-[#E2DEEC]">
-            <div className="space-y-1">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 text-xs text-[#584E6B] min-h-0 bg-white overscroll-contain">
+          {/* Key Facts Ribbon - Fully visible without clipping/truncation */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 bg-[#FAF9FD] p-3 sm:p-4 rounded-xl border border-[#E2DEEC]">
+            {/* Organisation - Spans full width on mobile for complete visibility */}
+            <div className="col-span-2 sm:col-span-1 space-y-1">
               <span className="text-[11px] font-semibold text-[#8C82A0] flex items-center space-x-1.5">
-                <Building className="w-3.5 h-3.5 text-[#6B46C1]" />
+                <Building className="w-3.5 h-3.5 text-[#6B46C1] shrink-0" />
                 <span>Organisation</span>
               </span>
-              <p className="font-bold text-[#1E182B] truncate text-xs sm:text-sm" title={tender.organisation}>
+              <p className="font-bold text-[#1E182B] text-xs sm:text-sm leading-snug break-words" title={tender.organisation}>
                 {tender.organisation || dossier?.authority?.organization || 'N/A'}
               </p>
             </div>
 
+            {/* Bid End Date */}
             <div className="space-y-1">
               <span className="text-[11px] font-semibold text-[#8C82A0] flex items-center space-x-1.5">
-                <Calendar className="w-3.5 h-3.5 text-[#6B46C1]" />
+                <Calendar className="w-3.5 h-3.5 text-[#6B46C1] shrink-0" />
                 <span>Bid End Date</span>
               </span>
-              <p className={`${getClosingDateStyle(tender.closing_date)} text-xs sm:text-sm`}>
+              <p className={`${getClosingDateStyle(tender.closing_date)} text-xs sm:text-sm font-semibold leading-snug break-words`}>
                 {tender.closing_date || dossier?.deadlines?.bidEnd || 'Check portal'}
               </p>
             </div>
 
+            {/* Estimated Tender Value */}
             <div className="space-y-1">
               <span className="text-[11px] font-semibold text-[#8C82A0] flex items-center space-x-1.5">
-                <IndianRupee className="w-3.5 h-3.5 text-[#2E7D32]" />
-                <span>Estimated Tender Value</span>
+                <IndianRupee className="w-3.5 h-3.5 text-[#2E7D32] shrink-0" />
+                <span>Estimated Value</span>
               </span>
-              <p className="font-bold text-[#2E7D32] text-xs sm:text-sm font-mono">
-                {dossier?.financials?.estValueFormatted || (tender.estimated_value && tender.estimated_value !== 'Check tender PDF / ATC' ? tender.estimated_value : 'Check tender PDF / ATC')}
+              <p className="font-bold text-[#2E7D32] text-xs sm:text-sm font-mono leading-snug break-words">
+                {dossier?.financials?.estValueFormatted || (tender.estimated_value && tender.estimated_value !== 'Check tender PDF / ATC' ? tender.estimated_value : 'Not Disclosed on GeM')}
               </p>
             </div>
 
-            <div className="space-y-1">
+            {/* Total BOQ Quantity */}
+            <div className="col-span-2 sm:col-span-1 space-y-1 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-[#E2DEEC]/60">
               <span className="text-[11px] font-semibold text-[#8C82A0] flex items-center space-x-1.5">
-                <Package className="w-3.5 h-3.5 text-[#6B46C1]" />
+                <Package className="w-3.5 h-3.5 text-[#6B46C1] shrink-0" />
                 <span>Total BOQ Quantity</span>
               </span>
-              <p className="font-bold text-[#1E182B] text-xs sm:text-sm">
+              <p className="font-bold text-[#1E182B] text-xs sm:text-sm leading-snug break-words">
                 {dossier?.authority?.quantity ? `${dossier.authority.quantity} Units` : (dossier?.financials?.totalQty ? `${dossier.financials.totalQty} Units` : '1 Unit')}
               </p>
             </div>
           </div>
 
           {/* Official Bid Specification Document Action Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-[#FAF9FD] border border-[#E2DEEC] gap-3">
-            <div className="flex items-center space-x-3.5">
-              <div className="w-10 h-10 rounded-xl bg-[#6B46C1] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                <FileText className="w-5 h-5 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl bg-[#FAF9FD] border border-[#E2DEEC] gap-2.5 sm:gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#6B46C1] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <p className="font-bold text-[#1E182B] text-sm">Official Bid Specification Document</p>
-                <p className="text-[11px] text-[#584E6B]">
+              <div className="min-w-0">
+                <p className="font-bold text-[#1E182B] text-xs sm:text-sm truncate">Official Bid Specification Document</p>
+                <p className="text-[10px] sm:text-[11px] text-[#584E6B] truncate">
                   {tender.extracted_pdf_text
-                    ? `✓ Official bid PDF parsed (~${tender.extracted_pdf_text.length.toLocaleString('en-IN')} chars) • Clauses & parameters verified`
+                    ? `✓ Official bid PDF parsed (~${tender.extracted_pdf_text.length.toLocaleString('en-IN')} chars)`
                     : 'Direct link to official portal PDF notice & automated parser'}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2 shrink-0">
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
               {pdfUrl && (
                 <a
                   href={pdfUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3 py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center space-x-1.5 shadow-2xs transition cursor-pointer"
+                  className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
                 >
                   <span>Open PDF</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -957,12 +965,13 @@ export const TenderDrawer = () => {
               )}
               {pdfUrl && (
                 <button
+                  type="button"
                   disabled={parsingPdf}
                   onClick={handleParsePdf}
-                  className="px-3.5 py-2 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] disabled:opacity-50 text-white font-semibold inline-flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
+                  className="flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] disabled:opacity-50 text-white font-semibold inline-flex items-center justify-center space-x-1.5 shadow-xs transition cursor-pointer text-xs"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{parsingPdf ? 'Parsing Document...' : 'Re-Parse PDF Clauses'}</span>
+                  <span>{parsingPdf ? 'Parsing...' : 'Re-Parse PDF'}</span>
                 </button>
               )}
             </div>
@@ -1729,14 +1738,15 @@ export const TenderDrawer = () => {
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 px-6 border-t border-[#E2DEEC] bg-[#FAF9FD] flex items-center justify-between shrink-0">
+        <div className="px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-t border-[#E2DEEC] bg-[#FAF9FD] flex items-center justify-between shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-20">
           <span className="text-[11px] text-[#8C82A0] font-medium">
             Last updated: {tender.updated_at ? formatIndianDateTime(tender.updated_at) : 'N/A'}
           </span>
           <button
+            type="button"
             disabled={saving}
             onClick={handleSaveNotes}
-            className="px-4 py-2 bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-md shadow-purple-900/15 inline-flex items-center space-x-1.5 transition cursor-pointer"
+            className="px-3.5 sm:px-4 py-1.5 sm:py-2 bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-md shadow-purple-900/15 inline-flex items-center space-x-1.5 transition cursor-pointer"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? 'Saving...' : 'Save Notes & Status'}</span>
@@ -1744,8 +1754,8 @@ export const TenderDrawer = () => {
         </div>
       </div>
 
-      {/* Floating Circular Chatbot Icon in Right Bottom Corner */}
-      <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-55 flex items-center space-x-2 group">
+      {/* Floating Circular Chatbot Icon - Positioned Safely Above Footer */}
+      <div className="fixed bottom-16 right-3.5 sm:bottom-8 sm:right-8 z-[65] flex items-center space-x-2 group">
         <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none bg-[#1E182B] text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg border border-purple-900/20 whitespace-nowrap hidden sm:inline-block">
           Ask Tender AI Chat
         </span>
@@ -1756,25 +1766,25 @@ export const TenderDrawer = () => {
             e.stopPropagation();
             setIsChatOpen(true);
           }}
-          className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#553C9A] via-[#6B46C1] to-[#805AD5] hover:from-[#44307B] hover:to-[#6B46C1] active:scale-95 text-white shadow-xl shadow-purple-900/35 flex items-center justify-center transition-all duration-200 cursor-pointer ring-4 ring-white/95 hover:ring-purple-200"
+          className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#553C9A] via-[#6B46C1] to-[#805AD5] hover:from-[#44307B] hover:to-[#6B46C1] active:scale-95 text-white shadow-xl shadow-purple-900/35 flex items-center justify-center transition-all duration-200 cursor-pointer ring-4 ring-white/95 hover:ring-purple-200"
           title="Ask Tender AI Chatbot"
         >
           <div className="relative flex items-center justify-center">
-            <Bot className="w-6 h-6 text-white transition-transform group-hover:scale-110" />
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 absolute -top-1.5 -right-2 animate-pulse" />
+            <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-white transition-transform group-hover:scale-110" />
+            <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300 absolute -top-1 -right-1 sm:-top-1.5 sm:-right-2 animate-pulse" />
           </div>
 
           {/* Dynamic Status Dot Indicator */}
           {tender.extracted_pdf_text ? (
             <span
-              className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-xs"
+              className="absolute top-0 right-0 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-emerald-500 rounded-full border-2 border-white shadow-xs"
               title="AI Ready (PDF Parsed)"
             >
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             </span>
           ) : (
             <span
-              className="absolute top-0 right-0 w-3.5 h-3.5 bg-amber-400 rounded-full border-2 border-white shadow-xs"
+              className="absolute top-0 right-0 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-amber-400 rounded-full border-2 border-white shadow-xs"
               title="Basic Mode (Click Parse to extract clauses)"
             ></span>
           )}
@@ -1791,7 +1801,8 @@ export const TenderDrawer = () => {
           setShowExcerpt(true);
         }}
       />
-    </div>
+    </div>,
+    document.body
   );
 };
 

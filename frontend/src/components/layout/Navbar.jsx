@@ -7,7 +7,9 @@ import {
   LogOut, 
   LogIn, 
   User, 
-  Bell 
+  Bell,
+  Menu,
+  X 
 } from 'lucide-react';
 
 const INDIAN_STATES = [
@@ -44,7 +46,9 @@ export const Navbar = () => {
     logout, 
     isAuthenticated, 
     openNotificationModal, 
-    isNotificationModalOpen 
+    isNotificationModalOpen,
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen
   } = useApp();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
@@ -119,18 +123,30 @@ export const Navbar = () => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-[#E2DEEC] px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Left: Company Brand Typography */}
-      <div 
-        onClick={() => setCurrentTab('dashboard')}
-        className="flex items-center cursor-pointer select-none group"
-        title="BitVivid Solutions"
-      >
-        <img 
-          src="/bitvivid-brand.png" 
-          alt="BitVivid Solutions" 
-          className="h-10 max-h-11 w-auto object-contain transition group-hover:opacity-90"
-        />
+    <header className="h-16 bg-white border-b border-[#E2DEEC] px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+      {/* Left: Mobile Menu Toggle & Company Brand Typography */}
+      <div className="flex items-center space-x-2 sm:space-x-3">
+        <button
+          type="button"
+          onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          className="p-1.5 rounded-xl text-[#584E6B] hover:text-[#1E182B] hover:bg-[#FAF9FD] border border-transparent hover:border-[#E2DEEC] md:hidden transition cursor-pointer"
+          title="Toggle Navigation Menu"
+          aria-label="Toggle navigation menu"
+        >
+          {isMobileSidebarOpen ? <X className="w-5 h-5 text-[#6B46C1]" /> : <Menu className="w-5 h-5" />}
+        </button>
+
+        <div 
+          onClick={() => setCurrentTab('dashboard')}
+          className="flex items-center cursor-pointer select-none group"
+          title="BitVivid Solutions"
+        >
+          <img 
+            src="/bitvivid-brand.png" 
+            alt="BitVivid Solutions" 
+            className="h-8 sm:h-10 max-h-11 w-auto object-contain transition group-hover:opacity-90"
+          />
+        </div>
       </div>
 
       {/* 🇮🇳 Center: Pan-India Radar Marquee (Lavender Dream Palette) */}
@@ -172,7 +188,7 @@ export const Navbar = () => {
       </div>
 
       {/* Right: Authentication, Notifications & Session Area */}
-      <div className="flex items-center space-x-3 shrink-0">
+      <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
         {/* Live Sync Status Indicator */}
         {syncState.is_running && (
           <>
@@ -182,7 +198,7 @@ export const Navbar = () => {
               title="Click to view Sync Center progress"
             >
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span>Syncing ({syncState.progress}%)</span>
+              <span className="hidden xs:inline">Syncing ({syncState.progress}%)</span><span className="xs:hidden font-mono font-bold text-[11px]">{syncState.progress}%</span>
             </div>
             <div className="h-5 w-px bg-[#E2DEEC]"></div>
           </>
