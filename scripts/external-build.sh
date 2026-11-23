@@ -21,7 +21,12 @@ BUILDER_NAME="${BUILDER_NAME:-tender-tracker-builder}"
 echo "[INFO] Building frontend dist into backend/public..."
 cd "$REPO_ROOT/frontend"
 npm install --silent
-npm run build
+VITE_OUT_DIR="../backend/public" npm run build
+# Fallback copy if Vite output went to build/
+if [ -d "$REPO_ROOT/frontend/build" ]; then
+    mkdir -p "$REPO_ROOT/backend/public"
+    cp -r "$REPO_ROOT/frontend/build/"* "$REPO_ROOT/backend/public/"
+fi
 cd "$REPO_ROOT"
 
 if [ ! -d "$REPO_ROOT/backend/public" ]; then

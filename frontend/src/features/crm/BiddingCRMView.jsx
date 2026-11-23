@@ -1,0 +1,642 @@
+import React, { useState, useEffect } from 'react';
+import { useApp } from '../../context/AppContext';
+import { crmApi } from '../../utils/api';
+import {
+  Users,
+  Search,
+  Plus,
+  Flame,
+  Snowflake,
+  Phone,
+  Mail,
+  Building2,
+  Calendar,
+  Eye,
+  Lock,
+  Globe,
+  Edit2,
+  Trash2,
+  FileText,
+  ExternalLink,
+  RefreshCw,
+  X,
+  CheckCircle2,
+  MessageSquare
+} from 'lucide-react';
+
+export const BiddingCRMView = () => {
+  const { user, isSuperAdmin, isManager, showNotification, openTenderDrawer } = useApp();
+  const canDeleteRecords = isSuperAdmin || (user?.permissions || []).includes('can_delete_tenders');
+
+  const [records, setRecords] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [leadStatusFilter, setLeadStatusFilter] = useState(''); // '' | 'Warm' | 'Cold'
+  const [myRecordsOnly, setMyRecordsOnly] = useState(false);
+
+  // Modal State for Manual Entry / Edit
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [formData, setFormData] = useState({
+    company_name: '',
+    client_name: '',
+    client_designation: '',
+    client_phone: '',
+    client_email: '',
+    remarks: '',
+    lead_status: 'Warm',
+    visibility: 'all'
+  });
+  const [modalSubmitting, setModalSubmitting] = useState(false);
+
+  // Remarks Quick-Edit Modal
+  const [isRemarksModalOpen, setIsRemarksModalOpen] = useState(false);
+  const [remarksRecord, setRemarksRecord] = useState(null);
+  const [remarksText, setRemarksText] = useState('');
+
+  const fetchRecords = async () => {
+    setLoading(true);
+    try {
+      const res = await crmApi.getRecords({
+        search: search.trim() || undefined,
+        lead_status: leadStatusFilter || undefined,
+        my_records: myRecordsOnly,
+        limit: 100
+      });
+      setRecords(res.data.items || []);
+      setTotal(res.data.total || 0);
+    } catch (err) {
+      showNotification('Failed to load CRM records', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecords();
+  }, [search, leadStatusFilter, myRecordsOnly]);
+
+  // 1-Click Toggle Warm/Cold
+  const handleToggleStatus = async (record) => {
+    const nextStatus = record.lead_status === 'Warm' ? 'Cold' : 'Warm';
+    try {
+      await crmApi.updateRecord(record.id, { lead_status: nextStatus });
+      setRecords((prev) =>
+        prev.map((r) => (r.id === record.id ? { ...r, lead_status: nextStatus } : r))
+      );
+      showNotification(`Record updated to ${nextStatus}`, 'success');
+    } catch (err) {
+      showNotification('Failed to update status', 'error');
+    }
+  };
+
+  // Open Create Modal
+  const handleOpenCreate = () => {
+    setEditingRecord(null);
+    setFormData({
+      company_name: '',
+      client_name: '',
+      client_designation: '',
+      client_phone: '',
+      client_email: '',
+      remarks: '',
+      lead_status: 'Warm',
+      visibility: 'all'
+    });
+    setIsModalOpen(true);
+  };
+
+  // Open Edit Modal
+  const handleOpenEdit = (rec) => {
+    setEditingRecord(rec);
+    setFormData({
+      company_name: rec.company_name,
+      client_name: rec.client_name || '',
+      client_designation: rec.client_designation || '',
+      client_phone: rec.client_phone || '',
+      client_email: rec.client_email || '',
+      remarks: rec.remarks || '',
+      lead_status: rec.lead_status || 'Warm',
+      visibility: rec.visibility || 'all'
+    });
+    setIsModalOpen(true);
+  };
+
+  // Submit Modal
+  const handleSubmitForm = async (e) => {
+    e.preventDefault();
+    if (!formData.company_name.trim()) {
+      showNotification('Company name is required', 'error');
+      return;
+    }
+
+    setModalSubmitting(true);
+    try {
+      if (editingRecord) {
+        await crmApi.updateRecord(editingRecord.id, formData);
+        showNotification('CRM record updated successfully', 'success');
+      } else {
+        await crmApi.createManual(formData);
+        showNotification('New CRM record created successfully', 'success');
+      }
+      setIsModalOpen(false);
+      fetchRecords();
+    } catch (err) {
+      showNotification('Error saving CRM record', 'error');
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
+  // Save Quick Remarks
+  const handleSaveRemarks = async () => {
+    if (!remarksRecord) return;
+    try {
+      await crmApi.updateRecord(remarksRecord.id, { remarks: remarksText });
+      setRecords((prev) =>
+        prev.map((r) => (r.id === remarksRecord.id ? { ...r, remarks: remarksText } : r))
+      );
+      showNotification('Remarks updated', 'success');
+      setIsRemarksModalOpen(false);
+    } catch (err) {
+      showNotification('Failed to update remarks', 'error');
+    }
+  };
+
+  // Delete Record
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this CRM record?')) return;
+    const rec = records.find((r) => r.id === id);
+    try {
+      await crmApi.deleteRecord(id);
+      setRecords((prev) => prev.filter((r) => r.id !== id));
+      if (rec?.tender_id) {
+        window.dispatchEvent(
+          new CustomEvent('tender:updated', {
+            detail: { id: rec.tender_id, is_claimed: false, assigned_to: null, status: 'New' }
+          })
+        );
+      }
+      showNotification('CRM record deleted and tender released', 'info');
+    } catch (err) {
+      showNotification('Failed to delete record', 'error');
+    }
+  };
+
+  return (
+    <div className="space-y-5 w-full">
+      
+      {/* 1. TOP HEADER BANNER */}
+      <div className="bg-white p-5 rounded-2xl border border-[#E2DEEC] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xl font-bold text-[#1E182B] tracking-tight">
+              Bidding CRM & Outreach
+            </h1>
+            <span className="bg-[#EFEBF8] text-[#6B46C1] text-xs font-bold px-2.5 py-0.5 rounded-full border border-[#D8BFD8]/50">
+              {total} Active Engagements
+            </span>
+          </div>
+          <p className="text-xs text-[#584E6B] mt-1">
+            Track customer communications, pre-bid meetings, client nodal officers, and bid interest levels.
+          </p>
+        </div>
+
+        <button
+          onClick={handleOpenCreate}
+          className="inline-flex items-center justify-center space-x-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-purple-900/10 transition cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add New Record</span>
+        </button>
+      </div>
+
+      {/* 2. FILTER & SEARCH BAR */}
+      <div className="bg-white p-4 rounded-xl border border-[#E2DEEC] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-4 h-4 text-[#8C82A0] absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search company, client, remarks, or tender ID..."
+            className="w-full bg-[#FAF9FD] border border-[#E2DEEC] text-xs rounded-lg pl-9 pr-3 py-2 outline-none focus:border-[#6B46C1] focus:bg-white text-[#1E182B] placeholder:text-[#8C82A0]"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter */}
+          <div className="flex bg-[#FAF9FD] p-1 border border-[#E2DEEC] rounded-lg text-xs font-semibold">
+            <button
+              onClick={() => setLeadStatusFilter('')}
+              className={`px-3 py-1 rounded-md transition ${!leadStatusFilter ? 'bg-white shadow-xs text-[#6B46C1]' : 'text-[#584E6B]'}`}
+            >
+              All Status
+            </button>
+            <button
+              onClick={() => setLeadStatusFilter('Warm')}
+              className={`px-3 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Warm' ? 'bg-[#FFF2E5] text-[#EA580C] font-bold' : 'text-[#584E6B]'}`}
+            >
+              <Flame className="w-3.5 h-3.5 text-[#EA580C]" />
+              <span>Warm</span>
+            </button>
+            <button
+              onClick={() => setLeadStatusFilter('Cold')}
+              className={`px-3 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Cold' ? 'bg-[#EDF8FD] text-[#0284C7] font-bold' : 'text-[#584E6B]'}`}
+            >
+              <Snowflake className="w-3.5 h-3.5 text-[#0284C7]" />
+              <span>Cold</span>
+            </button>
+          </div>
+
+          {/* My Records Toggle */}
+          <button
+            onClick={() => setMyRecordsOnly(!myRecordsOnly)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${myRecordsOnly ? 'bg-[#6B46C1] text-white border-[#6B46C1]' : 'bg-[#FAF9FD] text-[#584E6B] border-[#E2DEEC] hover:bg-white'}`}
+          >
+            My Bids Only
+          </button>
+        </div>
+      </div>
+
+      {/* 3. DATA TABLE */}
+      <div className="bg-white rounded-xl border border-[#E2DEEC] shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center space-y-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-[#6B46C1]" />
+            <span className="text-xs text-[#584E6B] font-medium">Loading bidding records...</span>
+          </div>
+        ) : records.length === 0 ? (
+          <div className="py-16 text-center space-y-2">
+            <Building2 className="w-10 h-10 text-[#8C82A0] mx-auto opacity-40" />
+            <h3 className="text-sm font-bold text-[#1E182B]">No Bidding CRM Records Found</h3>
+            <p className="text-xs text-[#584E6B] max-w-sm mx-auto">
+              Start by clicking "Pick Tender" from the master tender list or manually add an engagement lead above.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#FAF9FD] border-b border-[#E2DEEC] text-[#584E6B] font-bold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Date Entered</th>
+                  <th className="py-3 px-4">Status (1-Click)</th>
+                  <th className="py-3 px-4">Company Name</th>
+                  <th className="py-3 px-4">Client Contact</th>
+                  <th className="py-3 px-4">Phone & Email</th>
+                  <th className="py-3 px-4">Remarks / Discussion</th>
+                  <th className="py-3 px-4">Visibility</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E2DEEC]">
+                {records.map((rec) => {
+                  const isWarm = rec.lead_status === 'Warm';
+                  return (
+                    <tr key={rec.id} className="hover:bg-[#FAF9FD]/80 transition">
+                      
+                      {/* Date Entered */}
+                      <td className="py-3.5 px-4 font-semibold text-[#1E182B] whitespace-nowrap">
+                        <div className="flex items-center space-x-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-[#8C82A0]" />
+                          <span>{rec.entered_date || 'N/A'}</span>
+                        </div>
+                        {rec.user_name && (
+                          <span className="text-[10px] text-[#8C82A0] block mt-0.5">
+                            By: {rec.user_name}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Warm/Cold 1-Click Toggle */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleStatus(rec)}
+                          title="Click to toggle Warm/Cold"
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] transition cursor-pointer shadow-xs border ${
+                            isWarm
+                              ? 'bg-[#FFF2E5] text-[#EA580C] border-[#FED7AA] hover:bg-[#FFE4D0]'
+                              : 'bg-[#EDF8FD] text-[#0284C7] border-[#BAE6FD] hover:bg-[#E0F2FE]'
+                          }`}
+                        >
+                          {isWarm ? (
+                            <>
+                              <Flame className="w-3 h-3 text-[#EA580C]" />
+                              <span>Warm</span>
+                            </>
+                          ) : (
+                            <>
+                              <Snowflake className="w-3 h-3 text-[#0284C7]" />
+                              <span>Cold</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Company Name & Linked Tender */}
+                      <td className="py-3.5 px-4 max-w-[200px]">
+                        <div className="font-bold text-[#1E182B] truncate" title={rec.company_name}>
+                          {rec.company_name}
+                        </div>
+                        {rec.tender ? (
+                          <button
+                            onClick={() => openTenderDrawer(rec.tender)}
+                            className="inline-flex items-center space-x-1 text-[11px] text-[#6B46C1] hover:underline mt-0.5 cursor-pointer"
+                          >
+                            <span>{rec.tender.tender_id}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-[#8C82A0]">Off-portal bid</span>
+                        )}
+                      </td>
+
+                      {/* Client Name & Designation */}
+                      <td className="py-3.5 px-4 max-w-[180px]">
+                        <div className="font-semibold text-[#1E182B] truncate">
+                          {rec.client_name || <span className="text-[#8C82A0] italic">Not entered</span>}
+                        </div>
+                        <div className="text-[10px] text-[#584E6B] truncate">
+                          {rec.client_designation || <span className="text-[#8C82A0] italic">—</span>}
+                        </div>
+                      </td>
+
+                      {/* Phone & Email */}
+                      <td className="py-3.5 px-4 whitespace-nowrap space-y-1">
+                        {rec.client_phone ? (
+                          <a
+                            href={`tel:${rec.client_phone}`}
+                            className="flex items-center space-x-1.5 text-blue-700 hover:underline"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{rec.client_phone}</span>
+                          </a>
+                        ) : (
+                          <span className="text-[#8C82A0] text-[10px] italic">No phone</span>
+                        )}
+
+                        {rec.client_email ? (
+                          <a
+                            href={`mailto:${rec.client_email}`}
+                            className="flex items-center space-x-1.5 text-purple-700 hover:underline"
+                          >
+                            <Mail className="w-3 h-3" />
+                            <span className="max-w-[130px] truncate">{rec.client_email}</span>
+                          </a>
+                        ) : null}
+                      </td>
+
+                      {/* Remarks (Conversation notes) */}
+                      <td className="py-3.5 px-4 max-w-[240px]">
+                        <div 
+                          onClick={() => {
+                            setRemarksRecord(rec);
+                            setRemarksText(rec.remarks || '');
+                            setIsRemarksModalOpen(true);
+                          }}
+                          className="cursor-pointer group flex items-start space-x-1"
+                          title="Click to view or edit remarks"
+                        >
+                          <p className="line-clamp-2 text-[#584E6B] group-hover:text-[#1E182B] leading-relaxed">
+                            {rec.remarks || <span className="text-[#8C82A0] italic">Click to add remarks...</span>}
+                          </p>
+                          <Edit2 className="w-3 h-3 text-[#8C82A0] opacity-0 group-hover:opacity-100 transition shrink-0 mt-0.5" />
+                        </div>
+                      </td>
+
+                      {/* Visibility Badge */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          rec.visibility === 'me'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                            : rec.visibility === 'manager'
+                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        }`}>
+                          {rec.visibility === 'me' && <Lock className="w-2.5 h-2.5" />}
+                          {rec.visibility === 'manager' && <Users className="w-2.5 h-2.5" />}
+                          {rec.visibility === 'all' && <Globe className="w-2.5 h-2.5" />}
+                          <span className="capitalize">{rec.visibility === 'me' ? 'Private' : rec.visibility}</span>
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-2">
+                        <button
+                          onClick={() => handleOpenEdit(rec)}
+                          className="text-[#584E6B] hover:text-[#6B46C1] p-1 transition cursor-pointer"
+                          title="Edit details"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        {canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id) && (
+                          <button
+                            onClick={() => handleDelete(rec.id)}
+                            className="text-[#8C82A0] hover:text-red-600 p-1 transition cursor-pointer"
+                            title="Delete record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
+
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 4. MODAL FOR CREATE / EDIT RECORD */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2DEEC] relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2DEEC]">
+              <h3 className="text-base font-bold text-[#1E182B]">
+                {editingRecord ? 'Edit Bidding Record' : 'Create Bidding Engagement Record'}
+              </h3>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitForm} className="space-y-4 mt-4 text-xs">
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1">Company / Authority Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  placeholder="e.g. Western Railway, NHM, Indian Oil"
+                  className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Status (Warm / Cold)</label>
+                  <select
+                    value={formData.lead_status}
+                    onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    <option value="Warm">🔥 Warm (High Interest)</option>
+                    <option value="Cold">❄️ Cold (Delayed/Low)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Visibility Level</label>
+                  <select
+                    value={formData.visibility}
+                    onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    <option value="all">🌐 All Members</option>
+                    <option value="manager">👥 Managers & Admin</option>
+                    <option value="me">🔒 Private (Only Me & Admin)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Client Name</label>
+                  <input
+                    type="text"
+                    value={formData.client_name}
+                    onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                    placeholder="e.g. Rajesh Sharma"
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Designation</label>
+                  <input
+                    type="text"
+                    value={formData.client_designation}
+                    onChange={(e) => setFormData({ ...formData, client_designation: e.target.value })}
+                    placeholder="e.g. Superintending Engineer"
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={formData.client_phone}
+                    onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
+                    placeholder="e.g. +91 98765 43210"
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Email ID</label>
+                  <input
+                    type="email"
+                    value={formData.client_email}
+                    onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
+                    placeholder="e.g. r.sharma@gov.in"
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1">Remarks (What was the conversation?)</label>
+                <textarea
+                  rows={4}
+                  value={formData.remarks}
+                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                  placeholder="Record call discussions, technical queries, pre-bid meeting points..."
+                  className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg p-3 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white leading-relaxed"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-[#E2DEEC]">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border border-[#E2DEEC] rounded-lg text-[#584E6B] font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={modalSubmitting}
+                  className="px-5 py-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white font-semibold rounded-lg shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {modalSubmitting ? 'Saving...' : editingRecord ? 'Update Record' : 'Save Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. REMARKS POPUP MODAL */}
+      {isRemarksModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2DEEC] relative">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2DEEC]">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="w-4 h-4 text-[#6B46C1]" />
+                <h3 className="text-sm font-bold text-[#1E182B]">
+                  Discussion & Remarks: {remarksRecord?.company_name}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsRemarksModalOpen(false)}
+                className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs font-semibold text-[#1E182B]">
+                Conversation Log
+              </label>
+              <textarea
+                rows={5}
+                value={remarksText}
+                onChange={(e) => setRemarksText(e.target.value)}
+                placeholder="Log discussion points, customer feedback, next meeting date..."
+                className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-xl p-3 text-xs text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white leading-relaxed"
+              />
+            </div>
+
+            <div className="mt-4 pt-3 flex justify-end space-x-2 border-t border-[#E2DEEC]">
+              <button
+                onClick={() => setIsRemarksModalOpen(false)}
+                className="px-3.5 py-1.5 border border-[#E2DEEC] rounded-lg text-xs font-semibold text-[#584E6B] hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveRemarks}
+                className="px-4 py-1.5 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
+              >
+                Save Remarks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
+

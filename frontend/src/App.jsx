@@ -8,6 +8,9 @@ import { BidPipelineView } from './features/tenders/BidPipelineView';
 import { SyncCenterView } from './features/sync/SyncCenterView';
 import { AnalyticsInsightsView } from './features/analytics/AnalyticsInsightsView';
 import { CompanySettingsView } from './features/settings/CompanySettingsView';
+import { BiddingCRMView } from './features/crm/BiddingCRMView';
+import { UserManagementView } from './features/admin/UserManagementView';
+import { AuditTrailView } from './features/audit/AuditTrailView';
 import { AuthView } from './features/auth/AuthView';
 import { TenderDrawer } from './features/tenders/TenderDrawer';
 import { CommandPalette } from './components/common/CommandPalette';
@@ -81,9 +84,12 @@ export const App = () => {
           <main className="flex-1 px-3 sm:px-6 py-4 sm:py-5 w-full relative z-10 pb-24 sm:pb-20 md:pb-6">
             {currentTab === 'dashboard' && <DashboardView />}
             {currentTab === 'tenders' && <AllTendersView />}
+            {currentTab === 'crm' && <BiddingCRMView />}
             {currentTab === 'kanban' && <BidPipelineView />}
             {currentTab === 'sync' && <SyncCenterView />}
             {currentTab === 'analytics' && <AnalyticsInsightsView />}
+            {currentTab === 'users' && <UserManagementView />}
+            {currentTab === 'audit' && <AuditTrailView />}
             {currentTab === 'settings' && <CompanySettingsView />}
           </main>
         </div>

@@ -36,6 +36,9 @@ class TenderBase(BaseModel):
     priority: Optional[str] = "Normal"
     user_notes: Optional[str] = ""
     assigned_to: Optional[str] = None
+    assigned_to_id: Optional[int] = None
+    claimed_at: Optional[datetime] = None
+    is_claimed: Optional[bool] = False
     is_starred: Optional[bool] = False
 
 class TenderCreate(TenderBase):

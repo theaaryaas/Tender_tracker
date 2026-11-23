@@ -243,11 +243,16 @@ export const Navbar = () => {
                   <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#2E7D32] rounded-full ring-2 ring-white" />
                 </div>
 
-                {/* Account Details (Clean Name & Email) */}
+                {/* Account Details (Clean Name & Role) */}
                 <div className="hidden sm:flex flex-col text-left leading-tight">
-                  <span className="text-xs font-bold text-[#1E182B] tracking-tight group-hover:text-[#6B46C1] transition truncate max-w-[140px]">
-                    {user.name}
-                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-xs font-bold text-[#1E182B] tracking-tight group-hover:text-[#6B46C1] transition truncate max-w-[140px]">
+                      {user.name}
+                    </span>
+                    <span className="text-[9px] uppercase font-bold text-[#6B46C1] bg-[#EFEBF8] px-1.5 py-0.2 rounded border border-[#D8BFD8]/50">
+                      {user.role ? user.role.replace('_', ' ') : 'Executive'}
+                    </span>
+                  </div>
                   <span className="text-[10px] font-medium text-[#8C82A0] truncate max-w-[140px]">
                     {user.email || 'bd@bitvividsolutions.com'}
                   </span>

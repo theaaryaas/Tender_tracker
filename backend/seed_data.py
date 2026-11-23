@@ -38,6 +38,23 @@ def seed_database():
             print("Seeded default keywords")
         db.commit()
 
+        # 3. Seed Default Super Admin if no users exist
+        from backend.models.user import User
+        from backend.core.security import get_password_hash
+        user_count = db.query(User).count()
+        if user_count == 0:
+            default_admin = User(
+                username="admin",
+                email="admin@bitvivid.com",
+                hashed_password=get_password_hash("Admin@12345"),
+                role="super_admin",
+                permissions=["can_view_audit", "can_export", "can_delete_tenders", "can_manage_users", "can_manage_scrapers"],
+                is_active=True
+            )
+            db.add(default_admin)
+            db.commit()
+            print("Seeded default Super Admin (admin / Admin@12345)")
+
         # 3. Seed Existing Tenders from CSV if database is empty
         tender_count = db.query(Tender).count()
         if tender_count == 0:

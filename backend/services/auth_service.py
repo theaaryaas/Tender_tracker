@@ -22,9 +22,9 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 class AuthService:
     @staticmethod
-    def register_user(db: Session, signup_data: UserSignup) -> Tuple[User, str]:
+    def register_user(db: Session, signup_data: UserSignup, role: str = "executive", created_by_id: Optional[int] = None) -> Tuple[User, str]:
         """
-        Validates unique username and email, hashes the password, creates the user,
+        Validates unique username and email, hashes the password, creates the user with given role,
         and generates a JWT bearer token.
         """
         # Check if username already exists (case-insensitive)
@@ -43,16 +43,27 @@ class AuthService:
 
         # Hash password and persist user
         hashed_password = get_password_hash(signup_data.password)
-        user = UserRepository.create(
-            db=db,
+        user = User(
             username=signup_data.username,
             email=signup_data.email,
-            hashed_password=hashed_password
+            hashed_password=hashed_password,
+            role=role,
+            created_by_id=created_by_id,
+            permissions=["can_export"] if role == "executive" else ["can_view_audit", "can_export", "can_delete_tenders"],
+            is_active=True
         )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
-        # Generate JWT access token
+        # Generate JWT access token with role claims
         access_token = create_access_token(
-            data={"sub": str(user.id), "username": user.username}
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role,
+                "permissions": user.permissions or []
+            }
         )
         return user, access_token
 
@@ -70,8 +81,19 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account has been deactivated. Please contact your manager or administrator."
+            )
+
         access_token = create_access_token(
-            data={"sub": str(user.id), "username": user.username}
+            data={
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role,
+                "permissions": user.permissions or []
+            }
         )
         return user, access_token
 
@@ -107,5 +129,32 @@ class AuthService:
         if user is None:
             raise credentials_exception
 
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account has been deactivated."
+            )
+
         return user
 
+    @staticmethod
+    def require_super_admin(
+        current_user: User = Depends(get_current_user)
+    ) -> User:
+        if current_user.role != "super_admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden: Super Admin role required."
+            )
+        return current_user
+
+    @staticmethod
+    def require_manager_or_above(
+        current_user: User = Depends(get_current_user)
+    ) -> User:
+        if current_user.role not in ("super_admin", "manager"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access forbidden: Manager or Super Admin role required."
+            )
+        return current_user

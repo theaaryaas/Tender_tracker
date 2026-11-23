@@ -7,6 +7,9 @@ import {
   RefreshCw, 
   BarChart3, 
   Sliders,
+  Flame,
+  Users,
+  FileText,
   X 
 } from 'lucide-react';
 
@@ -168,12 +171,15 @@ const SidebarPillarsGraphic = () => (
 );
 
 export const Sidebar = () => {
-  const { currentTab, setCurrentTab, stats, isMobileSidebarOpen, setIsMobileSidebarOpen } = useApp();
+  const { currentTab, setCurrentTab, stats, isMobileSidebarOpen, setIsMobileSidebarOpen, canManageUsers, canViewAudit } = useApp();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tenders', label: 'All Tenders', icon: ListFilter, badge: stats?.total_tenders || 351 },
+    { id: 'crm', label: 'Bidding CRM', icon: Flame },
     { id: 'kanban', label: 'Bid Pipeline', icon: Kanban },
+    ...(canManageUsers ? [{ id: 'users', label: 'User Rights', icon: Users }] : []),
+    ...(canViewAudit ? [{ id: 'audit', label: 'Audit Trail', icon: FileText }] : []),
     { id: 'sync', label: 'Sync Center', icon: RefreshCw },
     { id: 'analytics', label: 'Analytics & Insights', icon: BarChart3 },
     { id: 'settings', label: 'Company Settings', icon: Sliders },
