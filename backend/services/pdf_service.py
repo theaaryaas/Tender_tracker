@@ -43,28 +43,62 @@ class PDFService:
                 client = httpx.AsyncClient(timeout=35.0, follow_redirects=True)
                 close_client = True
 
+            is_gepnic = any(dom in pdf_url for dom in ("etenders.gov.in", "eprocure.gov.in", "nicgep", "/eprocure", "/nicgep"))
+
             headers = {
                 "User-Agent": settings.USER_AGENT,
                 "Accept": "application/pdf,*/*"
             }
-            response = await client.get(pdf_url, headers=headers)
+            try:
+                response = await client.get(pdf_url, headers=headers)
+            except Exception as net_err:
+                if is_gepnic:
+                    from backend.services.html_extractor_service import HTMLExtractorService
+                    html_data = await HTMLExtractorService.extract_from_url(
+                        pdf_url,
+                        keyword=keyword,
+                        tender_id=tender_id,
+                        tender_title=tender_title,
+                        client=client
+                    )
+                    for k, v in html_data.items():
+                        if v:
+                            result[k] = v
+                    return result
+                result["scope_summary"] = f"Could not retrieve document ({net_err})"
+                return result
 
             if response.status_code != 200 or len(response.content) < 100:
+                if is_gepnic:
+                    from backend.services.html_extractor_service import HTMLExtractorService
+                    html_data = await HTMLExtractorService.extract_from_url(
+                        pdf_url,
+                        keyword=keyword,
+                        tender_id=tender_id,
+                        tender_title=tender_title,
+                        client=client
+                    )
+                    for k, v in html_data.items():
+                        if v:
+                            result[k] = v
+                    return result
                 result["scope_summary"] = f"Could not retrieve document (HTTP {response.status_code})"
                 return result
 
             # If response is HTML web page (e.g. CPPP / GePNIC portal details), parse with HTMLExtractorService
             content_type = response.headers.get("content-type", "").lower()
             is_html = (
-                "text/html" in content_type 
+                is_gepnic
+                or "text/html" in content_type 
                 or response.content.strip().startswith(b"<!DOCTYPE") 
                 or response.content.strip().startswith(b"<html")
                 or b"<table" in response.content[:1024].lower()
+                or b"stale session" in response.content[:2048].lower()
             )
 
             if is_html:
                 from backend.services.html_extractor_service import HTMLExtractorService
-                if "stale session" in response.text.lower() or len(response.text) < 2000:
+                if "stale session" in response.text.lower() or len(response.text) < 2000 or is_gepnic:
                     html_data = await HTMLExtractorService.extract_from_url(
                         pdf_url,
                         keyword=keyword,

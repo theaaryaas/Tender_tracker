@@ -82,6 +82,13 @@ class HTMLExtractorService:
                     result["mse_relaxation"] = "Yes (EMD Exemption Allowed by Buyer)"
                 break
 
+        # Tender Fee & Exemption
+        tender_fee_raw = ""
+        for k, v in data.items():
+            if "tender fee in" in k or k == "tender fee":
+                tender_fee_raw = v.replace(",", "").strip()
+                break
+
         # 3. Work Description & Scope Summary
         work_desc = (
             data.get("work description")
@@ -144,20 +151,31 @@ class HTMLExtractorService:
         result["doc_url"] = best_doc_link
 
         # 7. Generate structured text representation for drawer display
-        summary_lines = ["--- [PORTAL METADATA EXTRACTED FROM HTML] ---"]
+        summary_lines = [
+            "=== OFFICIAL CPPP / ePROCUREMENT TENDER DETAILS & SPECIFICATIONS ===",
+            "--- [PORTAL METADATA EXTRACTED FROM HTML] ---\n"
+        ]
         important_fields = [
-            ("Tender Reference", "tender reference number"),
+            ("Tender Reference Number", "tender reference number"),
             ("Tender ID", "tender id"),
+            ("Organisation Chain", "organisation chain"),
+            ("Tender Title / Work Description", "work description"),
             ("Tender Type", "tender type"),
-            ("Work Description", "work description"),
+            ("Form of Contract", "form of contract"),
             ("Product Category", "product category"),
-            ("Contract Type", "contract type"),
+            ("Tender Fee", "tender fee in ₹"),
+            ("Tender Fee Exemption Allowed", "tender fee exemption allowed"),
             ("EMD Amount", "emd amount in ₹"),
-            ("EMD Exemption", "emd exemption allowed"),
+            ("EMD Exemption Allowed", "emd exemption allowed"),
+            ("EMD Payable To", "emd payable to"),
+            ("EMD Payable At", "emd payable at"),
             ("Tender Value", "tender value in ₹"),
             ("Bid End Date", "bid submission end date"),
             ("Bid Opening Date", "bid opening date"),
-            ("Pre-Qualification Details", "pre qualification details")
+            ("Period Of Work", "period of work(days)"),
+            ("Location", "location"),
+            ("Pre-Qualification Details", "pre qualification details"),
+            ("Covers / Required Submission", "covers information")
         ]
 
         for label, key_name in important_fields:
@@ -199,10 +217,12 @@ class HTMLExtractorService:
             
             # Check for stale session on CPPP / GePNIC
             is_stale = "stale session" in res.text.lower() or len(res.text) < 2000
-            if is_stale and ("eprocure.gov.in" in url or "nicgep" in url or "gep" in url):
+            is_gepnic_portal = any(dom in url for dom in ("eprocure.gov.in", "etenders.gov.in", "nicgep", "gepnic", "/eprocure", "/nicgep"))
+            
+            if (is_stale and is_gepnic_portal) or any(dom in url for dom in ("etenders.gov.in", "eprocure.gov.in")):
                 # Perform automated session recovery
                 recovered = cls._recover_gepnic_session(url, keyword=keyword, tender_id=tender_id, tender_title=tender_title)
-                if recovered and recovered.get("scope_summary"):
+                if recovered and (recovered.get("scope_summary") or recovered.get("extracted_pdf_text")):
                     return recovered
 
             if res.status_code == 200:
@@ -233,21 +253,22 @@ class HTMLExtractorService:
             home = f"{u.scheme}://{u.netloc}/eprocure/app" if "/eprocure" in u.path else f"{u.scheme}://{u.netloc}/nicgep/app"
             mock_site = Site("portal", "Portal", "gepnic", home)
             
-            # Candidate search terms
+            # Candidate search terms: ALWAYS PRIORITIZE tender_id first!
             terms = []
+            if tender_id:
+                clean_tid = tender_id.strip()
+                if clean_tid:
+                    terms.append(clean_tid)
             if keyword:
                 for k in keyword.split(","):
                     clean_k = k.strip()
                     if clean_k and len(clean_k) >= 3 and clean_k not in terms:
                         terms.append(clean_k)
             if tender_title:
-                # Add individual words >= 5 chars
                 words = re.findall(r"\b[A-Za-z]{4,}\b", tender_title)
                 for w in words:
-                    if w.lower() not in ("tender", "supply", "notice", "works", "department", "india", "enabled") and w not in terms:
+                    if w.lower() not in ("tender", "supply", "notice", "works", "department", "india", "enabled", "selection", "model") and w not in terms:
                         terms.append(w)
-            if not terms and tender_id:
-                terms.append(tender_id)
 
             for term in terms[:3]:
                 client = GePNICClient(home)
@@ -265,7 +286,8 @@ class HTMLExtractorService:
                     if target:
                         detail_html = client.opener.open(target["url"], timeout=25).read().decode("utf-8", "replace")
                         return cls.parse_html_content(detail_html, base_url=target["url"])
-                except Exception:
+                except Exception as ex:
+                    print(f"[HTMLExtractorService] search term '{term}' note: {ex}")
                     continue
         except Exception as ex:
             print(f"[HTMLExtractorService] Session recovery failed: {ex}")

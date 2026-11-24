@@ -169,6 +169,19 @@ export const TenderDrawer = () => {
   if (!isDrawerOpen || !tender) return null;
 
   const pdfUrl = tender.doc_url || tender.url;
+  const isGeM = (tender.site_key || '').toLowerCase() === 'gem' || (tender.portal || '').toLowerCase().includes('gem');
+  const isGepnic = !isGeM && (
+    (pdfUrl && (pdfUrl.includes('eprocure') || pdfUrl.includes('etenders') || pdfUrl.includes('nicgep') || pdfUrl.includes('DirectLink') || pdfUrl.includes('session=')))
+    || (tender.portal || '').toLowerCase().includes('procurement')
+    || (tender.portal || '').toLowerCase().includes('cppp')
+  );
+
+  const getPortalHomeUrl = () => {
+    if (pdfUrl && pdfUrl.includes('etenders.gov.in')) return 'https://etenders.gov.in/eprocure/app';
+    if (pdfUrl && pdfUrl.includes('eprocure.gov.in')) return 'https://eprocure.gov.in/eprocure/app';
+    if (pdfUrl && pdfUrl.includes('bihar')) return 'https://eproc2.bihar.gov.in';
+    return pdfUrl || '#';
+  };
 
   const handleSaveNotes = async () => {
     setSaving(true);
@@ -788,9 +801,18 @@ export const TenderDrawer = () => {
 
   const isEmdToVerify = emdVal.includes('check tender') || (!tender.emd_amount && !isEmdNil);
 
-  const hasEmdExemption = emdExemptVal === 'yes' || 
-    emdExemptVal.includes('exempt') || 
-    mseRelaxVal.includes('emd exemption');
+  const isEmdExemptionDenied = 
+    emdExemptVal === 'no' || 
+    emdExemptVal.startsWith('no') || 
+    emdExemptVal.includes('not allowed') ||
+    emdExemptVal.includes('denied');
+
+  const hasEmdExemption = !isEmdExemptionDenied && (
+    emdExemptVal === 'yes' || 
+    emdExemptVal.startsWith('yes') || 
+    emdExemptVal.includes('allowed') ||
+    (emdExemptVal.includes('exempt') && !emdExemptVal.includes('not'))
+  );
 
   const isEmdExempt = isEmdNil || hasEmdExemption;
 
@@ -983,38 +1005,66 @@ export const TenderDrawer = () => {
                 <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="min-w-0">
-                <p className="font-bold text-[#1E182B] text-xs sm:text-sm truncate">Official Bid Specification Document</p>
+                <p className="font-bold text-[#1E182B] text-xs sm:text-sm truncate">
+                  {isGeM ? 'Official Bid Specification Document' : 'Official Portal Specifications & Notice'}
+                </p>
                 <p className="text-[10px] sm:text-[11px] text-[#584E6B] truncate">
                   {tender.extracted_pdf_text
-                    ? `✓ Official bid PDF parsed (~${tender.extracted_pdf_text.length.toLocaleString('en-IN')} chars)`
-                    : 'Direct link to official portal PDF notice & automated parser'}
+                    ? `✓ Official ${isGeM ? 'bid PDF' : 'portal specs'} parsed (~${tender.extracted_pdf_text.length.toLocaleString('en-IN')} chars)`
+                    : (isGepnic ? 'Direct sync with official eProcurement portal specifications' : 'Direct link to official portal PDF notice & automated parser')}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              {pdfUrl && (
-                <a
-                  href={pdfUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
-                >
-                  <span>Open PDF</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+              {isGepnic ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const textToCopy = tender.tender_id || tender.reference || '';
+                      navigator.clipboard.writeText(textToCopy);
+                      showNotification(`Tender ID "${textToCopy}" copied! Paste in portal search to download files.`, 'success');
+                    }}
+                    className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
+                    title="Copy Tender ID for portal search"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy ID</span>
+                  </button>
+                  <a
+                    href={getPortalHomeUrl()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
+                    title="Open live eProcurement portal homepage"
+                  >
+                    <span>Open Portal</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </>
+              ) : (
+                pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
+                  >
+                    <span>Open PDF</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )
               )}
-              {pdfUrl && (
-                <button
-                  type="button"
-                  disabled={parsingPdf}
-                  onClick={handleParsePdf}
-                  className="flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] disabled:opacity-50 text-white font-semibold inline-flex items-center justify-center space-x-1.5 shadow-xs transition cursor-pointer text-xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{parsingPdf ? 'Parsing...' : 'Re-Parse PDF'}</span>
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={parsingPdf}
+                onClick={handleParsePdf}
+                className="flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-[#6B46C1] hover:bg-[#553C9A] active:bg-[#44307B] disabled:opacity-50 text-white font-semibold inline-flex items-center justify-center space-x-1.5 shadow-xs transition cursor-pointer text-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{parsingPdf ? 'Parsing...' : (isGeM ? 'Re-Parse PDF' : 'Re-Parse Specs')}</span>
+              </button>
             </div>
           </div>
 
@@ -1037,17 +1087,21 @@ export const TenderDrawer = () => {
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
                     isEmdNil 
                       ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' 
-                      : (hasEmdExemption
-                          ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
-                          : (isEmdToVerify 
-                              ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
-                              : 'text-[#4A337A] bg-[#E6E6FA] border-[#D8BFD8]'))
+                      : (isEmdExemptionDenied
+                          ? 'text-[#C53030] bg-[#FFF5F5] border-[#FEB2B2]'
+                          : (hasEmdExemption
+                              ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
+                              : (isEmdToVerify 
+                                  ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
+                                  : 'text-[#C53030] bg-[#FFF5F5] border-[#FEB2B2]')))
                   }`}>
                     {isEmdNil 
                       ? 'Exempt / Nil' 
-                      : (hasEmdExemption 
-                          ? 'MSE / Startup Exempt' 
-                          : (isEmdToVerify ? 'To Verify' : 'Mandatory'))}
+                      : (isEmdExemptionDenied
+                          ? 'Strict (No Exemption)'
+                          : (hasEmdExemption 
+                              ? 'MSE / Startup Exempt' 
+                              : (isEmdToVerify ? 'To Verify' : 'Mandatory')))}
                   </span>
                 </div>
                 <p className="font-bold text-[#1E182B] text-sm">
@@ -1056,11 +1110,13 @@ export const TenderDrawer = () => {
                 <span className="text-[10px] text-[#584E6B] block leading-tight">
                   {isEmdNil 
                     ? 'Zero earnest money required; no capital lock-in.' 
-                    : (hasEmdExemption
-                        ? 'Exemption allowed for registered MSEs & Startups; payable for others.'
-                        : (isEmdToVerify 
-                            ? 'Verify exact EMD in tender document or ATC.'
-                            : `Advisory Bank: ${dossier?.financials?.emdBank || 'Buyer Designated'}. EMD mandatory.`))}
+                    : (isEmdExemptionDenied
+                        ? 'EMD exemption disallowed by buyer. Full EMD payment mandatory.'
+                        : (hasEmdExemption
+                            ? 'Exemption allowed for registered MSEs & Startups; payable for others.'
+                            : (isEmdToVerify 
+                                ? 'Verify exact EMD in tender document or ATC.'
+                                : `Advisory Bank: ${dossier?.financials?.emdBank || 'Buyer Designated'}. EMD mandatory.`)))}
                 </span>
               </div>
 

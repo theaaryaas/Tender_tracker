@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 BitVivid Tender Tracker
 -----------------------
@@ -456,7 +456,7 @@ class GePNICClient:
 
 def parse_gepnic(page_html: str, page_url: str, site: Site, keyword: str) -> list[dict[str, Any]]:
     rows = []
-    for chunk in re.findall(r'<tr class="(?:even|odd)" id="informal_\d+">(.*?)</tr>', page_html, re.S | re.I):
+    for chunk in re.findall(r'<tr[^>]*class="[^\"]*(?:even|odd)[^\"]*"[^>]*id="informal(?:\d*|_\d+)?"[^>]*>(.*?)</tr>', page_html, re.S | re.I):
         cells = re.findall(r"<td[^>]*>(.*?)</td>", chunk, re.S | re.I)
         if len(cells) < 6:
             continue

@@ -260,10 +260,20 @@ class EligibilityService:
         emd_str = (emd_amount or "").lower()
         ex_str = (emd_exemption or "").lower()
         mse_str_lower = (mse_relaxation or "").lower()
-        is_emd_exempt = (
-            ex_str == "yes" 
-            or "exempt" in ex_str 
-            or "emd exemption" in mse_str_lower 
+
+        # Check if EMD exemption is explicitly disallowed/denied
+        emd_exempt_denied = (
+            ex_str in ("no", "false", "0")
+            or ex_str.startswith("no")
+            or "not allowed" in ex_str
+            or "denied" in ex_str
+        )
+
+        is_emd_exempt = not emd_exempt_denied and (
+            ex_str in ("yes", "true", "1")
+            or ex_str.startswith("yes")
+            or ("allowed" in ex_str and "not allowed" not in ex_str)
+            or ("exempt" in ex_str and "not" not in ex_str and "no" not in ex_str)
             or "exempt" in emd_str
             or "nil" in emd_str
             or "not required" in emd_str
@@ -285,7 +295,10 @@ class EligibilityService:
                     notes_parts.append(f"Moderate EMD amount: ₹ {amt:,.0f}.")
                 else:
                     emd_score = 4
-                    notes_parts.append(f"High EMD requirement: ₹ {amt:,.0f}.")
+                    if emd_exempt_denied:
+                        notes_parts.append(f"High EMD requirement: ₹ {amt:,.0f} (Exemption explicitly disallowed by buyer).")
+                    else:
+                        notes_parts.append(f"High EMD requirement: ₹ {amt:,.0f}.")
             else:
                 emd_score = 12
 
