@@ -110,7 +110,8 @@ class TenderRepository:
 
     @staticmethod
     def get_by_tender_code(db: Session, code: str) -> Optional[Tender]:
-        return db.query(Tender).filter(Tender.tender_id == code).first()
+        clean_code = str(code).strip()
+        return db.query(Tender).filter((Tender.tender_id == clean_code) | (Tender.reference == clean_code)).first()
 
     @staticmethod
     def upsert(db: Session, data: dict) -> Tuple[Tender, bool]:

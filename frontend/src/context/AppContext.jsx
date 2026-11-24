@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { analyticsApi, syncApi, authApi } from '../utils/api';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { analyticsApi, syncApi, authApi, tenderApi } from '../utils/api';
+import { parseLocation, getUrlForTab } from '../utils/navigation';
 
 const AppContext = createContext();
 
@@ -17,8 +18,10 @@ const getInitialUser = () => {
 };
 
 export const AppProvider = ({ children }) => {
+  const initialNav = typeof window !== 'undefined' ? parseLocation(window.location.pathname) : { tab: 'dashboard', tenderId: null };
+
   const [user, setUser] = useState(getInitialUser);
-  const [currentTab, setCurrentTab] = useState('dashboard'); // dashboard, tenders, kanban, sync, analytics, settings
+  const [currentTab, _setCurrentTab] = useState(initialNav.tab || 'dashboard');
   const [stats, setStats] = useState(null);
   const [syncState, setSyncState] = useState({ is_running: false, progress: 0, current_task: 'Idle' });
   const [selectedTender, setSelectedTender] = useState(null);
@@ -28,7 +31,143 @@ export const AppProvider = ({ children }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [notification, setNotification] = useState(null);
 
+  // Keep a ref to currentTab to prevent stale closures in history listeners
+  const currentTabRef = useRef(currentTab);
+  useEffect(() => {
+    currentTabRef.current = currentTab;
+  }, [currentTab]);
+
   const isAuthenticated = Boolean(user);
+
+  const showNotification = useCallback((message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
+  }, []);
+
+  // Synchronized tab switcher that updates the browser URL
+  const setCurrentTab = useCallback((tab, options = {}) => {
+    const { push = true, closeDrawer = true } = options;
+    _setCurrentTab(tab);
+    currentTabRef.current = tab;
+
+    if (closeDrawer && isDrawerOpen) {
+      setIsDrawerOpen(false);
+      setSelectedTender(null);
+    }
+
+    if (typeof window !== 'undefined') {
+      const targetUrl = getUrlForTab(tab, null);
+      if (push && window.location.pathname !== targetUrl) {
+        window.history.pushState({ tab, tenderId: null }, '', targetUrl);
+      }
+    }
+  }, [isDrawerOpen]);
+
+  // Synchronized tender drawer opener that updates the URL to /alltenders/:tenderId
+  const openTenderDrawer = useCallback((tender, options = {}) => {
+    if (!tender) return;
+    const { push = true } = options;
+    setSelectedTender(tender);
+    setIsDrawerOpen(true);
+
+    const tid = tender.tender_id || tender.id;
+    if (tid && typeof window !== 'undefined') {
+      const targetUrl = `/alltenders/${encodeURIComponent(tid)}`;
+      if (push && window.location.pathname !== targetUrl && window.location.pathname !== `/alltenders/${tid}`) {
+        window.history.pushState({ tab: 'tenders', tenderId: tid }, '', targetUrl);
+      }
+    }
+  }, []);
+
+  // Synchronized tender drawer closer that reverts the URL back to the tab root (e.g. /alltenders)
+  const closeTenderDrawer = useCallback((options = {}) => {
+    const { push = true } = options;
+    setIsDrawerOpen(false);
+    setSelectedTender(null);
+
+    if (typeof window !== 'undefined') {
+      const activeTab = currentTabRef.current || 'dashboard';
+      const targetUrl = getUrlForTab(activeTab, null);
+      if (push && window.location.pathname !== targetUrl) {
+        window.history.pushState({ tab: activeTab, tenderId: null }, '', targetUrl);
+      }
+    }
+  }, []);
+
+  // Listen to browser Back and Forward button events (popstate)
+  useEffect(() => {
+    const handlePopState = async () => {
+      const { tab, tenderId } = parseLocation(window.location.pathname);
+      _setCurrentTab(tab);
+      currentTabRef.current = tab;
+
+      if (tenderId) {
+        // Only fetch if tender isn't already loaded in state
+        setSelectedTender((prev) => {
+          if (prev && (String(prev.tender_id) === String(tenderId) || String(prev.id) === String(tenderId))) {
+            setIsDrawerOpen(true);
+            return prev;
+          }
+          // Fetch tender details
+          tenderApi.getTender(tenderId)
+            .then((res) => {
+              setSelectedTender(res.data);
+              setIsDrawerOpen(true);
+              const preferredCode = res.data.tender_id || res.data.id;
+              const updatedCanonical = `/alltenders/${encodeURIComponent(preferredCode)}`;
+              if (window.location.pathname !== updatedCanonical && window.location.pathname !== `/alltenders/${preferredCode}`) {
+                window.history.replaceState({ tab: 'tenders', tenderId: preferredCode }, '', updatedCanonical);
+              }
+            })
+            .catch((err) => {
+              console.warn('Failed to load tender from browser history navigation', err);
+              setIsDrawerOpen(false);
+              setSelectedTender(null);
+            });
+          return prev;
+        });
+      } else {
+        setIsDrawerOpen(false);
+        setSelectedTender(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Deep linking: Hydrate tender or canonicalize URL on initial load and authentication
+  useEffect(() => {
+    const { tab, tenderId } = parseLocation(window.location.pathname);
+    _setCurrentTab(tab);
+    currentTabRef.current = tab;
+
+    if (tenderId) {
+      if (isAuthenticated) {
+        tenderApi.getTender(tenderId)
+          .then((res) => {
+            setSelectedTender(res.data);
+            setIsDrawerOpen(true);
+            const preferredCode = res.data.tender_id || res.data.id;
+            const updatedCanonical = `/alltenders/${encodeURIComponent(preferredCode)}`;
+            if (window.location.pathname !== updatedCanonical && window.location.pathname !== `/alltenders/${preferredCode}`) {
+              window.history.replaceState({ tab: 'tenders', tenderId: preferredCode }, '', updatedCanonical);
+            }
+          })
+          .catch((err) => {
+            console.warn(`Tender "${tenderId}" from URL not found`, err);
+            showNotification(`Tender "${tenderId}" could not be found or has been removed.`, 'error');
+            window.history.replaceState({ tab: 'tenders', tenderId: null }, '', '/alltenders');
+          });
+      }
+    } else {
+      // Normalize aliases like /tenders -> /alltenders
+      const canonical = getUrlForTab(tab);
+      if (window.location.pathname !== '/' && window.location.pathname !== canonical) {
+        window.history.replaceState({ tab, tenderId: null }, '', canonical);
+      }
+    }
+  }, [isAuthenticated, showNotification]);
 
   // Validate active session on mount
   useEffect(() => {
@@ -102,11 +241,6 @@ export const AppProvider = ({ children }) => {
     }
   }, [syncState.is_running, isAuthenticated]);
 
-  const showNotification = (message, type = 'info') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
-
   const login = async (identifier, password) => {
     const res = await authApi.login({ identifier, password });
     const { access_token, user: userData } = res.data;
@@ -137,18 +271,8 @@ export const AppProvider = ({ children }) => {
     showNotification('Logged out successfully', 'info');
   };
 
-  const openTenderDrawer = (tender) => {
-    setSelectedTender(tender);
-    setIsDrawerOpen(true);
-  };
-
   const openNotificationModal = () => setIsNotificationModalOpen(true);
   const closeNotificationModal = () => setIsNotificationModalOpen(false);
-
-  const closeTenderDrawer = () => {
-    setIsDrawerOpen(false);
-    setSelectedTender(null);
-  };
 
   return (
     <AppContext.Provider

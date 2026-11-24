@@ -16,9 +16,11 @@ import {
   RotateCcw,
   Building2,
   Tag,
-  Zap
+  Zap,
+  Copy
 } from 'lucide-react';
 import { tenderApi, exportApi, crmApi } from '../../utils/api';
+import { copyTenderLinkToClipboard } from '../../utils/navigation';
 
 const cleanTenderTitle = (rawTitle, organisation = '') => {
   if (!rawTitle) return organisation ? `Tender Notice — ${organisation}` : 'Tender Notice Details';
@@ -44,6 +46,16 @@ export const AllTendersView = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [loading, setLoading] = useState(false);
+
+  const handleCopyLink = async (e, tid) => {
+    e.stopPropagation();
+    try {
+      const url = await copyTenderLinkToClipboard(tid);
+      showNotification(`Copied direct link for ${tid}`, 'success');
+    } catch {
+      showNotification('Failed to copy tender link', 'error');
+    }
+  };
 
   const handlePickTender = async (t) => {
     try {
@@ -695,6 +707,15 @@ export const AllTendersView = () => {
                         <span>View</span>
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyLink(e, t.tender_id || t.id)}
+                        className="h-8 w-8 rounded-lg bg-[#FAF9FD] hover:bg-[#E6E6FA] border border-[#E2DEEC] text-[#6B46C1] flex items-center justify-center transition touch-manipulation cursor-pointer"
+                        title="Copy direct link to this tender"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+
                       {t.url && (
                         <a
                           href={t.url}
@@ -936,6 +957,13 @@ export const AllTendersView = () => {
                             title="Inspect tender"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => handleCopyLink(e, t.tender_id || t.id)}
+                            className="p-1 text-slate-400 hover:text-[#6B46C1] rounded transition cursor-pointer"
+                            title="Copy direct share link"
+                          >
+                            <Copy className="w-4 h-4" />
                           </button>
                           {t.url && (
                             <a

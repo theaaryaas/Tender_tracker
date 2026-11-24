@@ -46,6 +46,7 @@ import {
 import { tenderApi } from '../../utils/api';
 import { formatIndianDateTime } from '../../utils/dateUtils';
 import { TenderChatModal } from '../chatbot/TenderChatModal';
+import { copyTenderLinkToClipboard } from '../../utils/navigation';
 
 // Defensive sanitizer to prevent Hindi mojibake, control chars or clause bleed
 const cleanScopeText = (raw) => {
@@ -117,6 +118,17 @@ export const TenderDrawer = () => {
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [scheduleSearch, setScheduleSearch] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const handleCopyShareLink = async () => {
+    if (!tender) return;
+    try {
+      const code = tender.tender_id || tender.id;
+      const url = await copyTenderLinkToClipboard(code);
+      showNotification(`Direct link copied: ${url}`, 'success');
+    } catch {
+      showNotification('Failed to copy tender link to clipboard', 'error');
+    }
+  };
 
   const handleDeleteTender = async () => {
     if (!tender) return;
@@ -894,14 +906,25 @@ export const TenderDrawer = () => {
               {getCleanTitle()}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={closeTenderDrawer}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-[#8C82A0] hover:text-[#1E182B] hover:bg-[#FAF9FD] active:bg-[#E2DEEC] border border-transparent hover:border-[#E2DEEC] transition flex items-center justify-center shrink-0 cursor-pointer"
-            title="Close modal (Esc)"
-          >
-            <X className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyShareLink}
+              className="px-2.5 py-1.5 rounded-xl bg-[#FAF9FD] hover:bg-[#E6E6FA] text-[#553C9A] border border-[#D8BFD8] text-xs font-semibold inline-flex items-center space-x-1.5 transition cursor-pointer shadow-2xs"
+              title="Copy direct shareable link to this tender"
+            >
+              <Copy className="w-3.5 h-3.5 text-[#6B46C1]" />
+              <span className="hidden sm:inline">Share Link</span>
+            </button>
+            <button
+              type="button"
+              onClick={closeTenderDrawer}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-[#8C82A0] hover:text-[#1E182B] hover:bg-[#FAF9FD] active:bg-[#E2DEEC] border border-transparent hover:border-[#E2DEEC] transition flex items-center justify-center shrink-0 cursor-pointer"
+              title="Close modal (Esc)"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Scrollable Content */}
