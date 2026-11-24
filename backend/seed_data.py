@@ -38,11 +38,11 @@ def seed_database():
             print("Seeded default keywords")
         db.commit()
 
-        # 3. Seed Default Super Admin if no users exist
+        # 3. Seed Default Super Admin if admin account does not exist
         from backend.models.user import User
         from backend.core.security import get_password_hash
-        user_count = db.query(User).count()
-        if user_count == 0:
+        existing_admin = db.query(User).filter((User.username == "admin") | (User.email == "admin@bitvivid.com")).first()
+        if not existing_admin:
             default_admin = User(
                 username="admin",
                 email="admin@bitvivid.com",
