@@ -532,9 +532,22 @@ def get_tender_notifications(
         }
     }
 
-@router.get("/{tender_id}", response_model=TenderResponse)
-def get_tender(tender_id: int, db: Session = Depends(get_db)):
-    tender = TenderRepository.get_by_id(db, tender_id)
+@router.get("/{tender_id:path}", response_model=TenderResponse)
+def get_tender(tender_id: str, db: Session = Depends(get_db)):
+    import urllib.parse
+    code = urllib.parse.unquote(tender_id).strip()
+
+    # 1. Primary match by tender_id / reference code (e.g. 2026_BBAU_934932_1)
+    tender = TenderRepository.get_by_tender_code(db, code)
+    if not tender and code != tender_id:
+        tender = TenderRepository.get_by_tender_code(db, tender_id.strip())
+
+    # 2. Secondary match by numeric database primary key ID (e.g. 670)
+    if not tender and code.isdigit():
+        tender = TenderRepository.get_by_id(db, int(code))
+    if not tender and tender_id.isdigit():
+        tender = TenderRepository.get_by_id(db, int(tender_id))
+
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
     return tender

@@ -17,10 +17,13 @@ import {
   Building2,
   Tag,
   Zap,
-  Trash2
+  Trash2,
+  Copy
 } from 'lucide-react';
 import { tenderApi, exportApi, crmApi } from '../../utils/api';
 import { formatDeadline } from '../../utils/dateUtils';
+import { copyTenderLinkToClipboard } from '../../utils/navigation';
+
 
 const cleanTenderTitle = (rawTitle, organisation = '') => {
   if (!rawTitle) return organisation ? `Tender Notice — ${organisation}` : 'Tender Notice Details';
@@ -69,6 +72,16 @@ export const AllTendersView = () => {
       showNotification(err.response?.data?.detail || 'Failed to purge past tenders', 'error');
     } finally {
       setPurgingPast(false);
+    }
+  };
+
+  const handleCopyLink = async (e, tid) => {
+    e.stopPropagation();
+    try {
+      const url = await copyTenderLinkToClipboard(tid);
+      showNotification(`Copied direct link for ${tid}`, 'success');
+    } catch {
+      showNotification('Failed to copy tender link', 'error');
     }
   };
 
@@ -286,11 +299,10 @@ export const AllTendersView = () => {
             <button
               type="button"
               onClick={() => setShowMobileFilters((prev) => !prev)}
-              className={`sm:hidden inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition touch-manipulation cursor-pointer ${
-                showMobileFilters || activeFiltersCount > 0
+              className={`sm:hidden inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition touch-manipulation cursor-pointer ${showMobileFilters || activeFiltersCount > 0
                   ? 'bg-[#E6E6FA] text-[#4A337A] border-[#D8BFD8]'
                   : 'bg-[#FAF9FD] text-[#584E6B] border-[#E2DEEC] hover:bg-[#E6E6FA]'
-              }`}
+                }`}
             >
               <ListFilter className="w-3.5 h-3.5 text-[#6B46C1]" />
               <span>Filters</span>
@@ -355,11 +367,10 @@ export const AllTendersView = () => {
               setIsStarredOnly((prev) => !prev);
               setPage(1);
             }}
-            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${
-              isStarredOnly
+            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${isStarredOnly
                 ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
                 : 'bg-[#FAF9FD] text-[#584E6B] border-[#E2DEEC] hover:bg-[#E6E6FA]'
-            }`}
+              }`}
           >
             <Star className={`w-3.5 h-3.5 ${isStarredOnly ? 'text-amber-500 fill-amber-400' : 'text-slate-400'}`} />
             <span>⭐ Favorites</span>
@@ -371,11 +382,10 @@ export const AllTendersView = () => {
               setEligibility((prev) => prev === 'direct fit' ? 'all' : 'direct fit');
               setPage(1);
             }}
-            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${
-              eligibility === 'direct fit'
+            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${eligibility === 'direct fit'
                 ? 'bg-emerald-100 text-emerald-900 border-emerald-300 shadow-2xs'
                 : 'bg-[#FAF9FD] text-[#584E6B] border-[#E2DEEC] hover:bg-[#E6E6FA]'
-            }`}
+              }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <span>Direct Fit</span>
@@ -387,11 +397,10 @@ export const AllTendersView = () => {
               setPortal((prev) => prev === 'GeM' ? 'all' : 'GeM');
               setPage(1);
             }}
-            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${
-              portal === 'GeM'
+            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${portal === 'GeM'
                 ? 'bg-[#E6E6FA] text-[#4A337A] border-[#D8BFD8] shadow-2xs'
                 : 'bg-[#FAF9FD] text-[#584E6B] border-[#E2DEEC] hover:bg-[#E6E6FA]'
-            }`}
+              }`}
           >
             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
             <span>GeM BidPlus</span>
@@ -403,11 +412,10 @@ export const AllTendersView = () => {
               setPortal((prev) => prev === 'CPPP' ? 'all' : 'CPPP');
               setPage(1);
             }}
-            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${
-              portal === 'CPPP'
+            className={`shrink-0 inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-semibold transition border touch-manipulation cursor-pointer ${portal === 'CPPP'
                 ? 'bg-[#E6E6FA] text-[#4A337A] border-[#D8BFD8] shadow-2xs'
                 : 'bg-[#FAF9FD] text-[#584E6B] border-[#E2DEEC] hover:bg-[#E6E6FA]'
-            }`}
+              }`}
           >
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             <span>CPPP</span>
@@ -587,11 +595,10 @@ export const AllTendersView = () => {
                       <button
                         type="button"
                         onClick={(e) => handleStarToggle(e, t)}
-                        className={`p-1.5 rounded-lg border transition cursor-pointer touch-manipulation shrink-0 ${
-                          t.is_starred
+                        className={`p-1.5 rounded-lg border transition cursor-pointer touch-manipulation shrink-0 ${t.is_starred
                             ? 'bg-amber-50 text-amber-500 border-amber-200'
                             : 'bg-slate-50 text-slate-400 border-slate-200 hover:text-amber-500'
-                        }`}
+                          }`}
                         title={t.is_starred ? 'Favorited' : 'Add to favorites'}
                       >
                         <Star className={`w-3.5 h-3.5 ${t.is_starred ? 'fill-amber-400 text-amber-500' : ''}`} />
@@ -676,8 +683,7 @@ export const AllTendersView = () => {
                       <select
                         value={t.status || 'New'}
                         onChange={(e) => handleStatusChange(e, t.id)}
-                        className={`w-full h-8 px-2 rounded-lg text-xs font-semibold border transition touch-manipulation ${
-                          t.status === 'Bid Ready'
+                        className={`w-full h-8 px-2 rounded-lg text-xs font-semibold border transition touch-manipulation ${t.status === 'Bid Ready'
                             ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                             : t.status === 'Reviewing'
                               ? 'bg-amber-100 text-amber-900 border-amber-300'
@@ -686,7 +692,7 @@ export const AllTendersView = () => {
                                 : t.status === 'Won'
                                   ? 'bg-purple-100 text-purple-900 border-purple-300'
                                   : 'bg-slate-100 text-slate-700 border-slate-300'
-                        }`}
+                          }`}
                       >
                         <option value="New">Status: New</option>
                         <option value="Reviewing">Status: Reviewing</option>
@@ -743,6 +749,15 @@ export const AllTendersView = () => {
                         <span>View</span>
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyLink(e, t.tender_id || t.id)}
+                        className="h-8 w-8 rounded-lg bg-[#FAF9FD] hover:bg-[#E6E6FA] border border-[#E2DEEC] text-[#6B46C1] flex items-center justify-center transition touch-manipulation cursor-pointer"
+                        title="Copy direct link to this tender"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+
                       {t.url && (
                         <a
                           href={t.url}
@@ -775,11 +790,10 @@ export const AllTendersView = () => {
                       setPage(1);
                     }}
                     title={isStarredOnly ? "Showing ⭐ Favorites only — Click to show all" : "Click to show ⭐ Favorites only"}
-                    className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer ${
-                      isStarredOnly
+                    className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer ${isStarredOnly
                         ? "bg-amber-100 text-amber-500 ring-2 ring-amber-400 shadow-xs"
                         : "text-slate-400 hover:text-amber-500 hover:bg-slate-100"
-                    }`}
+                      }`}
                   >
                     <Star className={`w-4 h-4 ${isStarredOnly ? "fill-amber-400 text-amber-500" : ""}`} />
                   </button>
@@ -850,9 +864,8 @@ export const AllTendersView = () => {
                       {/* Star */}
                       <td className="py-3 px-3 text-center" onClick={(e) => handleStarToggle(e, t)}>
                         <Star
-                          className={`w-4 h-4 mx-auto transition ${
-                            t.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-300 hover:text-slate-500'
-                          }`}
+                          className={`w-4 h-4 mx-auto transition ${t.is_starred ? 'text-amber-400 fill-amber-400' : 'text-slate-300 hover:text-slate-500'
+                            }`}
                         />
                       </td>
 
@@ -907,13 +920,12 @@ export const AllTendersView = () => {
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
-                              fitScore >= 75
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold border ${fitScore >= 75
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                 : fitScore >= 50
                                   ? 'bg-amber-50 text-amber-800 border-amber-200'
                                   : 'bg-slate-100 text-slate-700 border-slate-200'
-                            }`}
+                              }`}
                           >
                             {fitLabel}
                           </span>
@@ -933,15 +945,14 @@ export const AllTendersView = () => {
                         <select
                           value={t.status || 'New'}
                           onChange={(e) => handleStatusChange(e, t.id)}
-                          className={`text-xs font-semibold rounded px-2 py-1 border transition ${
-                            t.status === 'Bid Ready'
+                          className={`text-xs font-semibold rounded px-2 py-1 border transition ${t.status === 'Bid Ready'
                               ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                               : t.status === 'Reviewing'
                                 ? 'bg-amber-100 text-amber-900 border-amber-300'
                                 : t.status === 'Submitted'
                                   ? 'bg-blue-100 text-blue-900 border-blue-300'
                                   : 'bg-slate-100 text-slate-700 border-slate-300'
-                          }`}
+                            }`}
                         >
                           <option value="New">New</option>
                           <option value="Reviewing">Reviewing</option>
@@ -991,6 +1002,13 @@ export const AllTendersView = () => {
                             title="Inspect tender"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => handleCopyLink(e, t.tender_id || t.id)}
+                            className="p-1 text-slate-400 hover:text-[#6B46C1] rounded transition cursor-pointer"
+                            title="Copy direct share link"
+                          >
+                            <Copy className="w-4 h-4" />
                           </button>
                           {t.url && (
                             <a
