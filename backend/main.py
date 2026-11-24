@@ -21,7 +21,8 @@ from backend.routes import (
     auth_router,
     crm_router,
     users_router,
-    audit_router
+    audit_router,
+    contacts_router
 )
 try:
     from chatbot.routes import router as chatbot_router
@@ -152,6 +153,7 @@ app.include_router(export_router, prefix=settings.API_V1_STR)
 app.include_router(crm_router, prefix=settings.API_V1_STR)
 app.include_router(users_router, prefix=settings.API_V1_STR)
 app.include_router(audit_router, prefix=settings.API_V1_STR)
+app.include_router(contacts_router, prefix=settings.API_V1_STR)
 if chatbot_router:
     app.include_router(chatbot_router, prefix=settings.API_V1_STR)
 

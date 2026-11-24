@@ -169,7 +169,8 @@ class PDFService:
                 'OEM Average Turnover', 'Years of Past Experience Required',
                 'Turnover eligibility criteria', 'MSE Relaxation', 'Startup Relaxation',
                 'Primary product category', 'Type of Bid', 'Evaluation Method', 'RA Qualification Rule',
-                'Advisory Bank', 'ePBG Percentage', 'EMD Amount', 'Beneficiary'
+                'Advisory Bank', 'ePBG Percentage', 'EMD Amount', 'Beneficiary',
+                'Buyer Email id', 'HOD Email id', 'Email id', 'Contact Email'
             ]
 
             idx = 0

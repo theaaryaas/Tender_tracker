@@ -176,6 +176,11 @@ class HTMLExtractorService:
             ("Location", "location"),
             ("Pre-Qualification Details", "pre qualification details"),
             ("Covers / Required Submission", "covers information")
+
+            ("Buyer / Contact Email", "email"),
+            ("Nodal Officer Email", "officer email"),
+            ("Pre-Qualification Details", "pre qualification details")
+
         ]
 
         for label, key_name in important_fields:

@@ -13,6 +13,7 @@ export const TAB_ROUTES = {
   analytics: '/analytics',
   users: '/users',
   audit: '/audit',
+  contacts: '/contacts',
   settings: '/settings',
 };
 
@@ -31,6 +32,9 @@ export const ROUTE_ALIASES = {
   '/analytics': 'analytics',
   '/users': 'users',
   '/audit': 'audit',
+  '/contacts': 'contacts',
+  '/companies': 'contacts',
+  '/company-contacts': 'contacts',
   '/settings': 'settings',
 };
 

@@ -25,6 +25,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: bitvivid-tender-backend
     restart: unless-stopped
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "${BACKEND_PORT}:8000"
     volumes:

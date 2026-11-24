@@ -274,6 +274,7 @@ def purge_past_tenders(
         "message": f"Successfully purged {deleted_count} past unacted tenders not in the bid pipeline."
     }
 
+
 @router.post("/cleanup-expired")
 def cleanup_expired_tenders(
     request: Request,
@@ -281,6 +282,53 @@ def cleanup_expired_tenders(
     current_user: User = Depends(AuthService.get_current_user)
 ):
     return purge_past_tenders(request=request, db=db, current_user=current_user)
+
+@router.get("/contacts")
+@router.get("/contacts/")
+def get_tenders_contacts_alias(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=500),
+    search: Optional[str] = None,
+    portal: Optional[str] = None,
+    has_email_only: bool = Query(False),
+    sort_by: str = Query("tender_count"),
+    sort_desc: bool = True,
+    db: Session = Depends(get_db)
+):
+    """Alias for company contacts directory under /tenders/contacts"""
+    from backend.services.contact_service import ContactService
+    all_contacts = ContactService.get_aggregated_contacts(
+        db=db,
+        search=search,
+        portal=portal,
+        has_email_only=has_email_only,
+        sort_by=sort_by,
+        sort_desc=sort_desc
+    )
+    total = len(all_contacts)
+    skip = (page - 1) * limit
+    paged_items = all_contacts[skip : skip + limit]
+    pages = (total + limit - 1) // limit if total > 0 else 1
+
+    cleaned_items = []
+    for item in paged_items:
+        c = dict(item)
+        c.pop("latest_dt", None)
+        cleaned_items.append(c)
+
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": pages,
+        "items": cleaned_items,
+        "stats": {
+            "total_companies": total,
+            "with_emails": sum(1 for c in all_contacts if c["email"]),
+            "total_linked_tenders": sum(c["tender_count"] for c in all_contacts)
+        }
+    }
+
 
 @router.get("/", response_model=TenderListResponse)
 def get_tenders(

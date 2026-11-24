@@ -93,6 +93,62 @@ export const settingsApi = {
   getPortals: () => api.get('/settings/portals'),
 };
 
+export const contactsApi = {
+  getContacts: async (params) => {
+    try {
+      return await api.get('/contacts', { params });
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        try {
+          return await api.get('/contacts/', { params });
+        } catch (err2) {
+          if (err2.response && err2.response.status === 404) {
+            return await api.get('/tenders/contacts', { params });
+          }
+          throw err2;
+        }
+      }
+      throw err;
+    }
+  },
+  updateEmail: async (companyName, email) => {
+    try {
+      return await api.post('/contacts/update-email', {
+        company_name: companyName,
+        email: email,
+      });
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        return await api.put('/contacts/email', {
+          company_name: companyName,
+          email: email,
+        });
+      }
+      throw err;
+    }
+  },
+  batchExtract: async (limit = 25, companyName = null) => {
+    return await api.post('/contacts/batch-extract', null, {
+      params: {
+        limit,
+        company_name: companyName || undefined,
+      },
+    });
+  },
+  getExtractStatus: async () => {
+    return await api.get('/contacts/extract-status');
+  },
+  extractNotices: async (companyName = null, limit = 15) => {
+    return await api.post('/contacts/batch-extract', null, {
+      params: { company_name: companyName || undefined, limit },
+    });
+  },
+  getCsvUrl: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return `/api/v1/contacts/export/csv${qs ? `?${qs}` : ''}`;
+  },
+};
+
 export const exportApi = {
   getExcelUrl: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
