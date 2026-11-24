@@ -322,15 +322,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  let streamTotalAdded = 0;
+  let streamTotalUpdated = 0;
+  let streamTotalReceived = 0;
+
   // 8. Multi-Page Scraper Progress Listener
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener(async (msg) => {
     if (msg.action === 'CRAWL_PROGRESS' && msg.progress) {
       const p = msg.progress;
       const pct = Math.min(100, Math.round((p.page / p.totalPages) * 100));
-      progressPageText.innerText = `Scraping Page ${p.page} of ${p.totalPages}...`;
-      progressPercent.innerText = `${pct}%`;
       progressBarFill.style.width = `${pct}%`;
-      progressCollectedText.innerText = `Tenders gathered: ${p.collected}`;
+      progressPercent.innerText = `${pct}%`;
+
+      // Real-time batch sync: send this page's tenders immediately
+      if (p.pageTenders && p.pageTenders.length > 0) {
+        progressPageText.innerText = `Page ${p.page} of ${p.totalPages}: Saving ${p.pageTenders.length} tenders...`;
+        try {
+          const res = await postTendersToBackend(p.pageTenders, autoParsePdfCustom.checked);
+          streamTotalAdded += (res.tenders_added || 0);
+          streamTotalUpdated += (res.tenders_updated || 0);
+          streamTotalReceived += p.pageTenders.length;
+          progressCollectedText.innerText = `Synced: ${streamTotalReceived} (${streamTotalAdded} new, ${streamTotalUpdated} updated)`;
+        } catch (postErr) {
+          console.warn('Real-time batch save note:', postErr);
+        }
+      } else {
+        progressPageText.innerText = `Scraping Page ${p.page} of ${p.totalPages}...`;
+        progressCollectedText.innerText = `Tenders gathered: ${p.collected}`;
+      }
+
+      if (p.page < p.totalPages) {
+        progressPageText.innerText = `Advancing to Page ${p.page + 1} of ${p.totalPages}...`;
+      }
     }
   });
 
@@ -343,6 +366,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     stopCrawlBtn.style.display = 'block';
     progressBox.style.display = 'block';
     resultAlert.style.display = 'none';
+
+    streamTotalAdded = 0;
+    streamTotalUpdated = 0;
+    streamTotalReceived = 0;
 
     progressBarFill.style.width = '5%';
     progressPageText.innerText = `Starting scrape across ${pagesToScrape} pages...`;
@@ -360,22 +387,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const collected = crawlResult.tenders || [];
-      if (collected.length === 0) {
+      if (collected.length === 0 && streamTotalReceived === 0) {
         throw new Error('No tenders could be extracted from the navigated pages.');
       }
 
-      progressPageText.innerText = `Sending ${collected.length} tenders to BitVivid (${currentServerUrl})...`;
-      progressBarFill.style.width = '100%';
+      // If streaming missed anything or had leftover, ensure all are saved
+      if (streamTotalReceived === 0 && collected.length > 0) {
+        progressPageText.innerText = `Sending ${collected.length} tenders to BitVivid (${currentServerUrl})...`;
+        const data = await postTendersToBackend(collected, autoParsePdfCustom.checked);
+        streamTotalAdded = data.tenders_added;
+        streamTotalUpdated = data.tenders_updated;
+        streamTotalReceived = data.total_received;
+      }
 
-      // Post collected batch to backend
-      const data = await postTendersToBackend(collected, autoParsePdfCustom.checked);
+      progressBarFill.style.width = '100%';
+      progressPercent.innerText = '100%';
+      progressPageText.innerText = `Completed all ${pagesToScrape} pages!`;
 
       resultAlert.className = 'alert success';
       resultAlert.innerHTML = `
         <strong>Multi-Page Scrape Complete!</strong><br/>
-        • <strong>${data.total_received}</strong> total tenders scanned<br/>
-        • <strong>${data.tenders_added}</strong> new tenders added<br/>
-        • <strong>${data.tenders_updated}</strong> existing updated (0 duplicates)<br/>
+        • <strong>${streamTotalReceived || collected.length}</strong> total tenders scanned across ${pagesToScrape} pages<br/>
+        • <strong>${streamTotalAdded}</strong> new tenders added<br/>
+        • <strong>${streamTotalUpdated}</strong> existing updated (0 duplicates)<br/>
         <em>All records saved to ${currentServerUrl}.</em>
       `;
     } catch (err) {

@@ -345,13 +345,40 @@ function extractTendersFromPage() {
 }
 
 // ---------------------------------------------------------
-// 4. Next Page Finder (GeM & Tenderlelo)
+// 4. Safe Click & Page Navigation (GeM & Tenderlelo)
 // ---------------------------------------------------------
-function findNextPageButton() {
+function triggerClick(element) {
+  if (!element) return false;
+  try {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) {}
+
+  const mouseEvents = ['mouseenter', 'mouseover', 'mousedown', 'mouseup', 'click'];
+  for (const evt of mouseEvents) {
+    try {
+      element.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }));
+    } catch (e) {}
+  }
+  if (typeof element.click === 'function') {
+    try {
+      element.click();
+    } catch (e) {}
+  }
+  return true;
+}
+
+function advanceToPage(targetPage) {
   const isTenderlelo = window.location.hostname.includes('tenderlelo.com');
 
   if (isTenderlelo) {
-    // Tenderlelo specific pagination buttons
+    // 1. Check for specific page button
+    const pageBtns = Array.from(document.querySelectorAll('#pager button, button.page, .pagination button, .pagination a'));
+    const targetBtn = pageBtns.find((b) => b.innerText.trim() === String(targetPage) && !b.disabled);
+    if (targetBtn) {
+      return triggerClick(targetBtn);
+    }
+
+    // 2. Next page button
     const tlNext = document.querySelector(
       '#pager button[aria-label="Next page"]:not([disabled]), ' +
       'button[aria-label="Next page"]:not([disabled]), ' +
@@ -359,9 +386,8 @@ function findNextPageButton() {
       'button.next-page:not([disabled]), ' +
       '#pager button:last-child:not([disabled])'
     );
-    if (tlNext) return tlNext;
+    if (tlNext) return triggerClick(tlNext);
 
-    // Generic pagination buttons on Tenderlelo
     const buttons = Array.from(document.querySelectorAll('button, a.page-link, .pagination a'));
     const nextBtn = buttons.find((btn) => {
       if (btn.disabled || btn.classList.contains('disabled')) return false;
@@ -369,32 +395,103 @@ function findNextPageButton() {
       const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
       return t === '›' || t === '>' || t === '»' || t.includes('next') || aria.includes('next');
     });
-    if (nextBtn) return nextBtn;
-    return null;
+    if (nextBtn) return triggerClick(nextBtn);
+    return false;
   }
 
-  // GeM Pagination
-  // 1. Check next item after current active page in pagination
-  const activePageItem = document.querySelector('.pagination .active, .page-item.active, li.active');
-  if (activePageItem && activePageItem.nextElementSibling) {
-    const nextLink = activePageItem.nextElementSibling.querySelector('a, button');
-    if (nextLink && !activePageItem.nextElementSibling.classList.contains('disabled')) {
-      return nextLink;
+  // GeM BidPlus Strategy 1: Direct main-world execution of native loadBids(pageNumber)
+  try {
+    const script = document.createElement('script');
+    script.textContent = `
+      (function() {
+        try {
+          if (typeof window.loadBids === 'function') {
+            window.currentPage = ${targetPage};
+            window.loadBids(${targetPage});
+          } else if (typeof loadBids === 'function') {
+            loadBids(${targetPage});
+          }
+        } catch (e) {
+          console.warn('GeM loadBids execution error:', e);
+        }
+      })();
+    `;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+  } catch (err) {
+    console.warn('Script injection failed:', err);
+  }
+
+  // GeM BidPlus Strategy 2: SimplePagination DOM anchors (#light-pagination / .pagination2)
+  const targetSelectors = [
+    `#light-pagination a[href="#page-${targetPage}"]`,
+    `#light-pagination a[page="${targetPage}"]`,
+    `.pagination2 a[href="#page-${targetPage}"]`,
+    `a[data-ci-pagination-page="${targetPage}"]`,
+    `a[page="${targetPage}"]`,
+    `a[href*="page=${targetPage}"]`,
+    `#light-pagination a.next`,
+    `.pagination2 a.next`,
+    `a[rel="next"]`
+  ];
+
+  for (const sel of targetSelectors) {
+    const el = document.querySelector(sel);
+    if (el && !el.closest('.disabled')) {
+      triggerClick(el);
+      return true;
     }
   }
 
-  // 2. Explicit next button classes
-  const nextBtn = document.querySelector('.pagination li.next:not(.disabled) a, a.page-link[rel="next"]:not(.disabled), a[aria-label="Next"]:not(.disabled)');
-  if (nextBtn) return nextBtn;
+  // Strategy 3: Text match inside pagination elements
+  const allNavLinks = Array.from(document.querySelectorAll('#light-pagination a, .pagination2 a, .pagination a, ul.pagination li a, .page-item a'));
+  const pageMatch = allNavLinks.find((a) => a.innerText.trim() === String(targetPage) && !a.closest('.disabled'));
+  if (pageMatch) {
+    triggerClick(pageMatch);
+    return true;
+  }
 
-  // 3. Search pagination links by symbol/text
-  const allLinks = Array.from(document.querySelectorAll('.pagination a, .page-item a, a.page-link'));
-  const found = allLinks.find((el) => {
-    const txt = el.innerText.trim();
-    return (txt === '›' || txt === '>' || txt === '»' || txt.toLowerCase().includes('next')) && !el.closest('.disabled');
+  const nextArrow = allNavLinks.find((a) => {
+    const t = a.innerText.trim();
+    return (t === '›' || t === '>' || t === '»' || t.toLowerCase().includes('next')) && !a.closest('.disabled');
   });
+  if (nextArrow) {
+    triggerClick(nextArrow);
+    return true;
+  }
 
-  return found || null;
+  return true;
+}
+
+async function waitForPageChange(firstBidBefore, targetPage, maxWaitMs = 8000) {
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxWaitMs) {
+    if (stopRequested) return false;
+    await new Promise((r) => setTimeout(r, 400));
+
+    // Wait if GeM loader is visible
+    const loader = document.querySelector('#bidCard img[src*="loader"], .loader, .loading, .spinner');
+    if (loader && loader.offsetParent !== null) {
+      continue;
+    }
+
+    const currentTenders = extractTendersFromPage();
+    const firstBidAfter = currentTenders[0]?.tender_id || '';
+
+    // If new cards appeared
+    if (firstBidAfter && firstBidAfter !== firstBidBefore) {
+      await new Promise((r) => setTimeout(r, 400));
+      return true;
+    }
+
+    // Check pagination active indicator
+    const activePageEl = document.querySelector('#light-pagination .current, #light-pagination .active, .pagination .active');
+    if (activePageEl && activePageEl.innerText.trim() === String(targetPage)) {
+      await new Promise((r) => setTimeout(r, 400));
+      return true;
+    }
+  }
+  return false;
 }
 
 // ---------------------------------------------------------
@@ -412,53 +509,33 @@ async function crawlPages(targetPages, progressCallback) {
 
     // 1. Scrape current page
     const pageTenders = extractTendersFromPage();
+    const newPageTenders = [];
     for (const t of pageTenders) {
       if (!masterIds.has(t.tender_id.toLowerCase())) {
         masterIds.add(t.tender_id.toLowerCase());
         masterTenders.push(t);
+        newPageTenders.push(t);
       }
     }
 
-    // 2. Report Progress
+    // 2. Report progress and stream this page's tenders immediately
     progressCallback({
       page: page,
       totalPages: targetPages,
-      collected: masterTenders.length
+      collected: masterTenders.length,
+      pageTenders: newPageTenders,
+      isDone: (page >= targetPages)
     });
 
     // If reached target pages or stop requested, finish
     if (page >= targetPages || stopRequested) break;
 
-    // 3. Find and click Next button
-    const nextBtn = findNextPageButton();
-    if (!nextBtn) {
-      console.log('No next page button found or reached last page.');
-      break;
-    }
-
-    // Take snapshot of first tender to detect when DOM updates
+    // 3. Take snapshot of current first tender and navigate to next page
     const firstBidBefore = pageTenders[0]?.tender_id || '';
+    advanceToPage(page + 1);
 
-    nextBtn.click();
-
-    // 4. Wait for page change (poll up to 4 seconds)
-    let pageChanged = false;
-    for (let wait = 0; wait < 8; wait++) {
-      await new Promise((r) => setTimeout(r, 500));
-      if (stopRequested) break;
-
-      const newTenders = extractTendersFromPage();
-      const firstBidAfter = newTenders[0]?.tender_id || '';
-      if (firstBidAfter && firstBidAfter !== firstBidBefore) {
-        pageChanged = true;
-        break;
-      }
-    }
-
-    if (!pageChanged) {
-      // Small additional delay if network/DOM was slow
-      await new Promise((r) => setTimeout(r, 600));
-    }
+    // 4. Wait for page change
+    await waitForPageChange(firstBidBefore, page + 1, 8000);
   }
 
   isCrawling = false;
