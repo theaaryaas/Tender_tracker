@@ -495,14 +495,34 @@ def test_purge_expired_unactioned_tenders(db_session):
     db_session.commit()
 
 
-def test_cleanup_expired_endpoint():
-    """Verifies POST /api/v1/tenders/cleanup-expired API contract."""
-    res = client.post("/api/v1/tenders/cleanup-expired")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "purged_count" in data
-    assert isinstance(data["purged_count"], int)
+def test_cleanup_expired_endpoint(db_session):
+    """Verifies POST /api/v1/tenders/cleanup-expired API contract with authorized user."""
+    from backend.services.auth_service import AuthService
+    from backend.models.user import User
+    admin_user = db_session.query(User).filter(User.role == "super_admin").first()
+    if not admin_user:
+        admin_user = User(
+            username="test_super_admin",
+            email="test_super_admin@bitvivid.com",
+            hashed_password="hash",
+            role="super_admin",
+            is_active=True,
+            permissions=["can_bulk_delete_expired"]
+        )
+        db_session.add(admin_user)
+        db_session.commit()
+        db_session.refresh(admin_user)
+
+    app.dependency_overrides[AuthService.get_current_user] = lambda: admin_user
+    try:
+        res = client.post("/api/v1/tenders/cleanup-expired")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert "purged_count" in data
+        assert isinstance(data["purged_count"], int)
+    finally:
+        app.dependency_overrides.pop(AuthService.get_current_user, None)
 
 
 # ============================================================================
@@ -558,4 +578,52 @@ async def test_pdf_service_defaults_do_not_falsely_claim_nil_emd():
     res = await PDFService.extract_clauses_from_url("")
     assert res["emd_amount"] == "Check tender PDF / ATC"
     assert res["emd_exemption"] == "Verify MSME / Startup rules"
+
+
+def test_stqc_hard_blocker_gives_zero_score():
+    """
+    If a tender mandates STQC certification, it must be blocked with 0 points.
+    """
+    status, partner, notes, score = EligibilityService.assess(
+        tender_title="Procurement of Video Management System and CCTV Cameras with mandatory STQC certification",
+        scope_summary="Bidder must submit valid STQC certificate for VMS software",
+        full_text="STQC certified OEM required for software deployment",
+        turnover_required="10000000",
+        mse_relaxation="Yes",
+        emd_amount="Nil"
+    )
+    assert score == 0
+    assert "Ineligible" in status
+    assert "STQC" in status
+    assert "STQC certification is mandated" in notes
+
+
+def test_custom_frontend_keywords_and_full_criteria():
+    """
+    Tests frontend custom keywords matching + EMD <= 50k + Exp <= 7 years + MSE Relaxation + Turnover <= capacity = 100 pts.
+    """
+    profile = {
+        "average_annual_turnover_inr": 50000000, # 5 Cr
+        "udyam_registered": True,
+        "dpiit_startup_recognised": True
+    }
+    custom_kws = ["smart city surveillance", "traffic analytics", "crowd sensing"]
+
+    status, partner, notes, score = EligibilityService.assess(
+        tender_title="Implementation of smart city surveillance and traffic analytics platform",
+        scope_summary="Supply of crowd sensing sensors and central analytics dashboard",
+        profile=profile,
+        turnover_required="20000000", # 2 Cr <= 5 Cr (Full 20 pts)
+        mse_relaxation="Yes",         # Full 20 pts
+        emd_amount="45000",           # <= 50k (Full 15 pts)
+        experience_years="5 years",   # <= 7 years (Full 15 pts)
+        custom_keywords=custom_kws    # >= 2 matched (Full 30 pts)
+    )
+
+    # 30 (keywords) + 20 (turnover) + 20 (mse) + 15 (emd) + 15 (exp) = 100 points
+    assert score == 100
+    assert "Direct Technical Alignment (Direct Fit)" in status
+    assert "Direct Bidder" in partner
+    assert "Direct match with active company keywords" in notes
+
 

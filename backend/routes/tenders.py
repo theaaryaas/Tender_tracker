@@ -65,6 +65,9 @@ async def batch_parse_tenders(
                         # Recalculate dynamic fit score with newly parsed clauses
                         prof_setting = db_worker.query(Setting).filter(Setting.key == "company_profile").first()
                         prof = json.loads(prof_setting.value_json) if (prof_setting and prof_setting.value_json) else {}
+                        kw_setting = db_worker.query(Setting).filter(Setting.key == "keywords").first()
+                        custom_kw = json.loads(kw_setting.value_json).get("keywords", []) if (kw_setting and kw_setting.value_json) else []
+
                         st, pa, no, sc = EligibilityService.assess(
                             tender_title=t_db.title,
                             organisation=t_db.organisation,
@@ -79,7 +82,10 @@ async def batch_parse_tenders(
                             startup_relaxation=t_db.startup_relaxation,
                             emd_amount=t_db.emd_amount,
                             estimated_value=t_db.estimated_value,
-                            emd_exemption=t_db.emd_exemption
+                            emd_exemption=t_db.emd_exemption,
+                            experience_years=t_db.experience_years or "",
+                            experience_required=t_db.experience_required or "",
+                            custom_keywords=custom_kw
                         )
                         t_db.eligibility_assessment = st
                         t_db.si_partner_route = pa
@@ -123,9 +129,11 @@ def import_bulk_tenders(
             "tender_ids": []
         }
 
-    # Fetch company profile for eligibility scoring
+    # Fetch company profile and keywords for eligibility scoring
     profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
     profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+    kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
+    custom_keywords = json.loads(kw_setting.value_json).get("keywords", []) if (kw_setting and kw_setting.value_json) else []
 
     added_count = 0
     updated_count = 0
@@ -168,7 +176,10 @@ def import_bulk_tenders(
             scope_summary=tender_dict.get("scope_summary") or "",
             turnover_required=item.turnover_required or "Check tender PDF / ATC",
             emd_amount=item.emd_amount or "Check tender PDF / ATC",
-            estimated_value=item.estimated_value or "Check tender PDF / ATC"
+            estimated_value=item.estimated_value or "Check tender PDF / ATC",
+            experience_years=getattr(item, "experience_years", "") or "",
+            experience_required=getattr(item, "experience_required", "") or "",
+            custom_keywords=custom_keywords
         )
         tender_dict["eligibility_assessment"] = status
         tender_dict["si_partner_route"] = partner
@@ -640,6 +651,8 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
     # Recalculate dynamic fit score & eligibility with newly extracted PDF clauses
     profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
     profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+    kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
+    custom_keywords = json.loads(kw_setting.value_json).get("keywords", []) if (kw_setting and kw_setting.value_json) else []
 
     status, partner, notes, score = EligibilityService.assess(
         tender_title=tender.title,
@@ -655,7 +668,10 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
         startup_relaxation=tender.startup_relaxation,
         emd_amount=tender.emd_amount,
         estimated_value=tender.estimated_value,
-        emd_exemption=tender.emd_exemption
+        emd_exemption=tender.emd_exemption,
+        experience_years=tender.experience_years or "",
+        experience_required=tender.experience_required or "",
+        custom_keywords=custom_keywords
     )
     tender.eligibility_assessment = status
     tender.si_partner_route = partner
@@ -665,4 +681,51 @@ async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(tender)
     return tender
+
+@router.post("/recalculate-eligibility")
+def recalculate_all_eligibility(db: Session = Depends(get_db)):
+    """
+    Recalculates eligibility assessment, partner route, notes, and fit_score
+    for all tenders using the latest company profile and active frontend keywords.
+    """
+    profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
+    profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+    kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
+    custom_keywords = json.loads(kw_setting.value_json).get("keywords", []) if (kw_setting and kw_setting.value_json) else []
+
+    tenders = db.query(Tender).all()
+    updated = 0
+    for t in tenders:
+        st, pa, no, sc = EligibilityService.assess(
+            tender_title=t.title or "",
+            organisation=t.organisation or "",
+            keyword=t.matched_keywords or "",
+            profile=profile,
+            scope_summary=t.scope_summary or "",
+            full_text=t.extracted_pdf_text or "",
+            turnover_required=t.turnover_required or "",
+            bidder_turnover=t.bidder_turnover or "",
+            oem_turnover=t.oem_turnover or "",
+            mse_relaxation=t.mse_relaxation or "",
+            startup_relaxation=t.startup_relaxation or "",
+            emd_amount=t.emd_amount or "",
+            estimated_value=t.estimated_value or "",
+            emd_exemption=t.emd_exemption or "",
+            experience_years=t.experience_years or "",
+            experience_required=t.experience_required or "",
+            custom_keywords=custom_keywords
+        )
+        t.eligibility_assessment = st
+        t.si_partner_route = pa
+        t.assessment_notes = no
+        t.fit_score = sc
+        updated += 1
+
+    db.commit()
+    return {
+        "status": "success",
+        "updated_count": updated,
+        "message": f"Successfully recalculated eligibility for {updated} tenders with latest company profile & active keywords."
+    }
+
 

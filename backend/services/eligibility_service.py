@@ -34,13 +34,33 @@ TIER_4_ADJACENT_IT = [
 ]
 
 TIER_NEGATIVE_UNRELATED = [
+    # Physical gear, clothing & road safety hardware
+    "jacket", "traffic jacket", "gloves", "traffic cone", "road cone", "road blocker cone",
+    "blocker cone", "hydraulic jack", "safety shoes", "safety boots", "gumboots", "raincoat", "apron",
+    "uniform",
+    # Firefighting mechanical & plumbing hardware
+    "fire hydrant", "hydrant", "fire hose", "fire nozzle", "fire pump", "jockey pump",
+    "fire fighting suit", "sprinkler pipe", "hose reel", "delivery hose", "suction hose",
+    "fire extinguisher", "watermist",
+    # Industrial machinery, mechanical tools & workshop items
+    "lathe", "welding", "generator set", "diesel generator", "hydraulic component", "pneumatic",
+    "bar tack machine", "rewinding machine", "induction motor", "dc generator", "crimping tool",
+    "stake hatchet", "drill gauge", "pulley", "pulleys", "belt conveyor", "transformer",
+    "machinery", "machineries", "workshop equipment", "heavy machinery",
+    # Medical, surgical & clinical equipment
     "medical", "surgical", "sinus", "skullbase", "scanning machine", "shoe cover",
-    "fire extinguisher", "oxygen cylinder", "dental", "hospital bed", "transformer",
+    "oxygen cylinder", "dental", "hospital bed", "dressing", "dressings", "bandage",
+    "medicine", "pharmaceutical", "ambulance", "endoscope", "endoscopy", "laryngoscope",
+    "ophthalmoscope", "gastrointestinal", "ultrasound", "chemist",
+    # Civil, sanitation, agricultural, manpower & consumables
     "civil work", "building construction", "cleaning", "sanitation", "catering",
-    "dressing", "dressings", "bandage", "medicine", "pharmaceutical", "printing machine",
-    "offset printing", "waste management", "ambulance", "watermist", "laundry",
-    "uniform", "fertilizer", "seed", "pesticide", "borewell", "plumbing", "detergent",
-    "soap", "toilet soap", "consultancy"
+    "printing machine", "offset printing", "waste management", "laundry",
+    "fertilizer", "seed", "pesticide", "borewell", "plumbing", "detergent",
+    "soap", "toilet soap", "consultancy", "manpower", "housekeeping", "security guard",
+    # Real estate, vehicle & leasing
+    "leasing", "residential property", "housing", "vehicle hiring",
+    # Furniture & fixtures
+    "blackboard", "easel", "furniture", "bedsheet", "towel", "table", "chair", "desk", "sofa"
 ]
 
 
@@ -68,67 +88,106 @@ class EligibilityService:
         startup_relaxation: str = "",
         emd_amount: str = "",
         estimated_value: str = "",
-        emd_exemption: str = ""
+        emd_exemption: str = "",
+        experience_years: str = "",
+        experience_required: str = "",
+        custom_keywords: Optional[List[str]] = None
     ) -> Tuple[str, str, str, int]:
         """
-        Assesses a tender against BitVivid's capabilities using a 4-dimensional scoring model:
-        1. Technical Scope Alignment (0 - 40 pts)
-        2. Turnover Feasibility (0 - 25 pts)
-        3. MSE / Startup Concessions (0 - 20 pts)
-        4. EMD & Financial Terms (0 - 15 pts)
+        Assesses a tender against BitVivid's capabilities:
+        0. STQC Certification (Hard Blocker: 0 points if mandated)
+        1. Keywords Match (0 - 30 pts) — uses frontend keywords first; fallbacks if empty
+        2. Turnover Feasibility (0 - 20 pts) — full 20 pts if <= company turnover or exempt
+        3. MSE / Startup Concessions (0 - 20 pts) — full 20 pts if MSE relaxation granted
+        4. EMD & Financial Terms (0 - 15 pts) — full 15 pts if exempt OR EMD <= 50,000
+        5. Years of Experience (0 - 15 pts) — full 15 pts if <= 7 years or exempt
 
         Returns: (status, si_partner_route, notes, fit_score)
         """
         profile = profile or {}
+        notes_parts = []
 
         # ---------------------------------------------------------
-        # 1. TECHNICAL FIT (0 - 40 points)
-        # Search title and scope (using exact regex word boundaries \b)
+        # 0. STQC CERTIFICATION HARD BLOCKER
+        # If buyer mandates STQC, BitVivid is not eligible -> 0 points
         # ---------------------------------------------------------
-        tech_text = f"{tender_title} {scope_summary}".lower()
+        combined_text = f"{tender_title} {scope_summary} {full_text} {experience_required}".lower()
+        stqc_required = bool(re.search(r"\b(stqc|stqc\s+certified|stqc\s+certification|stqc\s+certificate)\b", combined_text, re.I))
 
-        matched_t1 = EligibilityService.match_terms(TIER_1_AI_SOFTWARE, tech_text)
-        matched_t2 = EligibilityService.match_terms(TIER_2_CCTV_HARDWARE, tech_text)
-        matched_t3 = EligibilityService.match_terms(TIER_3_NETWORKING_INFRA, tech_text)
-        matched_t4 = EligibilityService.match_terms(TIER_4_ADJACENT_IT, tech_text)
-        matched_neg = EligibilityService.match_terms(TIER_NEGATIVE_UNRELATED, tech_text)
+        if stqc_required:
+            status = "Ineligible — Mandatory STQC Certification Required"
+            partner = "Not Recommended for Direct Bidding: Tender mandates STQC certification."
+            notes = "STQC certification is mandated by buyer in tender clauses. Fit score set to 0."
+            return status, partner, notes, 0
 
-        # Explicit surveillance anchor: true surveillance noun
+        # Negative unrelated domain filter (hardware, gear, plumbing, medical, civil, etc.)
+        matched_neg = EligibilityService.match_terms(TIER_NEGATIVE_UNRELATED, combined_text)
         explicit_surveillance = bool(
-            re.search(r"\b(cctv|surveillance|camera|ip camera|video recorder|video analytics|nvr|dvr|ptz|ai|vms|artificial intelligence|genai|computer vision|deep learning|software development)\b", tech_text, re.I)
+            re.search(r"\b(cctv|surveillance|camera|ip camera|video recorder|video analytics|nvr|dvr|ptz|ai|vms|artificial intelligence|genai|computer vision|deep learning|software development)\b", combined_text, re.I)
         )
         is_unrelated = bool(matched_neg) and not explicit_surveillance
 
-        notes_parts = []
-        is_non_core = False
-
         if is_unrelated:
-            tech_score = 3
-            is_non_core = True
-            notes_parts.append(f"Scope appears outside BitVivid core domain: {', '.join(matched_neg[:2])}.")
-        elif matched_t1:
-            tech_score = 38
-            notes_parts.append(f"Direct match with BitVivid core AI & video software: {', '.join(matched_t1[:3])}.")
-        elif matched_t2:
-            tech_score = 30
-            notes_parts.append(f"Strong CCTV video surveillance & camera infrastructure match: {', '.join(matched_t2[:3])}.")
-        elif matched_t3:
-            tech_score = 20
-            notes_parts.append(f"Active networking & surveillance infrastructure match: {', '.join(matched_t3[:3])}.")
-        elif matched_t4:
-            tech_score = 12
-            notes_parts.append(f"Peripheral IT or adjacent technology opportunity: {', '.join(matched_t4[:3])}.")
-        else:
-            tech_score = 5
-            is_non_core = True
-            notes_parts.append("General search match; detailed technical fit requires manual ATC inspection.")
+            status = "Not Aligned — Outside BitVivid Core Scope (Unrelated Hardware/Commodity)"
+            partner = "Not Recommended for Direct Bidding: Tender scope contains non-surveillance or physical hardware."
+            notes = f"Scope appears outside BitVivid core domain: {', '.join(matched_neg[:3])}. Fit score set to 0."
+            return status, partner, notes, 0
 
         # ---------------------------------------------------------
-        # 2. TURNOVER FEASIBILITY (0 - 25 points)
+        # 1. KEYWORDS MATCH (0 - 30 points)
+        # Prioritize keywords configured from frontend; fallback to hardcoded tiers
+        # Note: Match strictly against actual tender title & scope, NOT the search query
+        # ---------------------------------------------------------
+        tech_text = f"{tender_title} {scope_summary}".lower()
+        active_keywords = [k.strip() for k in (custom_keywords or []) if k and k.strip()]
+
+        matched_kw: List[str] = []
+        matched_t1: List[str] = []
+        matched_t2: List[str] = []
+        matched_t3: List[str] = []
+        matched_t4: List[str] = []
+
+        if active_keywords:
+            matched_kw = EligibilityService.match_terms(active_keywords, tech_text)
+            if len(matched_kw) >= 2:
+                kw_score = 30
+                notes_parts.append(f"Direct match with active company keywords: {', '.join(matched_kw[:3])}.")
+            elif len(matched_kw) == 1:
+                kw_score = 22
+                notes_parts.append(f"Direct match with company keyword: {matched_kw[0]}.")
+            else:
+                kw_score = 5
+                notes_parts.append("No direct match with configured company keywords.")
+        else:
+            # Fallback to hardcoded tiers only when no keywords configured in frontend
+            matched_t1 = EligibilityService.match_terms(TIER_1_AI_SOFTWARE, tech_text)
+            matched_t2 = EligibilityService.match_terms(TIER_2_CCTV_HARDWARE, tech_text)
+            matched_t3 = EligibilityService.match_terms(TIER_3_NETWORKING_INFRA, tech_text)
+            matched_t4 = EligibilityService.match_terms(TIER_4_ADJACENT_IT, tech_text)
+
+            if matched_t1:
+                kw_score = 30
+                notes_parts.append(f"Direct match with BitVivid core AI & video software: {', '.join(matched_t1[:3])}.")
+            elif matched_t2:
+                kw_score = 22
+                notes_parts.append(f"Strong CCTV video surveillance & camera infrastructure match: {', '.join(matched_t2[:3])}.")
+            elif matched_t3:
+                kw_score = 15
+                notes_parts.append(f"Active networking & surveillance infrastructure match: {', '.join(matched_t3[:3])}.")
+            elif matched_t4:
+                kw_score = 10
+                notes_parts.append(f"Peripheral IT or adjacent technology opportunity: {', '.join(matched_t4[:3])}.")
+            else:
+                kw_score = 5
+                notes_parts.append("General search match; detailed technical fit requires manual ATC inspection.")
+
+        # ---------------------------------------------------------
+        # 2. TURNOVER FEASIBILITY (0 - 20 points)
+        # Full 20 pts if turnover is exempt or <= company turnover capacity
         # ---------------------------------------------------------
         to_str = f"{turnover_required} {bidder_turnover}".lower()
         if "no minimum" in to_str or "nil" in to_str or "exempt" in to_str or "not mandated" in to_str:
-            to_score = 25
+            to_score = 20
             notes_parts.append("Turnover criteria not mandated or fully exempted for MSE/Startups.")
         else:
             val_in_lakhs = None
@@ -148,36 +207,30 @@ class EligibilityService:
                             val_in_lakhs = clean_num
 
             if val_in_lakhs is not None:
-                # Check against company profile annual turnover if configured
                 company_turnover_inr = profile.get("average_annual_turnover_inr")
                 company_turnover_lakhs = (float(company_turnover_inr) / 100000.0) if company_turnover_inr and str(company_turnover_inr).replace('.', '', 1).isdigit() else None
 
                 if company_turnover_lakhs and val_in_lakhs <= company_turnover_lakhs:
-                    to_score = 25
+                    to_score = 20
                     notes_parts.append(f"Turnover (₹ {val_in_lakhs:g} Lakhs) is fully within BitVivid's profile capacity (₹ {company_turnover_lakhs:g} Lakhs).")
                 elif company_turnover_lakhs and val_in_lakhs > company_turnover_lakhs:
-                    to_score = 8
+                    to_score = 5
                     notes_parts.append(f"Turnover requirement (₹ {val_in_lakhs/100:.2f} Cr) exceeds BitVivid turnover capacity (₹ {company_turnover_lakhs/100:.2f} Cr).")
-                elif val_in_lakhs <= 25:
-                    to_score = 24
+                elif val_in_lakhs <= 100:
+                    to_score = 20
                     notes_parts.append(f"Accessible turnover requirement: ₹ {val_in_lakhs:g} Lakhs.")
-                elif val_in_lakhs <= 60:
-                    to_score = 21
+                elif val_in_lakhs <= 300:
+                    to_score = 14
                     notes_parts.append(f"Moderate turnover requirement: ₹ {val_in_lakhs:g} Lakhs.")
-                elif val_in_lakhs <= 150:
-                    to_score = 16
-                    notes_parts.append(f"Turnover threshold: ₹ {val_in_lakhs:g} Lakhs (Verify MSE relaxation in ATC).")
-                elif val_in_lakhs <= 500:
-                    to_score = 10
-                    notes_parts.append(f"High turnover requirement: ₹ {val_in_lakhs/100:g} Crores (SI partner route suggested).")
                 else:
-                    to_score = 4
-                    notes_parts.append(f"Very high turnover: ₹ {val_in_lakhs/100:g} Crores (Subcontractor route only).")
+                    to_score = 6
+                    notes_parts.append(f"High turnover requirement: ₹ {val_in_lakhs/100:g} Crores (SI partner route suggested).")
             else:
-                to_score = 16
+                to_score = 15
 
         # ---------------------------------------------------------
         # 3. MSE / STARTUP RELAXATION (0 - 20 points)
+        # Full 20 pts if MSE relaxation is granted
         # ---------------------------------------------------------
         mse_str = (mse_relaxation or "").lower()
         st_str = (startup_relaxation or "").lower()
@@ -187,24 +240,22 @@ class EligibilityService:
         mse_no = "no" in mse_str and "yes" not in mse_str
         st_no = "no" in st_str and "yes" not in st_str
 
-        if mse_yes and st_yes:
+        if mse_yes or st_yes:
             relax_score = 20
-            notes_parts.append("Both MSE and DPIIT Startup exemptions granted for Turnover & Past Experience.")
-        elif mse_yes or st_yes:
-            relax_score = 15
-            notes_parts.append("MSE/Startup policy relaxation applicable.")
+            notes_parts.append("MSE / Startup policy relaxation granted by buyer.")
         elif mse_no and st_no:
-            relax_score = 3
+            relax_score = 2
             notes_parts.append("Explicitly No MSE/Startup relaxation granted by buyer.")
         else:
             if profile.get("udyam_registered") or profile.get("dpiit_startup_recognised"):
-                relax_score = 14
+                relax_score = 16
                 notes_parts.append("BitVivid Udyam/DPIIT credentials applicable for standard statutory preferences.")
             else:
                 relax_score = 8
 
         # ---------------------------------------------------------
         # 4. EMD & FINANCIAL SECURITY (0 - 15 points)
+        # Full 15 pts if exempt OR EMD <= 50,000 INR
         # ---------------------------------------------------------
         emd_str = (emd_amount or "").lower()
         ex_str = (emd_exemption or "").lower()
@@ -214,48 +265,73 @@ class EligibilityService:
             or "exempt" in ex_str 
             or "emd exemption" in mse_str_lower 
             or "exempt" in emd_str
+            or "nil" in emd_str
+            or "not required" in emd_str
+            or emd_str in ("0", "₹ 0")
         )
 
-        if "nil" in emd_str or "not required" in emd_str or emd_str in ("0", "₹ 0"):
+        if is_emd_exempt:
             emd_score = 15
-            notes_parts.append("Zero EMD requirement (Nil).")
-        elif is_emd_exempt:
-            emd_score = 14
-            notes_parts.append("EMD exemption granted for registered MSEs/Startups.")
-        elif "schedule" in emd_str:
-            emd_score = 13
-            notes_parts.append("EMD is schedule-wise or exempt for MSE manufacturers.")
+            notes_parts.append("Zero EMD or EMD exemption granted for registered MSEs/Startups.")
         else:
             emd_num_match = re.search(r"(\d+(?:,\d+)*(?:\.\d+)?)", emd_str)
             if emd_num_match:
                 amt = float(emd_num_match.group(1).replace(",", ""))
-                if amt <= 25000:
-                    emd_score = 12
-                elif amt <= 100000:
-                    emd_score = 10
-                elif amt <= 500000:
-                    emd_score = 7
+                if amt <= 50000:
+                    emd_score = 15
+                    notes_parts.append(f"EMD amount (₹ {amt:,.0f}) is within accessible threshold (≤ ₹ 50,000).")
+                elif amt <= 200000:
+                    emd_score = 8
+                    notes_parts.append(f"Moderate EMD amount: ₹ {amt:,.0f}.")
                 else:
                     emd_score = 4
+                    notes_parts.append(f"High EMD requirement: ₹ {amt:,.0f}.")
             else:
-                emd_score = 11
+                emd_score = 12
+
+        # ---------------------------------------------------------
+        # 5. YEARS OF EXPERIENCE (0 - 15 points)
+        # Full 15 pts if required experience <= 7 years or exempt
+        # ---------------------------------------------------------
+        exp_text = f"{experience_years} {experience_required}".lower()
+        exp_exempt = (
+            mse_yes 
+            or st_yes 
+            or "exempt" in exp_text 
+            or "nil" in exp_text 
+            or "not mandated" in exp_text 
+            or "not required" in exp_text
+            or "no experience" in exp_text
+        )
+
+        if exp_exempt:
+            exp_score = 15
+            notes_parts.append("Prior experience exempted under MSE / Startup policy.")
+        else:
+            exp_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:year|yr)", exp_text, re.I)
+            if not exp_match:
+                exp_match = re.search(r"(\d+(?:\.\d+)?)", exp_text)
+            exp_val = float(exp_match.group(1)) if exp_match else None
+
+            if exp_val is not None:
+                if exp_val <= 7:
+                    exp_score = 15
+                    notes_parts.append(f"Experience required ({exp_val:g} yrs) ≤ BitVivid's 7-year capacity.")
+                else:
+                    exp_score = 5
+                    notes_parts.append(f"Experience required ({exp_val:g} yrs) exceeds 7-year capacity.")
+            else:
+                exp_score = 15  # Default when no specific year requirement is mandated
 
         # ---------------------------------------------------------
         # TOTAL FIT SCORE (0 - 100)
         # ---------------------------------------------------------
-        if is_non_core:
-            # Hard cap for unrelated / non-core tenders
-            total_score = min(22, tech_score + (to_score // 5) + (relax_score // 5) + (emd_score // 5))
-        else:
-            total_score = min(100, max(10, tech_score + to_score + relax_score + emd_score))
+        total_score = min(100, max(5, kw_score + to_score + relax_score + emd_score + exp_score))
 
         # ---------------------------------------------------------
-        # STATUS & PARTNER STRATEGY (Every surveillance tender is Direct Fit!)
+        # STATUS & PARTNER STRATEGY
         # ---------------------------------------------------------
-        if is_non_core:
-            status = "Not Aligned — Outside BitVivid Core Scope"
-            partner = "Not Recommended for Direct Bidding: Tender scope contains non-surveillance or unrelated equipment."
-        elif matched_t1:
+        if matched_kw or matched_t1:
             if total_score >= 80:
                 status = "Direct Technical Alignment (Direct Fit) — Core AI & Video Solutions"
                 partner = "Direct Bidder: BitVivid proprietary AI/VMS software with standard OEM camera authorization. Fully eligible under Startup & MSME preference."

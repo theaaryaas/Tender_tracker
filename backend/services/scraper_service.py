@@ -9,6 +9,7 @@ if str(ROOT_DIR) not in sys.path:
 import asyncio
 import time
 import json
+import re
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -48,7 +49,7 @@ except ImportError:
             "video management system", "VMS", "automatic number plate recognition",
             "ANPR", "intelligent traffic management system", "ITMS",
             "red light violation detection", "facial recognition system", "crowd management",
-            "integrated command and control centre", "fire and smoke detection",
+            "integrated command and control centre",
             "video analytics", "GenAI video search",
         ]
 
@@ -79,6 +80,52 @@ class ScraperService:
         "updated": 0,
         "errors": []
     }
+
+    @staticmethod
+    def is_relevant_tender(item: Dict[str, Any], target_keywords: Optional[List[str]] = None) -> bool:
+        """
+        Validates whether a scraped tender is truly relevant to BitVivid's domain:
+        1. Drops physical gear, clothing, road blocker cones, firefighting plumbing, machinery, civil work.
+        2. Requires the title or scope to match an active keyword or genuine surveillance/IT domain anchor.
+        """
+        title = str(item.get("title") or "").strip().lower()
+        scope = str(item.get("scope_summary") or item.get("item_category") or "").strip().lower()
+        text = f"{title} {scope}"
+
+        # Explicit surveillance / video / AI anchor words
+        has_surveillance_anchor = bool(
+            re.search(r"\b(cctv|surveillance|camera|ip camera|video recorder|video analytics|nvr|dvr|ptz|ai|vms|artificial intelligence|genai|computer vision|deep learning|software development|itms|anpr|frs|iccc|command and control)\b", text, re.I)
+        )
+
+        # Hardware & unrelated commodity reject patterns
+        HARDWARE_REJECT_PATTERNS = [
+            r"\b(?:traffic\s+)?jacket\b", r"\bgloves?\b", r"\b(?:road\s+blocker\s+|traffic\s+)?cones?\b",
+            r"\bhydraulic\s+jack\b", r"\bfire\s+hydrant\b", r"\bhydrant\b", r"\bfire\s+hose\b",
+            r"\bfire\s+nozzle\b", r"\bfire\s+pump\b", r"\bjockey\s+pump\b", r"\bpipe\s+fitting\b",
+            r"\blathe\b", r"\bwelding\b", r"\bgenerator\s+set\b", r"\bdiesel\s+generator\b",
+            r"\bhydraulic\s+component\b", r"\bpneumatic\b", r"\b(?:safety\s+)?shoes?\b",
+            r"\b(?:safety\s+)?boots?\b", r"\bblackboard\b", r"\beasel\b", r"\brewinding\s+machine\b",
+            r"\bmedical\b", r"\bsurgical\b", r"\bhospital\s+bed\b", r"\bcivil\s+work\b",
+            r"\bbuilding\s+construction\b", r"\bcleaning\b", r"\bsanitation\b", r"\bcatering\b",
+            r"\buniform\b", r"\bfertilizer\b", r"\bplumbing\b"
+        ]
+
+        for pat in HARDWARE_REJECT_PATTERNS:
+            if re.search(pat, text, re.I) and not has_surveillance_anchor:
+                return False
+
+        # If keywords are passed, verify that title/scope actually matches at least one keyword or surveillance anchor
+        if target_keywords:
+            active_kws = [k.strip().lower() for k in target_keywords if k and k.strip()]
+            matches_kw = False
+            for kw in active_kws:
+                if re.search(r"\b" + re.escape(kw) + r"\b", text, re.I):
+                    matches_kw = True
+                    break
+            if not matches_kw and not has_surveillance_anchor:
+                return False
+
+        return True
 
     @classmethod
     def get_sync_state(cls) -> Dict[str, Any]:
@@ -187,7 +234,7 @@ class ScraperService:
                     cls._current_sync_state["progress"] = min(75, int(5 + (completed_ops / max(1, total_operations)) * 70))
                     await asyncio.sleep(0.1)
 
-            # Deduplicate items by tender_id
+            # Deduplicate items by tender_id & filter out irrelevant physical hardware / non-core tenders
             deduped: List[Dict[str, Any]] = []
             seen_refs = set()
             for row in found_items:
@@ -197,6 +244,11 @@ class ScraperService:
                 if identity in seen_refs:
                     continue
                 seen_refs.add(identity)
+
+                # Pre-ingestion relevance gate
+                if not ScraperService.is_relevant_tender(row, target_keywords):
+                    continue
+
                 deduped.append(row)
 
             # Optional clause extraction (from PDF or HTML web details)
@@ -279,7 +331,10 @@ class ScraperService:
                     startup_relaxation=st_for_assessment,
                     emd_amount=emd_for_assessment,
                     estimated_value=existing.estimated_value if existing else str(item.get("estimated_value") or ""),
-                    emd_exemption=ex_for_assessment
+                    emd_exemption=ex_for_assessment,
+                    experience_years=existing.experience_years if existing else str(item.get("experience_years") or ""),
+                    experience_required=existing.experience_required if existing else str(item.get("experience") or item.get("experience_required") or ""),
+                    custom_keywords=target_keywords
                 )
 
                 url = str(item.get("url") or "")
