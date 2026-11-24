@@ -16,9 +16,11 @@ import {
   RotateCcw,
   Building2,
   Tag,
-  Zap
+  Zap,
+  Trash2
 } from 'lucide-react';
 import { tenderApi, exportApi, crmApi } from '../../utils/api';
+import { formatDeadline } from '../../utils/dateUtils';
 
 const cleanTenderTitle = (rawTitle, organisation = '') => {
   if (!rawTitle) return organisation ? `Tender Notice — ${organisation}` : 'Tender Notice Details';
@@ -39,11 +41,36 @@ const cleanTenderTitle = (rawTitle, organisation = '') => {
 
 export const AllTendersView = () => {
   const { user, isSuperAdmin, isManager, openTenderDrawer, showNotification } = useApp();
+  const canDeleteIndividual = isSuperAdmin || (user?.permissions || []).includes('can_delete_tenders');
+  const canBulkDeletePast = isSuperAdmin || (user?.permissions || []).includes('can_bulk_delete_expired');
+
   const [tenders, setTenders] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [loading, setLoading] = useState(false);
+  const [purgingPast, setPurgingPast] = useState(false);
+
+  const handlePurgePastTenders = async () => {
+    if (!window.confirm(
+      "Are you sure you want to bulk delete past tenders whose closing date has passed?\n\n" +
+      "• Active pipeline deals (Reviewing, Bid Ready, Submitted, Won, Lost, Archived) will NOT be deleted.\n" +
+      "• Starred tenders and CRM claimed bids will NOT be deleted.\n" +
+      "• Only unacted expired bids in status 'New' will be permanently removed.\n\n" +
+      "Do you want to proceed?"
+    )) return;
+
+    setPurgingPast(true);
+    try {
+      const res = await tenderApi.purgePastTenders();
+      showNotification(res.data?.message || 'Past tenders successfully purged', 'success');
+      fetchTenders();
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to purge past tenders', 'error');
+    } finally {
+      setPurgingPast(false);
+    }
+  };
 
   const handlePickTender = async (t) => {
     try {
@@ -303,6 +330,20 @@ export const AllTendersView = () => {
               <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>CSV</span>
             </a>
+
+            {canBulkDeletePast && (
+              <button
+                type="button"
+                onClick={handlePurgePastTenders}
+                disabled={purgingPast}
+                className="inline-flex items-center space-x-1.5 px-2.5 sm:px-3 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold shadow-xs transition touch-manipulation shrink-0 cursor-pointer disabled:opacity-50"
+                title="Bulk delete past tenders whose deadline has passed (Active pipeline bids are kept)"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span className="hidden xs:inline">{purgingPast ? 'Purging...' : 'Purge Past Bids'}</span>
+                <span className="xs:hidden">Purge Past</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -588,9 +629,16 @@ export const AllTendersView = () => {
                   <div className="grid grid-cols-2 gap-2 text-xs bg-[#FAF9FD] p-2.5 rounded-xl border border-[#E2DEEC]/70">
                     <div>
                       <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">Closing Date</span>
-                      <span className="font-semibold text-slate-800 text-[11px] block mt-0.5 break-words">
-                        {t.closing_date ? t.closing_date : 'Check portal'}
-                      </span>
+                      <div className="flex items-center space-x-1.5 mt-0.5 flex-wrap">
+                        <span className={`font-semibold text-[11px] break-words ${formatDeadline(t.closing_date).isExpired ? 'text-rose-600 line-through' : 'text-slate-800'}`}>
+                          {t.closing_date ? t.closing_date : 'Check portal'}
+                        </span>
+                        {formatDeadline(t.closing_date).isExpired && (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wide">
+                            ⏳ Deadline Passed
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">Est. Value</span>
@@ -656,7 +704,7 @@ export const AllTendersView = () => {
                           <span className="h-8 px-2 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold inline-flex items-center space-x-1" title={`Claimed by ${t.assigned_to}`}>
                             <span>👤 {t.assigned_to || 'Claimed'}</span>
                           </span>
-                          {(isSuperAdmin || isManager || user?.username === t.assigned_to) && (
+                          {(isSuperAdmin || canDeleteIndividual || user?.username === t.assigned_to) && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -831,9 +879,16 @@ export const AllTendersView = () => {
 
                       {/* Closing Date */}
                       <td className="py-3 px-4">
-                        <span className="font-medium text-slate-800">
-                          {t.closing_date ? t.closing_date : 'Check portal'}
-                        </span>
+                        <div className="flex flex-col space-y-0.5">
+                          <span className={`font-medium ${formatDeadline(t.closing_date).isExpired ? 'text-rose-600 line-through' : 'text-slate-800'}`}>
+                            {t.closing_date ? t.closing_date : 'Check portal'}
+                          </span>
+                          {formatDeadline(t.closing_date).isExpired && (
+                            <span className="inline-flex items-center w-fit px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wide">
+                              ⏳ Deadline Passed
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Est. Value & EMD */}
@@ -906,7 +961,7 @@ export const AllTendersView = () => {
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title={`Claimed by ${t.assigned_to}`}>
                                 👤 {t.assigned_to || 'Claimed'}
                               </span>
-                              {(isSuperAdmin || isManager || user?.username === t.assigned_to) && (
+                              {(isSuperAdmin || canDeleteIndividual || user?.username === t.assigned_to) && (
                                 <button
                                   type="button"
                                   onClick={(e) => {

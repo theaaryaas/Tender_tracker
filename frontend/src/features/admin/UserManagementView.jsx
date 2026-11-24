@@ -21,7 +21,8 @@ import {
 const AVAILABLE_PERMISSIONS = [
   { key: 'can_view_audit', label: 'View Audit Logs', desc: 'Allows access to company audit trail' },
   { key: 'can_export', label: 'Export Data', desc: 'Allows downloading Excel/CSV tenders' },
-  { key: 'can_delete_tenders', label: 'Delete Records', desc: 'Allows deleting CRM or tender bids' },
+  { key: 'can_delete_tenders', label: 'Delete Records', desc: 'Allows deleting individual tender bids and CRM records' },
+  { key: 'can_bulk_delete_expired', label: 'Bulk Delete Past Tenders', desc: 'Allows bulk purging expired tenders not in the bid pipeline' },
   { key: 'can_manage_scrapers', label: 'Trigger Sync', desc: 'Allows running GeM and portal scrapers' },
 ];
 
@@ -83,6 +84,10 @@ export const UserManagementView = () => {
 
   // Toggle Single Permission
   const handleTogglePermission = async (targetUser, permKey) => {
+    if (!isSuperAdmin && (permKey === 'can_delete_tenders' || permKey === 'can_bulk_delete_expired')) {
+      showNotification('Only Super Admin can grant or revoke deletion rights', 'error');
+      return;
+    }
     const currentPerms = targetUser.permissions || [];
     const nextPerms = currentPerms.includes(permKey)
       ? currentPerms.filter((p) => p !== permKey)
@@ -247,17 +252,19 @@ export const UserManagementView = () => {
                         <div className="flex flex-wrap items-center gap-1.5">
                           {AVAILABLE_PERMISSIONS.map((perm) => {
                             const isGranted = (u.permissions || []).includes(perm.key);
+                            const isDeletePerm = perm.key === 'can_delete_tenders' || perm.key === 'can_bulk_delete_expired';
+                            const isPermEditable = canEdit && !isCurrent && (!isDeletePerm || isSuperAdmin);
                             return (
                               <button
                                 key={perm.key}
-                                onClick={() => canEdit && handleTogglePermission(u, perm.key)}
-                                disabled={!canEdit || isCurrent}
-                                title={`${perm.label}: ${perm.desc}`}
+                                onClick={() => isPermEditable && handleTogglePermission(u, perm.key)}
+                                disabled={!isPermEditable}
+                                title={!isSuperAdmin && isDeletePerm ? 'Only Super Admin can grant or revoke deletion rights' : `${perm.label}: ${perm.desc}`}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
                                   isGranted
                                     ? 'bg-[#EFEBF8] text-[#6B46C1] border-[#D8BFD8]'
                                     : 'bg-slate-50 text-slate-400 border-slate-200 opacity-60'
-                                } ${canEdit && !isCurrent ? 'cursor-pointer hover:border-[#6B46C1]' : 'cursor-default'}`}
+                                } ${isPermEditable ? 'cursor-pointer hover:border-[#6B46C1]' : 'cursor-not-allowed opacity-50'}`}
                               >
                                 {perm.label} {isGranted ? '✓' : '×'}
                               </button>

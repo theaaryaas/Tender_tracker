@@ -221,18 +221,55 @@ def import_bulk_tenders(
         "tender_ids": processed_ids
     }
 
-@router.post("/cleanup-expired")
-def cleanup_expired_tenders(db: Session = Depends(get_db)):
+@router.post("/purge-past")
+def purge_past_tenders(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.get_current_user)
+):
     """
-    Purges tenders whose closing_date has passed and are still in status 'New'
-    without stars/bookmarks. Preserves active pipeline deals.
+    Bulk purges tenders whose closing_date has passed and are NOT in the active bid pipeline.
+    Preserves all active pipeline tenders (Reviewing, Bid Ready, Submitted, Won, Lost, Archived),
+    starred tenders, and tenders claimed in Bidding CRM.
+    By default only super_admin has this authority; managers and executives require explicit permission.
     """
-    deleted_count = TenderRepository.purge_expired_unactioned(db)
+    user_perms = current_user.permissions or []
+    if current_user.role != "super_admin" and "can_bulk_delete_expired" not in user_perms:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to bulk delete past tenders. Contact your Super Admin."
+        )
+
+    deleted_count = TenderRepository.purge_past_unactioned(db)
+
+    client_ip = request.client.host if request.client else None
+    AuditService.log(
+        db=db,
+        user=current_user,
+        action="BULK_DELETE",
+        entity_type="tender",
+        entity_id="past_tenders",
+        new_values={
+            "deleted_count": deleted_count,
+            "purged_by": current_user.username,
+            "filter": "closing_date < now AND not in bid pipeline"
+        },
+        ip_address=client_ip
+    )
+
     return {
         "status": "success",
         "purged_count": deleted_count,
-        "message": f"Successfully purged {deleted_count} expired unacted tenders from database."
+        "message": f"Successfully purged {deleted_count} past unacted tenders not in the bid pipeline."
     }
+
+@router.post("/cleanup-expired")
+def cleanup_expired_tenders(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.get_current_user)
+):
+    return purge_past_tenders(request=request, db=db, current_user=current_user)
 
 @router.get("/", response_model=TenderListResponse)
 def get_tenders(

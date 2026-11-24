@@ -165,22 +165,30 @@ class TenderRepository:
         return True
 
     @staticmethod
-    def purge_expired_unactioned(db: Session) -> int:
+    def purge_past_unactioned(db: Session) -> int:
         """
-        Deletes tenders that have expired (closing_date < now in IST)
-        AND remained in pipeline stage 'New' without stars/bookmarks.
-        Preserves all tenders in 'Reviewing', 'Bid Ready', 'Submitted', 'Won', 'Lost', etc.
+        Explicit bulk delete for tenders that have expired (closing_date < now in IST)
+        AND are NOT in the bid pipeline (status == 'New', is_starred == False, is_claimed == False).
+        Preserves all tenders in 'Reviewing', 'Bid Ready', 'Submitted', 'Won', 'Lost', 'Archived',
+        all starred tenders, and all tenders picked/claimed in Bidding CRM.
         """
         from backend.core.date_utils import parse_closing_datetime, IST
+        from backend.models.crm_record import CRMRecord
         now = datetime.now(IST)
 
         candidates = db.query(Tender).filter(
             Tender.status == "New",
-            Tender.is_starred == False
+            Tender.is_starred == False,
+            Tender.is_claimed == False
         ).all()
 
         deleted_count = 0
         for tender in candidates:
+            # Strictly verify no CRM record links to this tender
+            crm_exists = db.query(CRMRecord).filter(CRMRecord.tender_id == tender.id).first() is not None
+            if crm_exists:
+                continue
+
             closing_dt = parse_closing_datetime(tender.closing_date)
             if closing_dt and closing_dt < now:
                 db.delete(tender)
@@ -190,4 +198,8 @@ class TenderRepository:
             db.commit()
 
         return deleted_count
+
+    @staticmethod
+    def purge_expired_unactioned(db: Session) -> int:
+        return TenderRepository.purge_past_unactioned(db)
 

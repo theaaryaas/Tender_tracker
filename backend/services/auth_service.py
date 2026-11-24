@@ -49,7 +49,7 @@ class AuthService:
             hashed_password=hashed_password,
             role=role,
             created_by_id=created_by_id,
-            permissions=["can_export"] if role == "executive" else ["can_view_audit", "can_export", "can_delete_tenders"],
+            permissions=["can_export"] if role == "executive" else (["can_view_audit", "can_export"] if role == "manager" else ["can_view_audit", "can_export", "can_delete_tenders", "can_bulk_delete_expired", "can_manage_users", "can_manage_scrapers"]),
             is_active=True
         )
         db.add(user)

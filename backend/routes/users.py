@@ -96,9 +96,9 @@ def create_user(
         if target_role == "executive":
             default_perms = ["can_export"]
         elif target_role == "manager":
-            default_perms = ["can_view_audit", "can_export", "can_delete_tenders"]
+            default_perms = ["can_view_audit", "can_export"]
         elif target_role == "super_admin":
-            default_perms = ["can_view_audit", "can_export", "can_delete_tenders", "can_manage_users", "can_manage_scrapers"]
+            default_perms = ["can_view_audit", "can_export", "can_delete_tenders", "can_bulk_delete_expired", "can_manage_users", "can_manage_scrapers"]
 
     new_user = User(
         username=payload.username,
@@ -161,6 +161,9 @@ def update_user_permissions(
     if current_user.role == "manager":
         if user.created_by_id != current_user.id or user.role != "executive":
             raise HTTPException(status_code=403, detail="Managers can only update permissions of their own executives.")
+        # Managers cannot grant delete permissions to anyone; only Super Admin can
+        if "can_delete_tenders" in payload.permissions or "can_bulk_delete_expired" in payload.permissions:
+            raise HTTPException(status_code=403, detail="Only Super Admin can grant deletion rights.")
 
     old_perms = user.permissions or []
     user.permissions = payload.permissions

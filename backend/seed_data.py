@@ -48,7 +48,7 @@ def seed_database():
                 email="admin@bitvivid.com",
                 hashed_password=get_password_hash("Admin@12345"),
                 role="super_admin",
-                permissions=["can_view_audit", "can_export", "can_delete_tenders", "can_manage_users", "can_manage_scrapers"],
+                permissions=["can_view_audit", "can_export", "can_delete_tenders", "can_bulk_delete_expired", "can_manage_users", "can_manage_scrapers"],
                 is_active=True
             )
             db.add(default_admin)

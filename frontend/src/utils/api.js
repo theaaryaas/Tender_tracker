@@ -45,6 +45,7 @@ export const tenderApi = {
   getTender: (id) => api.get(`/tenders/${id}`),
   updateTender: (id, data) => api.patch(`/tenders/${id}`, data),
   deleteTender: (id) => api.delete(`/tenders/${id}`),
+  purgePastTenders: () => api.post('/tenders/purge-past'),
   parseTenderPdf: (id) => api.post(`/tenders/${id}/parse-pdf`),
   batchParseTenders: (limit = 20) => api.post('/tenders/batch-parse', null, { params: { limit } }),
 };
