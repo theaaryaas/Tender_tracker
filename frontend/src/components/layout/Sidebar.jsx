@@ -10,6 +10,7 @@ import {
   Flame,
   Users,
   FileText,
+  Mail,
   X 
 } from 'lucide-react';
 
@@ -176,6 +177,7 @@ export const Sidebar = () => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tenders', label: 'All Tenders', icon: ListFilter, badge: stats?.total_tenders || 351 },
+    { id: 'contacts', label: 'Company Emails', icon: Mail },
     { id: 'crm', label: 'Bidding CRM', icon: Flame },
     { id: 'kanban', label: 'Bid Pipeline', icon: Kanban },
     ...(canManageUsers ? [{ id: 'users', label: 'User Rights', icon: Users }] : []),

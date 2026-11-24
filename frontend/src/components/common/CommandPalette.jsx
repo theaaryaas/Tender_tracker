@@ -8,7 +8,8 @@ import {
   Flame, 
   BarChart3, 
   Kanban, 
-  RefreshCw 
+  RefreshCw,
+  Mail 
 } from 'lucide-react';
 import { tenderApi } from '../../utils/api';
 
@@ -230,6 +231,19 @@ export const CommandPalette = () => {
                     <div>
                       <p className="text-xs font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition">Portal Sync Center</p>
                       <p className="text-[10px] text-[#584E6B]">23+ Portals Scraper</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => handleQuickAction('contacts')}
+                    className="p-2.5 rounded-xl bg-[#FAF9FD] border border-[#E2DEEC] hover:bg-white hover:border-[#D8BFD8] text-left transition flex items-center space-x-2.5 group cursor-pointer shadow-2xs"
+                  >
+                    <span className="p-1.5 bg-[#E6E6FA] text-[#6B46C1] rounded-lg group-hover:bg-[#6B46C1] group-hover:text-white transition">
+                      <Mail className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-[#1E182B] group-hover:text-[#6B46C1] transition">Company Emails Directory</p>
+                      <p className="text-[10px] text-[#584E6B]">De-duplicated buyer emails</p>
                     </div>
                   </button>
 

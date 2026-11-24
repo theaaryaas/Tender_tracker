@@ -157,6 +157,8 @@ class HTMLExtractorService:
             ("Tender Value", "tender value in ₹"),
             ("Bid End Date", "bid submission end date"),
             ("Bid Opening Date", "bid opening date"),
+            ("Buyer / Contact Email", "email"),
+            ("Nodal Officer Email", "officer email"),
             ("Pre-Qualification Details", "pre qualification details")
         ]
 
