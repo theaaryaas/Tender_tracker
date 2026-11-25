@@ -41,12 +41,13 @@ import {
   Info,
   Bot,
   MessageSquare,
-  Trash2
+  Trash2,
+  UploadCloud
 } from 'lucide-react';
 import { tenderApi } from '../../utils/api';
 import { formatIndianDateTime } from '../../utils/dateUtils';
 import { TenderChatModal } from '../chatbot/TenderChatModal';
-import { copyTenderLinkToClipboard } from '../../utils/navigation';
+import { copyTenderLinkToClipboard, getAnalysisUrl } from '../../utils/navigation';
 
 // Defensive sanitizer to prevent Hindi mojibake, control chars or clause bleed
 const cleanScopeText = (raw) => {
@@ -1017,6 +1018,52 @@ export const TenderDrawer = () => {
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap">
+              {/* Deep Analysis Full-Page Report Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const url = getAnalysisUrl(tender.id || tender.tender_id);
+                  window.open(url, '_blank');
+                }}
+                className="flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg bg-gradient-to-r from-[#6B46C1] to-[#805AD5] hover:from-[#553C9A] hover:to-[#6B46C1] active:scale-95 text-white font-semibold inline-flex items-center justify-center space-x-1.5 shadow-xs transition cursor-pointer text-xs"
+                title="Open full-page Eligibility & Scope Deep Analysis Report"
+              >
+                <FileText className="w-3.5 h-3.5 text-white" />
+                <span>Eligibility Report</span>
+                <ExternalLink className="w-3 h-3 text-white/80" />
+              </button>
+
+              {/* Upload Document Dropzone */}
+              <label
+                className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
+                title="Upload tender PDF, Corrigendum, or BOQ Excel/CSV"
+              >
+                <UploadCloud className="w-3.5 h-3.5 text-[#6B46C1]" />
+                <span>Upload PDF</span>
+                <input
+                  type="file"
+                  accept=".pdf,.csv,.xlsx,.xls,.txt"
+                  className="hidden"
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      showNotification(`Uploading and analyzing "${file.name}"...`, 'info');
+                      try {
+                        const targetId = tender.id || tender.tender_id;
+                        const res = await tenderApi.uploadDocumentAndAnalyze(targetId, formData);
+                        showNotification(`"${file.name}" parsed & eligibility updated!`, 'success');
+                        if (refreshStats) refreshStats();
+                        window.open(getAnalysisUrl(targetId), '_blank');
+                      } catch (err) {
+                        showNotification('Failed to analyze uploaded file', 'error');
+                      }
+                    }
+                  }}
+                />
+              </label>
+
               {isGepnic ? (
                 <>
                   <button

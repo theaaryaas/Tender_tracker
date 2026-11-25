@@ -7,6 +7,7 @@
 export const TAB_ROUTES = {
   dashboard: '/dashboard',
   tenders: '/alltenders',
+  analysis: '/tender-analysis',
   crm: '/crm',
   kanban: '/pipeline',
   sync: '/sync',
@@ -25,6 +26,9 @@ export const ROUTE_ALIASES = {
   '/alltenders': 'tenders',
   '/all-tenders': 'tenders',
   '/tenders': 'tenders',
+  '/analysis': 'analysis',
+  '/tender-analysis': 'analysis',
+  '/deep-analysis': 'analysis',
   '/crm': 'crm',
   '/pipeline': 'kanban',
   '/kanban': 'kanban',
@@ -65,8 +69,18 @@ export const parseLocation = (pathname = window.location.pathname) => {
 
   const segment0 = parts[0].toLowerCase();
 
+  // Case 0: /analysis/..., /tender-analysis/..., /deep-analysis/...
+  if (['analysis', 'tender-analysis', 'deep-analysis'].includes(segment0)) {
+    const tenderId = parts.length > 1 ? decodeURIComponent(parts.slice(1).join('/')) : null;
+    return { tab: 'analysis', tenderId };
+  }
+
   // Case 1: /tender/..., /tenders/..., /alltenders/...
   if (['tender', 'tenders', 'alltenders', 'all-tenders'].includes(segment0)) {
+    if (parts.length >= 3 && ['analysis', 'deep-analysis'].includes(parts[parts.length - 1].toLowerCase())) {
+      const tenderId = decodeURIComponent(parts.slice(1, parts.length - 1).join('/'));
+      return { tab: 'analysis', tenderId };
+    }
     const tenderId = parts.length > 1 ? decodeURIComponent(parts.slice(1).join('/')) : null;
     return { tab: 'tenders', tenderId };
   }
@@ -121,4 +135,15 @@ export const copyTenderLinkToClipboard = async (tenderId) => {
   document.execCommand('copy');
   document.body.removeChild(textarea);
   return url;
+};
+
+/**
+ * Returns canonical URL for tender analysis page
+ */
+export const getAnalysisUrl = (tenderId = null) => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  if (tenderId) {
+    return `${origin}/tender-analysis/${encodeURIComponent(tenderId)}`;
+  }
+  return `${origin}/tender-analysis`;
 };

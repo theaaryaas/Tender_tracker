@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict, Any
 import asyncio
+import io
 from datetime import datetime, timezone
 from backend.core.db import get_db, SessionLocal
 from backend.core.date_utils import parse_closing_datetime, IST
@@ -21,6 +22,7 @@ from backend.schemas.tender import (
 from backend.repositories.tender_repository import TenderRepository
 from backend.services.pdf_service import PDFService
 from backend.services.eligibility_service import EligibilityService
+from backend.services.deep_analysis_service import TenderDeepAnalyzerService
 from backend.models.setting import Setting
 import json
 
@@ -591,6 +593,308 @@ def get_tender_notifications(
         }
     }
 
+@router.post("/analyze-ad-hoc")
+async def analyze_tender_ad_hoc(
+    file: Optional[UploadFile] = File(None),
+    raw_text: Optional[str] = Form(None),
+    boq_file: Optional[UploadFile] = File(None),
+    tender_id: Optional[str] = Form(None),
+    title: Optional[str] = Form(None),
+    organisation: Optional[str] = Form(None),
+):
+    """
+    On-the-fly deep eligibility analysis for any uploaded PDF or pasted tender text
+    without requiring a pre-existing tender in the database.
+    """
+    text_content = raw_text or ""
+    boq_content = ""
+
+    if file:
+        content = await file.read()
+        fname = (file.filename or "").lower()
+        if fname.endswith(".pdf"):
+            text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
+        elif fname.endswith(".csv") or fname.endswith(".txt"):
+            text_content = content.decode("utf-8", errors="ignore")
+            boq_content = text_content
+        elif fname.endswith(".xlsx") or fname.endswith(".xls"):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+                lines = []
+                for sheet in wb.worksheets:
+                    for row in sheet.iter_rows(values_only=True):
+                        row_vals = [str(c) for c in row if c is not None]
+                        if row_vals:
+                            lines.append(",".join(row_vals))
+                boq_content = "\n".join(lines)
+                text_content = boq_content
+            except Exception:
+                pass
+
+    if boq_file:
+        bcontent = await boq_file.read()
+        boq_content = bcontent.decode("utf-8", errors="ignore")
+
+    analysis = TenderDeepAnalyzerService.analyze(
+        text=text_content,
+        tender_id=tender_id or "",
+        title=title or "",
+        organisation=organisation or "",
+        boq_content=boq_content
+    )
+    return analysis
+
+@router.get("/{tender_id:path}/deep-analysis")
+async def get_tender_deep_analysis(tender_id: str, db: Session = Depends(get_db)):
+    import urllib.parse
+    code = urllib.parse.unquote(tender_id).strip()
+
+    tender = None
+    if code.isdigit():
+        tender = TenderRepository.get_by_id(db, int(code))
+    if not tender:
+        tender = TenderRepository.get_by_tender_code(db, code)
+    if not tender and code != tender_id:
+        tender = TenderRepository.get_by_tender_code(db, tender_id.strip())
+    if not tender and tender_id.isdigit():
+        tender = TenderRepository.get_by_id(db, int(tender_id))
+
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+
+    if tender.deep_analysis:
+        return tender.deep_analysis
+
+    text = tender.extracted_pdf_text or ""
+    if not text:
+        text = f"Tender {tender.tender_id}: {tender.title}. Organisation: {tender.organisation or 'N/A'}. Value: {tender.estimated_value or 'N/A'}. EMD: {tender.emd_amount or 'N/A'}. {tender.scope_summary or ''}"
+
+    analysis = TenderDeepAnalyzerService.analyze(
+        text=text,
+        tender_id=tender.tender_id,
+        title=tender.title,
+        organisation=tender.organisation or ""
+    )
+    tender.deep_analysis = analysis
+    db.commit()
+    return analysis
+
+@router.post("/{tender_id:path}/deep-analyze")
+async def force_tender_deep_analyze(tender_id: str, db: Session = Depends(get_db)):
+    import urllib.parse
+    code = urllib.parse.unquote(tender_id).strip()
+
+    tender = None
+    if code.isdigit():
+        tender = TenderRepository.get_by_id(db, int(code))
+    if not tender:
+        tender = TenderRepository.get_by_tender_code(db, code)
+    if not tender and code != tender_id:
+        tender = TenderRepository.get_by_tender_code(db, tender_id.strip())
+    if not tender and tender_id.isdigit():
+        tender = TenderRepository.get_by_id(db, int(tender_id))
+
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+
+    target_url = tender.doc_url or tender.url
+    if not tender.extracted_pdf_text and target_url:
+        try:
+            clauses = await PDFService.extract_clauses_from_url(
+                target_url,
+                keyword=tender.matched_keywords,
+                tender_id=tender.tender_id,
+                tender_title=tender.title
+            )
+            for k, v in clauses.items():
+                if v and hasattr(tender, k):
+                    setattr(tender, k, v)
+        except Exception:
+            pass
+
+    text = tender.extracted_pdf_text or ""
+    if not text:
+        text = f"Tender {tender.tender_id}: {tender.title}. Organisation: {tender.organisation or 'N/A'}. Value: {tender.estimated_value or 'N/A'}. EMD: {tender.emd_amount or 'N/A'}."
+
+    analysis = TenderDeepAnalyzerService.analyze(
+        text=text,
+        tender_id=tender.tender_id,
+        title=tender.title,
+        organisation=tender.organisation or ""
+    )
+    tender.deep_analysis = analysis
+    if analysis.get("overall_verdict", {}).get("score"):
+        tender.fit_score = analysis["overall_verdict"]["score"]
+
+    db.commit()
+    db.refresh(tender)
+    return analysis
+
+@router.post("/{tender_id:path}/upload-document")
+async def upload_document_and_analyze(
+    tender_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    import urllib.parse
+    code = urllib.parse.unquote(tender_id).strip()
+
+    tender = None
+    if code.isdigit():
+        tender = TenderRepository.get_by_id(db, int(code))
+    if not tender:
+        tender = TenderRepository.get_by_tender_code(db, code)
+    if not tender and code != tender_id:
+        tender = TenderRepository.get_by_tender_code(db, tender_id.strip())
+    if not tender and tender_id.isdigit():
+        tender = TenderRepository.get_by_id(db, int(tender_id))
+
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+
+    content = await file.read()
+    filename = file.filename or "uploaded_document"
+    lower_fname = filename.lower()
+
+    text_content = ""
+    boq_content = ""
+
+    if lower_fname.endswith(".pdf"):
+        text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
+    elif lower_fname.endswith(".csv") or lower_fname.endswith(".txt"):
+        text_content = content.decode("utf-8", errors="ignore")
+        boq_content = text_content
+    elif lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+            lines = []
+            for sheet in wb.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    row_vals = [str(c) for c in row if c is not None]
+                    if row_vals:
+                        lines.append(",".join(row_vals))
+            boq_content = "\n".join(lines)
+            text_content = boq_content
+        except Exception:
+            text_content = f"Uploaded Excel file: {filename}"
+
+    combined_text = (tender.extracted_pdf_text or "") + "\n\n" + text_content
+
+    analysis = TenderDeepAnalyzerService.analyze(
+        text=combined_text,
+        tender_id=tender.tender_id,
+        title=tender.title,
+        organisation=tender.organisation or "",
+        boq_content=boq_content
+    )
+
+    existing_docs = list(tender.documents or [])
+    doc_entry = {
+        "name": filename,
+        "title": "Uploaded Bid / Specifications File",
+        "category": "Uploaded Document",
+        "size": f"{round(len(content) / 1024, 1)} KB",
+        "url": ""
+    }
+    if not any(d.get("name") == filename for d in existing_docs):
+        existing_docs.append(doc_entry)
+        tender.documents = existing_docs
+
+    tender.extracted_pdf_text = combined_text
+    tender.deep_analysis = analysis
+    if analysis.get("overall_verdict", {}).get("score"):
+        tender.fit_score = analysis["overall_verdict"]["score"]
+
+    db.commit()
+    db.refresh(tender)
+    return analysis
+
+@router.post("/{tender_id:path}/parse-pdf", response_model=TenderResponse)
+async def parse_tender_pdf(tender_id: str, db: Session = Depends(get_db)):
+    import urllib.parse
+    code = urllib.parse.unquote(tender_id).strip()
+
+    tender = None
+    if code.isdigit():
+        tender = TenderRepository.get_by_id(db, int(code))
+    if not tender:
+        tender = TenderRepository.get_by_tender_code(db, code)
+    if not tender and code != tender_id:
+        tender = TenderRepository.get_by_tender_code(db, tender_id.strip())
+    if not tender and tender_id.isdigit():
+        tender = TenderRepository.get_by_id(db, int(tender_id))
+
+    if not tender:
+        raise HTTPException(status_code=404, detail="Tender not found")
+
+    target_url = tender.doc_url or tender.url
+    if not target_url:
+        raise HTTPException(status_code=400, detail="Tender does not have a valid document URL or portal link")
+
+    clauses = await PDFService.extract_clauses_from_url(
+        target_url,
+        keyword=tender.matched_keywords,
+        tender_id=tender.tender_id,
+        tender_title=tender.title
+    )
+    for k, v in clauses.items():
+        if v and hasattr(tender, k):
+            setattr(tender, k, v)
+
+    # Ensure extracted_pdf_text is populated with structured clauses for RAG and UI
+    if not tender.extracted_pdf_text or len(tender.extracted_pdf_text.strip()) < 30:
+        clauses_summary = [
+            f"Tender Reference: {tender.tender_id}",
+            f"Tender Title: {tender.title}",
+            f"Organisation / Department: {tender.organisation or 'Central Ministry / Department'}",
+            f"Portal: {tender.portal or 'GeM BidPlus'}",
+            f"Estimated Contract Value: {tender.estimated_value or 'Not Disclosed on Portal'}",
+            f"Earnest Money Deposit (EMD): {tender.emd_amount or 'Verify in ATC clauses'}",
+            f"EMD Exemption: {tender.emd_exemption or 'Standard MSME / Startup rules apply'}",
+            f"Bidder Turnover Mandate: {tender.bidder_turnover or tender.turnover_required or 'No Minimum Turnover'}",
+            f"OEM Turnover Mandate: {tender.oem_turnover or 'N/A'}",
+            f"Experience Criteria: {tender.experience_required or 'Past project experience required'}",
+            f"MSE Purchase Preference & Relaxation: {tender.mse_relaxation or 'Applicable as per GFR'}",
+            f"Startup Exemption: {tender.startup_relaxation or 'DPIIT recognized relaxation'}",
+            f"Equipment & BOQ Scope: {tender.scope_summary or tender.title}",
+        ]
+        tender.extracted_pdf_text = "\n".join(clauses_summary)
+
+    profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
+    profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
+    kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
+    custom_keywords = json.loads(kw_setting.value_json).get("keywords", []) if (kw_setting and kw_setting.value_json) else []
+
+    status, partner, notes, score = EligibilityService.assess(
+        tender_title=tender.title,
+        organisation=tender.organisation,
+        keyword=tender.matched_keywords,
+        profile=profile,
+        scope_summary=tender.scope_summary,
+        full_text=tender.extracted_pdf_text,
+        turnover_required=tender.turnover_required,
+        bidder_turnover=tender.bidder_turnover,
+        oem_turnover=tender.oem_turnover,
+        mse_relaxation=tender.mse_relaxation,
+        startup_relaxation=tender.startup_relaxation,
+        emd_amount=tender.emd_amount,
+        estimated_value=tender.estimated_value,
+        emd_exemption=tender.emd_exemption,
+        experience_years=tender.experience_years or "",
+        experience_required=tender.experience_required or "",
+        custom_keywords=custom_keywords
+    )
+    tender.eligibility_assessment = status
+    tender.si_partner_route = partner
+    tender.assessment_notes = notes
+    tender.fit_score = score
+
+    db.commit()
+    db.refresh(tender)
+    return tender
+
 @router.get("/{tender_id:path}", response_model=TenderResponse)
 def get_tender(tender_id: str, db: Session = Depends(get_db)):
     import urllib.parse
@@ -656,79 +960,6 @@ def delete_tender(
     )
 
     return {"status": "success", "message": f"Tender {tender_ref} deleted"}
-
-@router.post("/{tender_id}/parse-pdf", response_model=TenderResponse)
-async def parse_tender_pdf(tender_id: int, db: Session = Depends(get_db)):
-    tender = TenderRepository.get_by_id(db, tender_id)
-    if not tender:
-        raise HTTPException(status_code=404, detail="Tender not found")
-    
-    target_url = tender.doc_url or tender.url
-    if not target_url:
-        raise HTTPException(status_code=400, detail="Tender does not have a valid document URL or portal link")
-
-    clauses = await PDFService.extract_clauses_from_url(
-        target_url,
-        keyword=tender.matched_keywords,
-        tender_id=tender.tender_id,
-        tender_title=tender.title
-    )
-    for k, v in clauses.items():
-        if v and hasattr(tender, k):
-            setattr(tender, k, v)
-
-    # Ensure extracted_pdf_text is populated with structured clauses for RAG and UI
-    if not tender.extracted_pdf_text or len(tender.extracted_pdf_text.strip()) < 30:
-        clauses_summary = [
-            f"Tender Reference: {tender.tender_id}",
-            f"Tender Title: {tender.title}",
-            f"Organisation / Department: {tender.organisation or 'Central Ministry / Department'}",
-            f"Portal: {tender.portal or 'GeM BidPlus'}",
-            f"Estimated Contract Value: {tender.estimated_value or 'Not Disclosed on Portal'}",
-            f"Earnest Money Deposit (EMD): {tender.emd_amount or 'Verify in ATC clauses'}",
-            f"EMD Exemption: {tender.emd_exemption or 'Standard MSME / Startup rules apply'}",
-            f"Bidder Turnover Mandate: {tender.bidder_turnover or tender.turnover_required or 'No Minimum Turnover'}",
-            f"OEM Turnover Mandate: {tender.oem_turnover or 'N/A'}",
-            f"Experience Criteria: {tender.experience_required or 'Past project experience required'}",
-            f"MSE Purchase Preference & Relaxation: {tender.mse_relaxation or 'Applicable as per GFR'}",
-            f"Startup Exemption: {tender.startup_relaxation or 'DPIIT recognized relaxation'}",
-            f"Equipment & BOQ Scope: {tender.scope_summary or tender.title}",
-        ]
-        tender.extracted_pdf_text = "\n".join(clauses_summary)
-
-    # Recalculate dynamic fit score & eligibility with newly extracted PDF clauses
-    profile_setting = db.query(Setting).filter(Setting.key == "company_profile").first()
-    profile = json.loads(profile_setting.value_json) if (profile_setting and profile_setting.value_json) else {}
-    kw_setting = db.query(Setting).filter(Setting.key == "keywords").first()
-    custom_keywords = json.loads(kw_setting.value_json).get("keywords", []) if (kw_setting and kw_setting.value_json) else []
-
-    status, partner, notes, score = EligibilityService.assess(
-        tender_title=tender.title,
-        organisation=tender.organisation,
-        keyword=tender.matched_keywords,
-        profile=profile,
-        scope_summary=tender.scope_summary,
-        full_text=tender.extracted_pdf_text,
-        turnover_required=tender.turnover_required,
-        bidder_turnover=tender.bidder_turnover,
-        oem_turnover=tender.oem_turnover,
-        mse_relaxation=tender.mse_relaxation,
-        startup_relaxation=tender.startup_relaxation,
-        emd_amount=tender.emd_amount,
-        estimated_value=tender.estimated_value,
-        emd_exemption=tender.emd_exemption,
-        experience_years=tender.experience_years or "",
-        experience_required=tender.experience_required or "",
-        custom_keywords=custom_keywords
-    )
-    tender.eligibility_assessment = status
-    tender.si_partner_route = partner
-    tender.assessment_notes = notes
-    tender.fit_score = score
-
-    db.commit()
-    db.refresh(tender)
-    return tender
 
 @router.post("/recalculate-eligibility")
 def recalculate_all_eligibility(db: Session = Depends(get_db)):

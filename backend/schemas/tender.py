@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class TenderBase(BaseModel):
@@ -14,6 +14,8 @@ class TenderBase(BaseModel):
     opening_date: Optional[str] = None
     url: Optional[str] = None
     doc_url: Optional[str] = None
+    documents: Optional[List[Dict[str, Any]]] = None
+    deep_analysis: Optional[Dict[str, Any]] = None
     estimated_value: Optional[str] = "Check tender PDF / ATC"
     emd_amount: Optional[str] = "Check tender PDF / ATC"
     emd_exemption: Optional[str] = "Verify MSME / Startup rules"

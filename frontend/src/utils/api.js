@@ -48,6 +48,16 @@ export const tenderApi = {
   purgePastTenders: () => api.post('/tenders/purge-past'),
   parseTenderPdf: (id) => api.post(`/tenders/${id}/parse-pdf`),
   batchParseTenders: (limit = 20) => api.post('/tenders/batch-parse', null, { params: { limit } }),
+  getDeepAnalysis: (id) => api.get(`/tenders/${encodeURIComponent(id)}/deep-analysis`),
+  forceDeepAnalyze: (id) => api.post(`/tenders/${encodeURIComponent(id)}/deep-analyze`),
+  uploadDocumentAndAnalyze: (id, formData) =>
+    api.post(`/tenders/${encodeURIComponent(id)}/upload-document`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  analyzeAdHoc: (formData) =>
+    api.post('/tenders/analyze-ad-hoc', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 export const crmApi = {

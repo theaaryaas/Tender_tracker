@@ -105,18 +105,22 @@ export const AppProvider = ({ children }) => {
         // Only fetch if tender isn't already loaded in state
         setSelectedTender((prev) => {
           if (prev && (String(prev.tender_id) === String(tenderId) || String(prev.id) === String(tenderId))) {
-            setIsDrawerOpen(true);
+            if (tab !== 'analysis') setIsDrawerOpen(true);
+            else setIsDrawerOpen(false);
             return prev;
           }
           // Fetch tender details
           tenderApi.getTender(tenderId)
             .then((res) => {
               setSelectedTender(res.data);
-              setIsDrawerOpen(true);
+              if (tab !== 'analysis') setIsDrawerOpen(true);
+              else setIsDrawerOpen(false);
               const preferredCode = res.data.tender_id || res.data.id;
-              const updatedCanonical = `/alltenders/${encodeURIComponent(preferredCode)}`;
-              if (window.location.pathname !== updatedCanonical && window.location.pathname !== `/alltenders/${preferredCode}`) {
-                window.history.replaceState({ tab: 'tenders', tenderId: preferredCode }, '', updatedCanonical);
+              const updatedCanonical = tab === 'analysis'
+                ? `/tender-analysis/${encodeURIComponent(preferredCode)}`
+                : `/alltenders/${encodeURIComponent(preferredCode)}`;
+              if (window.location.pathname !== updatedCanonical) {
+                window.history.replaceState({ tab, tenderId: preferredCode }, '', updatedCanonical);
               }
             })
             .catch((err) => {
@@ -147,11 +151,14 @@ export const AppProvider = ({ children }) => {
         tenderApi.getTender(tenderId)
           .then((res) => {
             setSelectedTender(res.data);
-            setIsDrawerOpen(true);
+            if (tab !== 'analysis') setIsDrawerOpen(true);
+            else setIsDrawerOpen(false);
             const preferredCode = res.data.tender_id || res.data.id;
-            const updatedCanonical = `/alltenders/${encodeURIComponent(preferredCode)}`;
-            if (window.location.pathname !== updatedCanonical && window.location.pathname !== `/alltenders/${preferredCode}`) {
-              window.history.replaceState({ tab: 'tenders', tenderId: preferredCode }, '', updatedCanonical);
+            const updatedCanonical = tab === 'analysis'
+              ? `/tender-analysis/${encodeURIComponent(preferredCode)}`
+              : `/alltenders/${encodeURIComponent(preferredCode)}`;
+            if (window.location.pathname !== updatedCanonical) {
+              window.history.replaceState({ tab, tenderId: preferredCode }, '', updatedCanonical);
             }
           })
           .catch((err) => {

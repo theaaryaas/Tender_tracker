@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, JSON
 from datetime import datetime, timezone
 from backend.core.db import Base
 
@@ -19,6 +19,8 @@ class Tender(Base):
     
     url = Column(Text, nullable=True)
     doc_url = Column(Text, nullable=True)
+    documents = Column(JSON, nullable=True)
+    deep_analysis = Column(JSON, nullable=True)
     
     # Financial & Technical Criteria (Extracted or Checked)
     estimated_value = Column(String(255), default="Check tender PDF / ATC")
