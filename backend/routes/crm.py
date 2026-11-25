@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, or_, and_, func
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime, timezone
+import io
+import re
+import csv
+import openpyxl
 
 from backend.core.db import get_db
 from backend.models.user import User
@@ -429,4 +434,271 @@ def delete_crm_record(
         )
 
     return {"status": "success", "message": "CRM Record deleted and tender released"}
+
+
+# ==========================================
+# BULK IMPORT ENGINE & TEMPLATE EXPORT
+# ==========================================
+
+HEADER_SYNONYMS = {
+    "company_name": ["client", "clientname", "company", "companyname", "organisation", "organization", "customer"],
+    "entered_date": ["date", "dateentered", "entrydate"],
+    "lead_status": ["status", "leadstatus"],
+    "client_name": ["name", "contactperson", "person", "contactname"],
+    "client_phone": ["number", "phone", "phonenumber", "mobile", "mobilenumber", "contactno", "contactnumber"],
+    "remarks": ["remarks", "remark", "notes", "comments", "discussion"],
+    "client_designation": ["designation", "designationdept", "role", "department"],
+    "client_email": ["email", "emailid", "mail", "mailid"],
+}
+
+def _normalize_header(h: Any) -> str:
+    if not h:
+        return ""
+    return re.sub(r"[^a-z0-9]", "", str(h).lower())
+
+def _parse_flexible_date(val: Any) -> date:
+    if not val:
+        return date.today()
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    val_str = str(val).strip()
+    if not val_str or val_str.lower() in ("none", "null", "nan"):
+        return date.today()
+    
+    # Common full date formats
+    for fmt in (
+        "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%m/%d/%Y",
+        "%d-%b-%Y", "%d %b %Y", "%d-%b-%y", "%d %b %y",
+        "%d-%B-%Y", "%d %B %Y", "%b %d, %Y", "%B %d, %Y"
+    ):
+        try:
+            return datetime.strptime(val_str, fmt).date()
+        except ValueError:
+            pass
+
+    # Formats without year: e.g. "17 Nov", "17-Nov", "Nov 17" -> current year
+    current_year = date.today().year
+    for fmt in ("%d %b", "%d-%b", "%d %B", "%d-%B", "%b %d", "%B %d", "%d/%m", "%d-%m"):
+        try:
+            dt = datetime.strptime(val_str, fmt)
+            return dt.replace(year=current_year).date()
+        except ValueError:
+            pass
+
+    return date.today()
+
+def _parse_lead_status(val: Any) -> str:
+    if not val:
+        return "Warm"
+    s = str(val).strip().lower()
+    if "hot" in s:
+        return "Hot"
+    elif "cold" in s:
+        return "Cold"
+    return "Warm"
+
+def _clean_phone(val: Any) -> Optional[str]:
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        val_str = str(int(val))
+    else:
+        val_str = str(val).strip()
+    return val_str if val_str and val_str.lower() not in ("none", "null", "nan") else None
+
+def _clean_str(val: Any) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s if s and s.lower() not in ("none", "null", "nan") else None
+
+
+@router.get("/template")
+def download_import_template():
+    """
+    Downloads an Excel (.xlsx) template pre-formatted with headers matching
+    the exact CRM import structure, plus 2 sample placeholder rows.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "CRM Leads"
+
+    headers = ["Sr No", "Date", "Status", "Client", "Name", "Number", "Remarks", "Designation", "Email ID"]
+    ws.append(headers)
+
+    # Style header row
+    header_fill = openpyxl.styles.PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")
+    header_font = openpyxl.styles.Font(bold=True, color="1E182B")
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    sample_rows = [
+        [1, "17 Nov", "Warm", "Solarium Green energy (Ahmedabad)", "Chintan Wachani ( Purchase department)", "9023725751", "Customer discussion ongoing regarding tender opportunity.", "Purchase Manager", "chintan@solarium.com"],
+        [2, "18 Nov", "Cold", "Governement Hospital Dewas", "Dr Sarojni (CMO Dewas District)", "94251 34278", "Demo conducted with the CMO. She shared contact number and asked to reconnect.", "CMO", "cmo.dewas@mp.gov.in"],
+        [3, "19 Nov", "Hot", "Zeal Life Sciences Pvt Ltd", "Sulabh ji", "87179 09999", "Customer requires video analytics solution for 70+ cameras.", "Director", "sulabh@zeallife.com"]
+    ]
+    for row in sample_rows:
+        ws.append(row)
+
+    # Adjust column widths
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = openpyxl.utils.get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = "CRM_Leads_Import_Template.xlsx"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.post("/import", status_code=status.HTTP_201_CREATED)
+async def import_crm_records(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.get_current_user)
+):
+    """
+    Bulk import CRM records from Excel (.xlsx, .xls) or CSV file.
+    - Supported headers (case-insensitive): Sr No, Date, Status, Client, Name, Number, Remarks, Designation, Email ID
+    - Sets visibility to 'all' strictly by default.
+    - Records an immutable BULK_IMPORT entry in the audit trail.
+    """
+    filename = file.filename or "upload"
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    if ext not in ("xlsx", "xls", "csv"):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file."
+        )
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
+    raw_rows: List[List[Any]] = []
+
+    if ext in ("xlsx", "xls"):
+        try:
+            wb = openpyxl.load_workbook(filename=io.BytesIO(contents), data_only=True)
+            ws = wb.active
+            for row in ws.iter_rows(values_only=True):
+                if any(row):  # skip completely blank rows
+                    raw_rows.append(list(row))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {str(e)}")
+    else:  # csv
+        try:
+            text = contents.decode("utf-8")
+        except UnicodeDecodeError:
+            text = contents.decode("latin-1")
+        reader = csv.reader(io.StringIO(text))
+        for row in reader:
+            if any(cell.strip() for cell in row):
+                raw_rows.append(row)
+
+    if not raw_rows:
+        raise HTTPException(status_code=400, detail="No data rows found in the uploaded file.")
+
+    # 1. Match Header Row
+    header_row = raw_rows[0]
+    col_mapping: Dict[int, str] = {}
+    for idx, col in enumerate(header_row):
+        norm = _normalize_header(col)
+        for target_field, synonyms in HEADER_SYNONYMS.items():
+            if norm in synonyms:
+                col_mapping[idx] = target_field
+                break
+
+    if "company_name" not in col_mapping.values():
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required 'Client' or 'Company' column in header row. Please refer to the template."
+        )
+
+    # 2. Parse and Create Records
+    created_records: List[CRMRecord] = []
+    skipped_count = 0
+
+    for row_idx, row in enumerate(raw_rows[1:], start=2):
+        row_dict: Dict[str, Any] = {}
+        for idx, field in col_mapping.items():
+            if idx < len(row):
+                row_dict[field] = row[idx]
+
+        company = _clean_str(row_dict.get("company_name"))
+        if not company:
+            skipped_count += 1
+            continue
+
+        entered_dt = _parse_flexible_date(row_dict.get("entered_date"))
+        lead_st = _parse_lead_status(row_dict.get("lead_status"))
+        c_name = _clean_str(row_dict.get("client_name"))
+        c_phone = _clean_phone(row_dict.get("client_phone"))
+        c_email = _clean_str(row_dict.get("client_email"))
+        c_desig = _clean_str(row_dict.get("client_designation"))
+        rem = _clean_str(row_dict.get("remarks"))
+
+        record = CRMRecord(
+            user_id=current_user.id,
+            company_name=company,
+            entered_date=entered_dt,
+            lead_status=lead_st,
+            client_name=c_name,
+            client_phone=c_phone,
+            client_email=c_email,
+            client_designation=c_desig,
+            remarks=rem,
+            visibility="all"  # Strictly enforced default 'all'
+        )
+        db.add(record)
+        created_records.append(record)
+
+    if not created_records:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid CRM lead records found. Please ensure the 'Client' column is populated."
+        )
+
+    db.commit()
+
+    # 3. Register Audit Trail Entry
+    client_ip = request.client.host if request.client else None
+    sample_names = [r.company_name for r in created_records[:5]]
+    AuditService.log(
+        db=db,
+        user=current_user,
+        action="BULK_IMPORT",
+        entity_type="crm_record",
+        entity_id=f"bulk_import_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+        new_values={
+            "filename": filename,
+            "total_imported": len(created_records),
+            "skipped_count": skipped_count,
+            "visibility": "all",
+            "imported_by": current_user.username,
+            "sample_clients": sample_names
+        },
+        ip_address=client_ip
+    )
+
+    return {
+        "status": "success",
+        "filename": filename,
+        "total_imported": len(created_records),
+        "skipped_count": skipped_count,
+        "visibility": "all",
+        "message": f"Successfully imported {len(created_records)} CRM leads with visibility set to 'all'."
+    }
+
 

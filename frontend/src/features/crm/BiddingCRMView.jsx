@@ -21,7 +21,11 @@ import {
   RefreshCw,
   X,
   CheckCircle2,
-  MessageSquare
+  MessageSquare,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  AlertCircle
 } from 'lucide-react';
 
 export const BiddingCRMView = () => {
@@ -55,6 +59,12 @@ export const BiddingCRMView = () => {
   const [remarksRecord, setRemarksRecord] = useState(null);
   const [remarksText, setRemarksText] = useState('');
 
+  // Bulk Import Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFeedback, setImportFeedback] = useState(null);
+
   const fetchRecords = async () => {
     setLoading(true);
     try {
@@ -77,9 +87,13 @@ export const BiddingCRMView = () => {
     fetchRecords();
   }, [search, leadStatusFilter, myRecordsOnly]);
 
-  // 1-Click Toggle Warm/Cold
+  // 1-Click Cycle Status (Hot -> Warm -> Cold -> Hot)
   const handleToggleStatus = async (record) => {
-    const nextStatus = record.lead_status === 'Warm' ? 'Cold' : 'Warm';
+    let nextStatus = 'Warm';
+    if (record.lead_status === 'Hot') nextStatus = 'Warm';
+    else if (record.lead_status === 'Warm') nextStatus = 'Cold';
+    else if (record.lead_status === 'Cold') nextStatus = 'Hot';
+
     try {
       await crmApi.updateRecord(record.id, { lead_status: nextStatus });
       setRecords((prev) =>
@@ -88,6 +102,41 @@ export const BiddingCRMView = () => {
       showNotification(`Record updated to ${nextStatus}`, 'success');
     } catch (err) {
       showNotification('Failed to update status', 'error');
+    }
+  };
+
+  // Handle Bulk Import
+  const handleImportSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      showNotification('Please choose an Excel or CSV file to upload', 'error');
+      return;
+    }
+
+    const uploadData = new FormData();
+    uploadData.append('file', selectedFile);
+
+    setIsImporting(true);
+    setImportFeedback(null);
+    try {
+      const res = await crmApi.importRecords(uploadData);
+      setImportFeedback({
+        type: 'success',
+        message: res.data.message || `Successfully imported ${res.data.total_imported} records.`
+      });
+      showNotification(`Imported ${res.data.total_imported} leads with visibility 'all'`, 'success');
+      fetchRecords();
+      setTimeout(() => {
+        setIsImportModalOpen(false);
+        setSelectedFile(null);
+        setImportFeedback(null);
+      }, 1500);
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Failed to import file. Please check format.';
+      setImportFeedback({ type: 'error', message: msg });
+      showNotification(msg, 'error');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -186,7 +235,7 @@ export const BiddingCRMView = () => {
 
   return (
     <div className="space-y-5 w-full">
-      
+
       {/* 1. TOP HEADER BANNER */}
       <div className="bg-white p-5 rounded-2xl border border-[#E2DEEC] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -203,13 +252,26 @@ export const BiddingCRMView = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="inline-flex items-center justify-center space-x-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-purple-900/10 transition cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Record</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              setSelectedFile(null);
+              setImportFeedback(null);
+              setIsImportModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center space-x-1.5 bg-white hover:bg-[#FAF9FD] text-[#6B46C1] border border-[#D8BFD8] text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-xl shadow-xs transition cursor-pointer"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Import Leads</span>
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="inline-flex items-center justify-center space-x-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-purple-900/10 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Record</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. FILTER & SEARCH BAR */}
@@ -235,15 +297,22 @@ export const BiddingCRMView = () => {
               All Status
             </button>
             <button
+              onClick={() => setLeadStatusFilter('Hot')}
+              className={`px-2.5 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Hot' ? 'bg-[#FFF0F0] text-[#DC2626] font-bold shadow-xs' : 'text-[#584E6B]'}`}
+            >
+              <Flame className="w-3.5 h-3.5 text-[#DC2626]" />
+              <span>Hot</span>
+            </button>
+            <button
               onClick={() => setLeadStatusFilter('Warm')}
-              className={`px-3 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Warm' ? 'bg-[#FFF2E5] text-[#EA580C] font-bold' : 'text-[#584E6B]'}`}
+              className={`px-2.5 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Warm' ? 'bg-[#FFF2E5] text-[#EA580C] font-bold shadow-xs' : 'text-[#584E6B]'}`}
             >
               <Flame className="w-3.5 h-3.5 text-[#EA580C]" />
               <span>Warm</span>
             </button>
             <button
               onClick={() => setLeadStatusFilter('Cold')}
-              className={`px-3 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Cold' ? 'bg-[#EDF8FD] text-[#0284C7] font-bold' : 'text-[#584E6B]'}`}
+              className={`px-2.5 py-1 rounded-md transition flex items-center space-x-1 ${leadStatusFilter === 'Cold' ? 'bg-[#EDF8FD] text-[#0284C7] font-bold shadow-xs' : 'text-[#584E6B]'}`}
             >
               <Snowflake className="w-3.5 h-3.5 text-[#0284C7]" />
               <span>Cold</span>
@@ -292,10 +361,12 @@ export const BiddingCRMView = () => {
               </thead>
               <tbody className="divide-y divide-[#E2DEEC]">
                 {records.map((rec) => {
-                  const isWarm = rec.lead_status === 'Warm';
+                  const isHot = rec.lead_status === 'Hot';
+                  const isCold = rec.lead_status === 'Cold';
+                  const isWarm = !isHot && !isCold;
                   return (
                     <tr key={rec.id} className="hover:bg-[#FAF9FD]/80 transition">
-                      
+
                       {/* Date Entered */}
                       <td className="py-3.5 px-4 font-semibold text-[#1E182B] whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
@@ -309,26 +380,32 @@ export const BiddingCRMView = () => {
                         )}
                       </td>
 
-                      {/* Warm/Cold 1-Click Toggle */}
+                      {/* Status 1-Click Cycle (Hot -> Warm -> Cold) */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <button
                           onClick={() => handleToggleStatus(rec)}
-                          title="Click to toggle Warm/Cold"
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] transition cursor-pointer shadow-xs border ${
-                            isWarm
-                              ? 'bg-[#FFF2E5] text-[#EA580C] border-[#FED7AA] hover:bg-[#FFE4D0]'
-                              : 'bg-[#EDF8FD] text-[#0284C7] border-[#BAE6FD] hover:bg-[#E0F2FE]'
-                          }`}
+                          title="Click to cycle status: Hot -> Warm -> Cold"
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] transition cursor-pointer shadow-xs border ${isHot
+                              ? 'bg-[#FFF0F0] text-[#DC2626] border-[#FECACA] hover:bg-[#FFE2E2]'
+                              : isCold
+                                ? 'bg-[#EDF8FD] text-[#0284C7] border-[#BAE6FD] hover:bg-[#E0F2FE]'
+                                : 'bg-[#FFF2E5] text-[#EA580C] border-[#FED7AA] hover:bg-[#FFE4D0]'
+                            }`}
                         >
-                          {isWarm ? (
+                          {isHot ? (
                             <>
-                              <Flame className="w-3 h-3 text-[#EA580C]" />
-                              <span>Warm</span>
+                              <Flame className="w-3 h-3 text-[#DC2626]" />
+                              <span>Hot</span>
                             </>
-                          ) : (
+                          ) : isCold ? (
                             <>
                               <Snowflake className="w-3 h-3 text-[#0284C7]" />
                               <span>Cold</span>
+                            </>
+                          ) : (
+                            <>
+                              <Flame className="w-3 h-3 text-[#EA580C]" />
+                              <span>Warm</span>
                             </>
                           )}
                         </button>
@@ -389,7 +466,7 @@ export const BiddingCRMView = () => {
 
                       {/* Remarks (Conversation notes) */}
                       <td className="py-3.5 px-4 max-w-[240px]">
-                        <div 
+                        <div
                           onClick={() => {
                             setRemarksRecord(rec);
                             setRemarksText(rec.remarks || '');
@@ -407,13 +484,12 @@ export const BiddingCRMView = () => {
 
                       {/* Visibility Badge */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          rec.visibility === 'me'
+                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.visibility === 'me'
                             ? 'bg-amber-50 text-amber-800 border border-amber-200'
                             : rec.visibility === 'manager'
-                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        }`}>
+                              ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          }`}>
                           {rec.visibility === 'me' && <Lock className="w-2.5 h-2.5" />}
                           {rec.visibility === 'manager' && <Users className="w-2.5 h-2.5" />}
                           {rec.visibility === 'all' && <Globe className="w-2.5 h-2.5" />}
@@ -458,7 +534,7 @@ export const BiddingCRMView = () => {
               <h3 className="text-base font-bold text-[#1E182B]">
                 {editingRecord ? 'Edit Bidding Record' : 'Create Bidding Engagement Record'}
               </h3>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
               >
@@ -481,14 +557,15 @@ export const BiddingCRMView = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#1E182B] mb-1">Status (Warm / Cold)</label>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Status (Hot / Warm / Cold)</label>
                   <select
                     value={formData.lead_status}
                     onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
                     className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
                   >
-                    <option value="Warm">🔥 Warm (High Interest)</option>
-                    <option value="Cold">❄️ Cold (Delayed/Low)</option>
+                    <option value="Hot">🔥 Hot (High Interest / Urgent)</option>
+                    <option value="Warm">⚡ Warm (Active Discussion)</option>
+                    <option value="Cold">❄️ Cold (Delayed / Low Interest)</option>
                   </select>
                 </div>
 
@@ -597,7 +674,7 @@ export const BiddingCRMView = () => {
                   Discussion & Remarks: {remarksRecord?.company_name}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => setIsRemarksModalOpen(false)}
                 className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
               >
@@ -631,6 +708,148 @@ export const BiddingCRMView = () => {
               >
                 Save Remarks
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MODAL FOR BULK IMPORT */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2DEEC] relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2DEEC]">
+              <div className="flex items-center space-x-2">
+                <FileSpreadsheet className="w-5 h-5 text-[#6B46C1]" />
+                <h3 className="text-base font-bold text-[#1E182B]">
+                  Import CRM Leads (Excel / CSV)
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setSelectedFile(null);
+                  setImportFeedback(null);
+                }}
+                className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {/* Info banner about visibility and audit */}
+              <div className="bg-[#FAF9FD] p-3.5 rounded-xl border border-[#E2DEEC] text-xs space-y-2">
+                <div className="flex items-start space-x-2 text-[#1E182B] font-semibold">
+                  <Globe className="w-4 h-4 text-[#6B46C1] shrink-0 mt-0.5" />
+                  <span>Visibility set to <strong className="text-[#6B46C1]">All Members</strong> automatically.</span>
+                </div>
+                <p className="text-[#584E6B] text-[11px] leading-relaxed">
+                  Every uploaded lead is saved with visibility <code className="bg-white px-1.5 py-0.5 rounded border border-[#E2DEEC] font-semibold text-[#6B46C1]">all</code> so your entire bidding team can collaborate. The action will be logged in the system Audit Trail.
+                </p>
+              </div>
+
+              {/* Supported Columns overview */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] text-[#584E6B]">
+                <div className="font-semibold text-[#1E182B] mb-1.5">Expected Spreadsheet Headers:</div>
+                <div className="flex flex-wrap gap-1 font-mono text-[10px] text-slate-700">
+                  {['Sr No', 'Date', 'Status', 'Client', 'Name', 'Number', 'Remarks', 'Designation', 'Email ID'].map((col) => (
+                    <span key={col} className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Download Template Link */}
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="text-[#584E6B]">Need the exact template?</span>
+                <a
+                  href="/api/v1/crm-records/template"
+                  download="CRM_Leads_Import_Template.xlsx"
+                  className="inline-flex items-center space-x-1.5 text-[#6B46C1] hover:text-[#553C9A] font-semibold hover:underline"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Sample Template</span>
+                </a>
+              </div>
+
+              {/* File Dropzone */}
+              <form onSubmit={handleImportSubmit} className="space-y-4">
+                <div className="border-2 border-dashed border-[#D8BFD8] hover:border-[#6B46C1] transition rounded-2xl p-6 text-center bg-[#FAF9FD]/60">
+                  <input
+                    type="file"
+                    id="crm-file-upload"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setSelectedFile(e.target.files[0]);
+                        setImportFeedback(null);
+                      }
+                    }}
+                  />
+                  <label htmlFor="crm-file-upload" className="cursor-pointer block space-y-2">
+                    <Upload className="w-8 h-8 text-[#6B46C1] mx-auto opacity-80" />
+                    <div className="text-xs font-semibold text-[#1E182B]">
+                      {selectedFile ? (
+                        <span className="text-[#6B46C1] font-bold">{selectedFile.name}</span>
+                      ) : (
+                        <span>Click to choose file or drag & drop</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[#8C82A0]">
+                      Supports Excel (.xlsx, .xls) and CSV (.csv)
+                    </div>
+                  </label>
+                </div>
+
+                {/* Feedback */}
+                {importFeedback && (
+                  <div className={`p-3 rounded-xl border text-xs flex items-start space-x-2 ${importFeedback.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-red-50 border-red-200 text-red-800'
+                    }`}>
+                    {importFeedback.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                    )}
+                    <span className="leading-relaxed font-medium">{importFeedback.message}</span>
+                  </div>
+                )}
+
+                {/* Footer Buttons */}
+                <div className="pt-3 flex justify-end space-x-2 border-t border-[#E2DEEC]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportModalOpen(false);
+                      setSelectedFile(null);
+                      setImportFeedback(null);
+                    }}
+                    className="px-4 py-2 border border-[#E2DEEC] rounded-lg text-xs font-semibold text-[#584E6B] hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!selectedFile || isImporting}
+                    className="inline-flex items-center space-x-1.5 px-5 py-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {isImporting ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Importing Leads...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload & Import</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

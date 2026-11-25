@@ -175,12 +175,9 @@ class HTMLExtractorService:
             ("Period Of Work", "period of work(days)"),
             ("Location", "location"),
             ("Pre-Qualification Details", "pre qualification details"),
-            ("Covers / Required Submission", "covers information")
-
+            ("Covers / Required Submission", "covers information"),
             ("Buyer / Contact Email", "email"),
-            ("Nodal Officer Email", "officer email"),
-            ("Pre-Qualification Details", "pre qualification details")
-
+            ("Nodal Officer Email", "officer email")
         ]
 
         for label, key_name in important_fields:
