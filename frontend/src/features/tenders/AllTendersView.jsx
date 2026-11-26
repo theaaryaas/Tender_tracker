@@ -18,7 +18,8 @@ import {
   Tag,
   Zap,
   Trash2,
-  Copy
+  Copy,
+  UploadCloud
 } from 'lucide-react';
 import { tenderApi, exportApi, crmApi } from '../../utils/api';
 import { formatDeadline } from '../../utils/dateUtils';
@@ -43,11 +44,40 @@ const cleanTenderTitle = (rawTitle, organisation = '') => {
 };
 
 export const AllTendersView = () => {
-  const { user, isSuperAdmin, isManager, openTenderDrawer, showNotification } = useApp();
+  const { user, isSuperAdmin, isManager, openTenderDrawer, showNotification, setCurrentTab, setSelectedTender } = useApp();
   const canDeleteIndividual = isSuperAdmin || (user?.permissions || []).includes('can_delete_tenders');
   const canBulkDeletePast = isSuperAdmin || (user?.permissions || []).includes('can_bulk_delete_expired');
 
   const [tenders, setTenders] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const handleQuickUpload = async (file, isExcel = false) => {
+    if (!file) return;
+    setUploadingDoc(true);
+    showNotification(`Uploading & analyzing ${isExcel ? 'BOQ Excel' : 'Tender PDF'} "${file.name}"...`, 'info');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await tenderApi.analyzeAdHoc(formData);
+      showNotification(`"${file.name}" analyzed successfully! Opening Eligibility Report...`, 'success');
+      if (setSelectedTender) {
+        setSelectedTender({
+          id: res.data?.tender_id || 'Uploaded Document',
+          tender_id: res.data?.tender_id || 'Uploaded Document',
+          title: res.data?.title || file.name,
+          organisation: res.data?.organisation || 'Direct Upload',
+          deep_analysis: res.data
+        });
+      }
+      if (setCurrentTab) {
+        setCurrentTab('analysis');
+      }
+    } catch (err) {
+      showNotification('Failed to analyze uploaded file', 'error');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
@@ -313,6 +343,46 @@ export const AllTendersView = () => {
               )}
             </button>
 
+            {/* Upload PDF */}
+            <label
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] text-xs font-semibold shadow-xs transition touch-manipulation cursor-pointer shrink-0"
+              title="Upload tender PDF document for deep eligibility analysis"
+            >
+              <UploadCloud className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#6B46C1]" />
+              <span>Upload PDF</span>
+              <input
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                disabled={uploadingDoc}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleQuickUpload(e.target.files[0], false);
+                  }
+                }}
+              />
+            </label>
+
+            {/* Upload Excel */}
+            <label
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-white border border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 text-emerald-700 text-xs font-semibold shadow-xs transition touch-manipulation cursor-pointer shrink-0"
+              title="Upload Bill of Quantities (BOQ) or Manpower Schedule in Excel/CSV"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+              <span>Upload Excel</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                disabled={uploadingDoc}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleQuickUpload(e.target.files[0], true);
+                  }
+                }}
+              />
+            </label>
+
             <button
               type="button"
               onClick={handleBatchParse}
@@ -323,6 +393,35 @@ export const AllTendersView = () => {
               <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>{batchParsing ? 'Extracting...' : 'Auto-Extract'}</span>
             </button>
+
+            {/* Direct Upload PDF for Eligibility Analysis */}
+            <label
+              className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] text-xs font-semibold shadow-xs transition touch-manipulation cursor-pointer shrink-0"
+              title="Upload any Tender PDF, Corrigendum, or BOQ Excel/CSV for Eligibility Analysis"
+            >
+              <UploadCloud className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#6B46C1]" />
+              <span>Upload PDF</span>
+              <input
+                type="file"
+                accept=".pdf,.csv,.xlsx,.xls,.txt"
+                className="hidden"
+                onChange={async (e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    showNotification(`Analyzing "${file.name}"...`, 'info');
+                    try {
+                      await tenderApi.analyzeAdHoc(formData);
+                      showNotification(`"${file.name}" analyzed successfully!`, 'success');
+                      window.open('/tender-analysis', '_blank');
+                    } catch (err) {
+                      showNotification('Failed to analyze uploaded file', 'error');
+                    }
+                  }
+                }}
+              />
+            </label>
 
             <a
               href={exportApi.getExcelUrl({ search, portal, status, eligibility, is_starred: isStarredOnly ? true : undefined })}

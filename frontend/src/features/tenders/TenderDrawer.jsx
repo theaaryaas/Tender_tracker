@@ -42,7 +42,8 @@ import {
   Bot,
   MessageSquare,
   Trash2,
-  UploadCloud
+  UploadCloud,
+  FileSpreadsheet
 } from 'lucide-react';
 import { tenderApi } from '../../utils/api';
 import { formatIndianDateTime } from '../../utils/dateUtils';
@@ -1033,16 +1034,16 @@ export const TenderDrawer = () => {
                 <ExternalLink className="w-3 h-3 text-white/80" />
               </button>
 
-              {/* Upload Document Dropzone */}
+              {/* Upload PDF Document */}
               <label
                 className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
-                title="Upload tender PDF, Corrigendum, or BOQ Excel/CSV"
+                title="Upload tender PDF or Corrigendum document"
               >
                 <UploadCloud className="w-3.5 h-3.5 text-[#6B46C1]" />
                 <span>Upload PDF</span>
                 <input
                   type="file"
-                  accept=".pdf,.csv,.xlsx,.xls,.txt"
+                  accept=".pdf"
                   className="hidden"
                   onChange={async (e) => {
                     if (e.target.files && e.target.files[0]) {
@@ -1058,6 +1059,37 @@ export const TenderDrawer = () => {
                         window.open(getAnalysisUrl(targetId), '_blank');
                       } catch (err) {
                         showNotification('Failed to analyze uploaded file', 'error');
+                      }
+                    }
+                  }}
+                />
+              </label>
+
+              {/* Upload Excel / BOQ Document */}
+              <label
+                className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-emerald-50 hover:border-emerald-300 text-emerald-700 font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
+                title="Upload Bill of Quantities (BOQ) or Manpower Excel / CSV schedule"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Upload Excel</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      showNotification(`Uploading and parsing BOQ "${file.name}"...`, 'info');
+                      try {
+                        const targetId = tender.id || tender.tender_id;
+                        const res = await tenderApi.uploadDocumentAndAnalyze(targetId, formData);
+                        showNotification(`BOQ "${file.name}" parsed & items extracted!`, 'success');
+                        if (refreshStats) refreshStats();
+                        window.open(getAnalysisUrl(targetId), '_blank');
+                      } catch (err) {
+                        showNotification('Failed to parse uploaded Excel file', 'error');
                       }
                     }
                   }}

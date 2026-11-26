@@ -614,27 +614,22 @@ async def analyze_tender_ad_hoc(
         fname = (file.filename or "").lower()
         if fname.endswith(".pdf"):
             text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
-        elif fname.endswith(".csv") or fname.endswith(".txt"):
+        elif fname.endswith(".xlsx") or fname.endswith(".xls") or fname.endswith(".csv"):
+            excel_text = TenderDeepAnalyzerService.extract_text_from_excel_bytes(content, fname)
+            boq_content = excel_text
+            text_content = (text_content + "\n\n" + excel_text) if text_content else excel_text
+        elif fname.endswith(".txt"):
             text_content = content.decode("utf-8", errors="ignore")
-            boq_content = text_content
-        elif fname.endswith(".xlsx") or fname.endswith(".xls"):
-            try:
-                import openpyxl
-                wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
-                lines = []
-                for sheet in wb.worksheets:
-                    for row in sheet.iter_rows(values_only=True):
-                        row_vals = [str(c) for c in row if c is not None]
-                        if row_vals:
-                            lines.append(",".join(row_vals))
-                boq_content = "\n".join(lines)
-                text_content = boq_content
-            except Exception:
-                pass
 
     if boq_file:
         bcontent = await boq_file.read()
-        boq_content = bcontent.decode("utf-8", errors="ignore")
+        bfname = (boq_file.filename or "").lower()
+        if bfname.endswith(".xlsx") or bfname.endswith(".xls") or bfname.endswith(".csv"):
+            b_text = TenderDeepAnalyzerService.extract_text_from_excel_bytes(bcontent, bfname)
+        else:
+            b_text = bcontent.decode("utf-8", errors="ignore")
+        boq_content = (boq_content + "\n\n" + b_text) if boq_content else b_text
+        text_content = (text_content + "\n\n" + b_text) if text_content else b_text
 
     analysis = TenderDeepAnalyzerService.analyze(
         text=text_content,
@@ -762,23 +757,13 @@ async def upload_document_and_analyze(
 
     if lower_fname.endswith(".pdf"):
         text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
-    elif lower_fname.endswith(".csv") or lower_fname.endswith(".txt"):
+    elif lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls") or lower_fname.endswith(".csv"):
+        excel_text = TenderDeepAnalyzerService.extract_text_from_excel_bytes(content, filename)
+        boq_content = excel_text
+        text_content = excel_text
+    elif lower_fname.endswith(".txt"):
         text_content = content.decode("utf-8", errors="ignore")
         boq_content = text_content
-    elif lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls"):
-        try:
-            import openpyxl
-            wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
-            lines = []
-            for sheet in wb.worksheets:
-                for row in sheet.iter_rows(values_only=True):
-                    row_vals = [str(c) for c in row if c is not None]
-                    if row_vals:
-                        lines.append(",".join(row_vals))
-            boq_content = "\n".join(lines)
-            text_content = boq_content
-        except Exception:
-            text_content = f"Uploaded Excel file: {filename}"
 
     combined_text = (tender.extracted_pdf_text or "") + "\n\n" + text_content
 
@@ -790,11 +775,12 @@ async def upload_document_and_analyze(
         boq_content=boq_content
     )
 
+    is_excel = lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls") or lower_fname.endswith(".csv")
     existing_docs = list(tender.documents or [])
     doc_entry = {
         "name": filename,
-        "title": "Uploaded Bid / Specifications File",
-        "category": "Uploaded Document",
+        "title": "Uploaded Bill of Quantities (BOQ)" if is_excel else "Uploaded Bid / Specifications File",
+        "category": "Uploaded BOQ / Excel" if is_excel else "Uploaded Document",
         "size": f"{round(len(content) / 1024, 1)} KB",
         "url": ""
     }
