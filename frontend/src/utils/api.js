@@ -79,6 +79,7 @@ export const usersApi = {
   createUser: (data) => api.post('/users', data),
   updatePermissions: (id, permissions) => api.patch(`/users/${id}/permissions`, { permissions }),
   updateStatus: (id, is_active) => api.patch(`/users/${id}/status`, { is_active }),
+  deleteUser: (id) => api.delete(`/users/${id}`),
 };
 
 export const auditApi = {

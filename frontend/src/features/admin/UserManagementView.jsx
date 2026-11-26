@@ -15,7 +15,8 @@ import {
   ToggleRight,
   RefreshCw,
   X,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 const AVAILABLE_PERMISSIONS = [
@@ -119,6 +120,26 @@ export const UserManagementView = () => {
       showNotification(`User ${targetUser.username} ${nextStatus ? 'activated' : 'deactivated'}`, 'info');
     } catch (err) {
       showNotification(err.response?.data?.detail || 'Failed to change status', 'error');
+    }
+  };
+
+  // Delete User (Super Admin only)
+  const handleDeleteUser = async (targetUser) => {
+    if (targetUser.id === user?.id) {
+      showNotification('You cannot delete your own Super Admin account', 'error');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete user "${targetUser.username}" (${targetUser.role})?\n\nThis will release any claimed tenders and remove user access immediately.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await usersApi.deleteUser(targetUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== targetUser.id));
+      showNotification(`User '${targetUser.username}' deleted successfully`, 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to delete user', 'error');
     }
   };
 
@@ -275,9 +296,24 @@ export const UserManagementView = () => {
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <span className="text-[11px] text-[#8C82A0]">
-                          {canEdit ? 'Editable' : 'Read Only'}
-                        </span>
+                        {isSuperAdmin && !isCurrent ? (
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                            title={`Permanently delete user ${u.username}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        ) : isCurrent ? (
+                          <span className="text-[11px] text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                            Current User
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-[#8C82A0]">
+                            {canEdit ? 'Editable' : 'Read Only'}
+                          </span>
+                        )}
                       </td>
 
                     </tr>

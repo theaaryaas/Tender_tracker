@@ -6,6 +6,8 @@ from typing import Optional
 from backend.core.db import get_db
 from backend.core.security import get_password_hash
 from backend.models.user import User
+from backend.models.tender import Tender
+from backend.models.crm_record import CRMRecord
 from backend.services.auth_service import AuthService
 from backend.services.audit_service import AuditService
 from backend.schemas.user import (
@@ -249,4 +251,79 @@ def update_user_status(
         is_active=user.is_active,
         created_at=user.created_at
     )
+
+@router.delete("/{id}")
+def delete_user(
+    id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.require_super_admin)
+):
+    """
+    Permanently deletes a user account.
+    - Strictly restricted to Super Admin.
+    - Cannot delete oneself.
+    - Releases any tenders claimed by the deleted user.
+    - Removes linked CRM records.
+    - Audits the deletion event.
+    """
+    if id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own Super Admin account."
+        )
+
+    target_user = db.query(User).filter(User.id == id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+
+    # 1. Unclaim / release any tenders claimed by this user
+    db.query(Tender).filter(Tender.assigned_to_id == id).update(
+        {
+            Tender.assigned_to_id: None,
+            Tender.assigned_to: None,
+            Tender.is_claimed: False,
+            Tender.claimed_at: None
+        },
+        synchronize_session=False
+    )
+
+    # 2. Reassign users created by this user to None
+    db.query(User).filter(User.created_by_id == id).update(
+        {User.created_by_id: None},
+        synchronize_session=False
+    )
+
+    # 3. Clean up CRM records created by this user
+    db.query(CRMRecord).filter(CRMRecord.user_id == id).delete(synchronize_session=False)
+
+    # 4. Audit the deletion before removing user
+    client_ip = request.client.host if request.client else None
+    AuditService.log(
+        db=db,
+        user=current_user,
+        action="DELETE",
+        entity_type="user",
+        entity_id=str(target_user.id),
+        old_values={
+            "username": target_user.username,
+            "email": target_user.email,
+            "role": target_user.role,
+            "permissions": target_user.permissions
+        },
+        ip_address=client_ip
+    )
+
+    # 5. Delete the user
+    user_name = target_user.username
+    db.delete(target_user)
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"User '{user_name}' deleted successfully."
+    }
 
