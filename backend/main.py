@@ -47,6 +47,14 @@ def run_migrations():
         print(f"Migration note/warning: {e}")
         Base.metadata.create_all(bind=engine)
 
+    # Defensive check: Ensure recently added JSON columns exist in PostgreSQL
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS documents JSON;"))
+            conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS deep_analysis JSON;"))
+    except Exception as e:
+        print(f"Defensive schema check note: {e}")
+
 def migrate_from_sqlite_if_empty():
     """If Postgres is brand new and SQLite database exists, migrate tenders & settings seamlessly."""
     try:
