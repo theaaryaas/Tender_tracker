@@ -104,32 +104,44 @@ export const TenderAnalysisPage = () => {
     }
   };
 
-  const handleFileUpload = async (file, isExcel = false) => {
-    if (!file) return;
+  const handleFileUpload = async (filesOrFile, isExcel = false) => {
+    if (!filesOrFile) return;
+    const fileList = Array.isArray(filesOrFile)
+      ? filesOrFile
+      : (filesOrFile instanceof FileList ? Array.from(filesOrFile) : [filesOrFile]);
+    if (fileList.length === 0) return;
+
     setUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
+    // Append first file for legacy single-file backend compatibility
+    formData.append('file', fileList[0]);
+    // Append all files for multi-file support
+    fileList.forEach((f) => formData.append('files', f));
+
+    const displayLabel = fileList.length > 1
+      ? `${fileList.length} files (${fileList.map(f => f.name).join(', ')})`
+      : `"${fileList[0].name}"`;
 
     try {
       if (tender?.id || tender?.tender_id) {
         const targetId = tender.id || tender.tender_id;
         const res = await tenderApi.uploadDocumentAndAnalyze(targetId, formData);
         setAnalysis(res.data);
-        showNotification(`${isExcel ? 'BOQ Excel' : 'Document'} "${file.name}" uploaded & analyzed!`, 'success');
+        showNotification(`${isExcel ? 'BOQ Excel' : 'Document(s)'} ${displayLabel} uploaded & analyzed!`, 'success');
       } else {
         const res = await tenderApi.analyzeAdHoc(formData);
         setAnalysis(res.data);
         setTender({
           tender_id: res.data?.tender_id || 'Uploaded Document',
-          title: res.data?.title || file.name,
+          title: res.data?.title || fileList[0].name,
           organisation: res.data?.organisation || 'Direct Upload',
           deep_analysis: res.data
         });
-        showNotification(`${isExcel ? 'BOQ Excel' : 'Document'} "${file.name}" analyzed successfully!`, 'success');
+        showNotification(`${isExcel ? 'BOQ Excel' : 'Document(s)'} ${displayLabel} analyzed successfully!`, 'success');
       }
       setShowUploadModal(false);
     } catch (err) {
-      showNotification(err.response?.data?.detail || 'Failed to analyze uploaded file', 'error');
+      showNotification(err.response?.data?.detail || 'Failed to analyze uploaded file(s)', 'error');
     } finally {
       setUploading(false);
     }
@@ -228,11 +240,13 @@ export const TenderAnalysisPage = () => {
         ref={pdfInputRef}
         type="file"
         accept=".pdf"
+        multiple
         className="hidden"
         disabled={uploading}
         onChange={(e) => {
-          if (e.target.files && e.target.files[0]) {
-            handleFileUpload(e.target.files[0], false);
+          if (e.target.files && e.target.files.length > 0) {
+            handleFileUpload(e.target.files, false);
+            e.target.value = '';
           }
         }}
       />
@@ -240,11 +254,13 @@ export const TenderAnalysisPage = () => {
         ref={excelInputRef}
         type="file"
         accept=".xlsx,.xls,.csv"
+        multiple
         className="hidden"
         disabled={uploading}
         onChange={(e) => {
-          if (e.target.files && e.target.files[0]) {
-            handleFileUpload(e.target.files[0], true);
+          if (e.target.files && e.target.files.length > 0) {
+            handleFileUpload(e.target.files, true);
+            e.target.value = '';
           }
         }}
       />
@@ -1215,8 +1231,8 @@ export const TenderAnalysisPage = () => {
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragActivePdf(false);
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleFileUpload(e.dataTransfer.files[0], false);
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFileUpload(e.dataTransfer.files, false);
                   }
                 }}
                 onClick={() => modalPdfInputRef.current?.click()}
@@ -1228,19 +1244,21 @@ export const TenderAnalysisPage = () => {
                   ref={modalPdfInputRef}
                   type="file"
                   accept=".pdf"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileUpload(e.target.files[0], false);
+                    if (e.target.files && e.target.files.length > 0) {
+                      handleFileUpload(e.target.files, false);
+                      e.target.value = '';
                     }
                   }}
                 />
                 <UploadCloud className="w-8 h-8 mx-auto text-[#6B46C1] mb-2" />
                 <p className="font-bold text-xs sm:text-sm text-[#1E182B]">
-                  Upload Tender PDF
+                  Upload Tender PDF(s)
                 </p>
                 <p className="text-[11px] text-[#8C82A0] mt-1">
-                  NIT, RFP, Corrigendum, ATC
+                  NIT, RFP, Corrigendum, ATC (Select multiple)
                 </p>
               </div>
 
@@ -1251,8 +1269,8 @@ export const TenderAnalysisPage = () => {
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragActiveExcel(false);
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleFileUpload(e.dataTransfer.files[0], true);
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFileUpload(e.dataTransfer.files, true);
                   }
                 }}
                 onClick={() => modalExcelInputRef.current?.click()}
@@ -1264,16 +1282,18 @@ export const TenderAnalysisPage = () => {
                   ref={modalExcelInputRef}
                   type="file"
                   accept=".xlsx,.xls,.csv"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFileUpload(e.target.files[0], true);
+                    if (e.target.files && e.target.files.length > 0) {
+                      handleFileUpload(e.target.files, true);
+                      e.target.value = '';
                     }
                   }}
                 />
                 <FileSpreadsheet className="w-8 h-8 mx-auto text-emerald-600 mb-2" />
                 <p className="font-bold text-xs sm:text-sm text-[#1E182B]">
-                  Upload BOQ Excel
+                  Upload BOQ Excel(s)
                 </p>
                 <p className="text-[11px] text-[#8C82A0] mt-1">
                   Item Rate BOQ (.xls, .xlsx, .csv)

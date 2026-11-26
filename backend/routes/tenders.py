@@ -596,6 +596,7 @@ def get_tender_notifications(
 @router.post("/analyze-ad-hoc")
 async def analyze_tender_ad_hoc(
     file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
     raw_text: Optional[str] = Form(None),
     boq_file: Optional[UploadFile] = File(None),
     tender_id: Optional[str] = Form(None),
@@ -603,23 +604,31 @@ async def analyze_tender_ad_hoc(
     organisation: Optional[str] = Form(None),
 ):
     """
-    On-the-fly deep eligibility analysis for any uploaded PDF or pasted tender text
+    On-the-fly deep eligibility analysis for single or multiple uploaded PDFs/Excels or pasted tender text
     without requiring a pre-existing tender in the database.
     """
     text_content = raw_text or ""
     boq_content = ""
 
-    if file:
-        content = await file.read()
-        fname = (file.filename or "").lower()
+    uploaded_files: List[UploadFile] = []
+    if files:
+        uploaded_files.extend(files)
+    if file and file not in uploaded_files:
+        uploaded_files.append(file)
+
+    for up_file in uploaded_files:
+        content = await up_file.read()
+        fname = (up_file.filename or "").lower()
         if fname.endswith(".pdf"):
-            text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
+            pdf_txt = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
+            text_content = (text_content + f"\n\n=== FILE: {up_file.filename} ===\n" + pdf_txt) if text_content else pdf_txt
         elif fname.endswith(".xlsx") or fname.endswith(".xls") or fname.endswith(".csv"):
             excel_text = TenderDeepAnalyzerService.extract_text_from_excel_bytes(content, fname)
-            boq_content = excel_text
+            boq_content = (boq_content + "\n\n" + excel_text) if boq_content else excel_text
             text_content = (text_content + "\n\n" + excel_text) if text_content else excel_text
         elif fname.endswith(".txt"):
-            text_content = content.decode("utf-8", errors="ignore")
+            t_txt = content.decode("utf-8", errors="ignore")
+            text_content = (text_content + "\n\n" + t_txt) if text_content else t_txt
 
     if boq_file:
         bcontent = await boq_file.read()
@@ -729,7 +738,8 @@ async def force_tender_deep_analyze(tender_id: str, db: Session = Depends(get_db
 @router.post("/{tender_id:path}/upload-document")
 async def upload_document_and_analyze(
     tender_id: str,
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db)
 ):
     import urllib.parse
@@ -748,45 +758,61 @@ async def upload_document_and_analyze(
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
 
-    content = await file.read()
-    filename = file.filename or "uploaded_document"
-    lower_fname = filename.lower()
+    uploaded_files: List[UploadFile] = []
+    if files:
+        uploaded_files.extend(files)
+    if file and file not in uploaded_files:
+        uploaded_files.append(file)
 
-    text_content = ""
-    boq_content = ""
+    if not uploaded_files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
 
-    if lower_fname.endswith(".pdf"):
-        text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
-    elif lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls") or lower_fname.endswith(".csv"):
-        excel_text = TenderDeepAnalyzerService.extract_text_from_excel_bytes(content, filename)
-        boq_content = excel_text
-        text_content = excel_text
-    elif lower_fname.endswith(".txt"):
-        text_content = content.decode("utf-8", errors="ignore")
-        boq_content = text_content
+    accumulated_texts = []
+    accumulated_boq = []
+    existing_docs = list(tender.documents or [])
 
-    combined_text = (tender.extracted_pdf_text or "") + "\n\n" + text_content
+    for up_file in uploaded_files:
+        content = await up_file.read()
+        filename = up_file.filename or "uploaded_document"
+        lower_fname = filename.lower()
+
+        text_content = ""
+        if lower_fname.endswith(".pdf"):
+            text_content = TenderDeepAnalyzerService.extract_text_from_pdf_bytes(content)
+        elif lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls") or lower_fname.endswith(".csv"):
+            excel_text = TenderDeepAnalyzerService.extract_text_from_excel_bytes(content, filename)
+            accumulated_boq.append(excel_text)
+            text_content = excel_text
+        elif lower_fname.endswith(".txt"):
+            text_content = content.decode("utf-8", errors="ignore")
+            accumulated_boq.append(text_content)
+
+        if text_content:
+            accumulated_texts.append(f"=== DOCUMENT: {filename} ===\n{text_content}")
+
+        is_excel = lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls") or lower_fname.endswith(".csv")
+        doc_entry = {
+            "name": filename,
+            "title": "Uploaded Bill of Quantities (BOQ)" if is_excel else "Uploaded Bid / Specifications File",
+            "category": "Uploaded BOQ / Excel" if is_excel else "Uploaded Document",
+            "size": f"{round(len(content) / 1024, 1)} KB",
+            "url": ""
+        }
+        if not any(d.get("name") == filename for d in existing_docs):
+            existing_docs.append(doc_entry)
+
+    tender.documents = existing_docs
+    combined_uploaded = "\n\n".join(accumulated_texts)
+    combined_text = ((tender.extracted_pdf_text or "") + "\n\n" + combined_uploaded).strip()
+    boq_joined = "\n\n".join(accumulated_boq)
 
     analysis = TenderDeepAnalyzerService.analyze(
         text=combined_text,
         tender_id=tender.tender_id,
         title=tender.title,
         organisation=tender.organisation or "",
-        boq_content=boq_content
+        boq_content=boq_joined or None
     )
-
-    is_excel = lower_fname.endswith(".xlsx") or lower_fname.endswith(".xls") or lower_fname.endswith(".csv")
-    existing_docs = list(tender.documents or [])
-    doc_entry = {
-        "name": filename,
-        "title": "Uploaded Bill of Quantities (BOQ)" if is_excel else "Uploaded Bid / Specifications File",
-        "category": "Uploaded BOQ / Excel" if is_excel else "Uploaded Document",
-        "size": f"{round(len(content) / 1024, 1)} KB",
-        "url": ""
-    }
-    if not any(d.get("name") == filename for d in existing_docs):
-        existing_docs.append(doc_entry)
-        tender.documents = existing_docs
 
     tender.extracted_pdf_text = combined_text
     tender.deep_analysis = analysis

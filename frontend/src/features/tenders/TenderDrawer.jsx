@@ -1037,29 +1037,33 @@ export const TenderDrawer = () => {
               {/* Upload PDF Document */}
               <label
                 className="flex-1 sm:flex-initial px-3 py-1.5 sm:py-2 rounded-lg bg-white border border-[#E2DEEC] hover:bg-[#FAF9FD] hover:border-[#D8BFD8] text-[#6B46C1] font-semibold inline-flex items-center justify-center space-x-1.5 shadow-2xs transition cursor-pointer text-xs"
-                title="Upload tender PDF or Corrigendum document"
+                title="Upload tender PDF(s) or Corrigendum document"
               >
                 <UploadCloud className="w-3.5 h-3.5 text-[#6B46C1]" />
                 <span>Upload PDF</span>
                 <input
                   type="file"
                   accept=".pdf"
+                  multiple
                   className="hidden"
                   onChange={async (e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      const file = e.target.files[0];
+                    if (e.target.files && e.target.files.length > 0) {
+                      const fileList = Array.from(e.target.files);
                       const formData = new FormData();
-                      formData.append('file', file);
-                      showNotification(`Uploading and analyzing "${file.name}"...`, 'info');
+                      formData.append('file', fileList[0]);
+                      fileList.forEach(f => formData.append('files', f));
+                      const label = fileList.length > 1 ? `${fileList.length} files` : `"${fileList[0].name}"`;
+                      showNotification(`Uploading and analyzing ${label}...`, 'info');
                       try {
                         const targetId = tender.id || tender.tender_id;
                         const res = await tenderApi.uploadDocumentAndAnalyze(targetId, formData);
-                        showNotification(`"${file.name}" parsed & eligibility updated!`, 'success');
+                        showNotification(`${label} parsed & eligibility updated!`, 'success');
                         if (refreshStats) refreshStats();
                         window.open(getAnalysisUrl(targetId), '_blank');
                       } catch (err) {
-                        showNotification('Failed to analyze uploaded file', 'error');
+                        showNotification('Failed to analyze uploaded file(s)', 'error');
                       }
+                      e.target.value = '';
                     }
                   }}
                 />

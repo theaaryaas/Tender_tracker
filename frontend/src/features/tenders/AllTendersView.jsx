@@ -404,20 +404,24 @@ export const AllTendersView = () => {
               <input
                 type="file"
                 accept=".pdf,.csv,.xlsx,.xls,.txt"
+                multiple
                 className="hidden"
                 onChange={async (e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    const file = e.target.files[0];
+                  if (e.target.files && e.target.files.length > 0) {
+                    const fileList = Array.from(e.target.files);
                     const formData = new FormData();
-                    formData.append('file', file);
-                    showNotification(`Analyzing "${file.name}"...`, 'info');
+                    formData.append('file', fileList[0]);
+                    fileList.forEach(f => formData.append('files', f));
+                    const label = fileList.length > 1 ? `${fileList.length} files` : `"${fileList[0].name}"`;
+                    showNotification(`Analyzing ${label}...`, 'info');
                     try {
                       await tenderApi.analyzeAdHoc(formData);
-                      showNotification(`"${file.name}" analyzed successfully!`, 'success');
+                      showNotification(`${label} analyzed successfully!`, 'success');
                       window.open('/tender-analysis', '_blank');
                     } catch (err) {
-                      showNotification('Failed to analyze uploaded file', 'error');
+                      showNotification('Failed to analyze uploaded file(s)', 'error');
                     }
+                    e.target.value = '';
                   }
                 }}
               />
