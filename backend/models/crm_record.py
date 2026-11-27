@@ -15,10 +15,10 @@ class CRMRecord(Base):
     bidding_status = Column(String(30), nullable=False, default="Reviewing", index=True) # 'Reviewing' | 'Bidding' | 'Bidded' | 'Rejected'
     tender_end_date = Column(String(60), nullable=True, index=True)
     company_name = Column(String(255), nullable=False, index=True)
-    client_name = Column(String(150), nullable=True)
-    client_designation = Column(String(100), nullable=True)
-    client_phone = Column(String(50), nullable=True)
-    client_email = Column(String(150), nullable=True)
+    client_name = Column(String(255), nullable=True)
+    client_designation = Column(String(255), nullable=True)
+    client_phone = Column(String(255), nullable=True)
+    client_email = Column(String(255), nullable=True)
     linkedin_url = Column(String(255), nullable=True)
     remarks = Column(Text, nullable=True) # Notes on conversation
     visibility = Column(String(20), nullable=False, default="all", index=True) # 'me' | 'manager' | 'all'

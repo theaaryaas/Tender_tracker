@@ -2,7 +2,7 @@ import io
 import csv
 import pytest
 import openpyxl
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -221,3 +221,114 @@ def test_import_missing_client_header_fails(auth_admin):
     response = client.post("/api/v1/crm-records/import", files=files)
     assert response.status_code == 400
     assert "Missing required 'Client' or 'Company' column" in response.json()["detail"]
+
+
+def test_import_combined_contact_column_user_format(auth_admin, db_session):
+    """
+    Tests uploading a spreadsheet with user's exact headers:
+    Lead Name, Due Date, Contact Number and Email ID , Category, Client , Current Status, Priority, Next Steps, Notes, Last Updated
+    Verifies that phone numbers AND emails are accurately extracted into client_phone and client_email.
+    """
+    test_leads = ["BHU Varanasi", "Fortis Healthcare  --Proposal for Health Department (MP)"]
+    db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_leads)).delete(synchronize_session=False)
+    db_session.commit()
+
+    csv_data = io.StringIO(
+        "Lead Name,Due Date,Contact Number and Email ID ,Category,Client ,Current Status,Priority,Next Steps,Notes,Last Updated\n"
+        "BHU Varanasi,,mesubham25@gmail.com,Government Tender,Saurabh CPWD AEE ,Retender issued blockers,No,CPWD vendor Empanelment ,VMS/HMS/VLM proposal,\n"
+        "Fortis Healthcare  --Proposal for Health Department (MP),,8478805378 mesrerugre@gmail.com,Enterprise/ Presentation ,Bhopal ,No update,No,,AI healthcare proposal package,\n"
+    )
+    files = {"file": ("user_leads.csv", io.BytesIO(csv_data.getvalue().encode("utf-8")), "text/csv")}
+
+    response = client.post("/api/v1/crm-records/import", files=files)
+    assert response.status_code == 201, f"Import failed: {response.text}"
+    data = response.json()
+    assert data["total_imported"] == 2
+
+    # Verify BHU Varanasi
+    bhu = db_session.query(CRMRecord).filter(CRMRecord.company_name.ilike("%BHU Varanasi%")).first()
+    assert bhu is not None
+    assert bhu.client_email == "mesubham25@gmail.com"
+    assert bhu.client_name == "Saurabh CPWD AEE"
+
+    # Verify Fortis Healthcare
+    fortis = db_session.query(CRMRecord).filter(CRMRecord.company_name.ilike("%Fortis Healthcare%")).first()
+    assert fortis is not None
+    assert fortis.client_phone == "8478805378"
+    assert fortis.client_email == "mesrerugre@gmail.com"
+    assert fortis.client_name == "Bhopal"
+
+    # Clean up
+    db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_leads)).delete(synchronize_session=False)
+    db_session.commit()
+
+def test_export_crm_csv(auth_admin, db_session):
+    """Verifies CSV export returns valid CSV headers and CRM rows."""
+    rec = CRMRecord(
+        user_id=auth_admin.id,
+        entered_date=date.today(),
+        company_name="Export Test Corp",
+        lead_status="Hot",
+        bidding_status="Bidding",
+        tender_end_date="31-12-2026",
+        client_name="Test Contact",
+        client_phone="9876543210",
+        client_email="test@exportcorp.com",
+        visibility="all"
+    )
+    db_session.add(rec)
+    db_session.commit()
+    db_session.refresh(rec)
+
+    try:
+        response = client.get("/api/v1/crm-records/export/csv", params={"search": "Export Test Corp"})
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        rows = list(csv.reader(io.StringIO(response.text)))
+        assert len(rows) >= 2
+        assert rows[0][0] == "Sr No"
+        assert "Bidding Stage" in rows[0]
+        assert any("Export Test Corp" in r and "test@exportcorp.com" in r for r in rows[1:])
+    finally:
+        db_session.query(CRMRecord).filter(CRMRecord.id == rec.id).delete(synchronize_session=False)
+        db_session.commit()
+
+
+def test_bulk_delete_crm_records_permissions(auth_admin, db_session):
+    """Verifies bulk delete works for authorized users and blocks unauthorized executives."""
+    r1 = CRMRecord(user_id=auth_admin.id, entered_date=date.today(), company_name="Bulk Del One", lead_status="Warm", visibility="all")
+    r2 = CRMRecord(user_id=auth_admin.id, entered_date=date.today(), company_name="Bulk Del Two", lead_status="Cold", visibility="all")
+    db_session.add_all([r1, r2])
+    db_session.commit()
+    db_session.refresh(r1)
+    db_session.refresh(r2)
+
+    # Test unauthorized executive without can_delete_tenders
+    exec_user = User(
+        username="no_del_exec",
+        email="nodel@bitvivid.com",
+        hashed_password="dummy",
+        role="executive",
+        permissions=["can_export"],
+        is_active=True
+    )
+    db_session.add(exec_user)
+    db_session.commit()
+    db_session.refresh(exec_user)
+
+    try:
+        app.dependency_overrides[AuthService.get_current_user] = lambda: exec_user
+        forbidden_resp = client.post("/api/v1/crm-records/bulk-delete", json={"ids": [r1.id, r2.id]})
+        assert forbidden_resp.status_code == 403
+
+        # Switch back to admin and bulk delete
+        app.dependency_overrides[AuthService.get_current_user] = lambda: auth_admin
+        ok_resp = client.post("/api/v1/crm-records/bulk-delete", json={"ids": [r1.id, r2.id]})
+        assert ok_resp.status_code == 200
+        assert ok_resp.json()["deleted_count"] == 2
+        assert db_session.query(CRMRecord).filter(CRMRecord.id.in_([r1.id, r2.id])).count() == 0
+    finally:
+        app.dependency_overrides[AuthService.get_current_user] = lambda: auth_admin
+        db_session.query(CRMRecord).filter(CRMRecord.id.in_([r1.id, r2.id])).delete(synchronize_session=False)
+        db_session.query(User).filter(User.id == exec_user.id).delete(synchronize_session=False)
+        db_session.commit()

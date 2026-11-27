@@ -67,6 +67,8 @@ export const crmApi = {
   createManual: (data) => api.post('/crm-records/manual', data),
   updateRecord: (id, data) => api.patch(`/crm-records/${id}`, data),
   deleteRecord: (id) => api.delete(`/crm-records/${id}`),
+  bulkDelete: (ids) => api.post('/crm-records/bulk-delete', { ids }),
+  exportCsv: (params) => api.get('/crm-records/export/csv', { params, responseType: 'blob' }),
   importRecords: (formData) =>
     api.post('/crm-records/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

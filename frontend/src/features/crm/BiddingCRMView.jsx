@@ -42,6 +42,9 @@ export const BiddingCRMView = () => {
   const [leadStatusFilter, setLeadStatusFilter] = useState(''); // '' | 'Hot' | 'Warm' | 'Cold'
   const [biddingStatusFilter, setBiddingStatusFilter] = useState(''); // '' | 'Reviewing' | 'Bidding' | 'Bidded' | 'Rejected'
   const [myRecordsOnly, setMyRecordsOnly] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Modal State for Manual Entry / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,6 +88,7 @@ export const BiddingCRMView = () => {
       });
       setRecords(res.data.items || []);
       setTotal(res.data.total || 0);
+      setSelectedIds([]);
     } catch (err) {
       showNotification('Failed to load CRM records', 'error');
     } finally {
@@ -266,6 +270,88 @@ export const BiddingCRMView = () => {
     }
   };
 
+  // Existing delete permission check
+  const canDeleteRecord = (rec) =>
+    canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id);
+
+  const deletableRecords = records.filter(canDeleteRecord);
+  const allDeletableSelected =
+    deletableRecords.length > 0 && deletableRecords.every((r) => selectedIds.includes(r.id));
+
+  const toggleSelectAll = () => {
+    if (allDeletableSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(deletableRecords.map((r) => r.id));
+    }
+  };
+
+  const toggleSelectOne = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Export CSV
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      const res = await crmApi.exportCsv({
+        search: search.trim() || undefined,
+        lead_status: leadStatusFilter || undefined,
+        bidding_status: biddingStatusFilter || undefined,
+        my_records: myRecordsOnly
+      });
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `CRM_Bidding_Records_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showNotification('CSV exported successfully', 'success');
+    } catch (err) {
+      showNotification('Failed to export CSV', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Bulk Delete Selected Records
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected CRM record(s)?`)) {
+      return;
+    }
+    try {
+      setIsBulkDeleting(true);
+      const res = await crmApi.bulkDelete(selectedIds);
+      const deletedSet = new Set(selectedIds);
+      const releasedTenderIds = res.data?.released_tender_ids || [];
+
+      setRecords((prev) => prev.filter((r) => !deletedSet.has(r.id)));
+      setTotal((prev) => Math.max(0, prev - selectedIds.length));
+      setSelectedIds([]);
+
+      releasedTenderIds.forEach((tid) => {
+        window.dispatchEvent(
+          new CustomEvent('tender:updated', {
+            detail: { id: tid, is_claimed: false, assigned_to: null, status: 'New' }
+          })
+        );
+      });
+
+      showNotification(res.data?.message || `Deleted ${deletedSet.size} record(s)`, 'info');
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Failed to delete selected records';
+      showNotification(msg, 'error');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Delete Record
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this CRM record?')) return;
@@ -305,7 +391,30 @@ export const BiddingCRMView = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Bulk Delete Selected Button */}
+          {canDeleteRecords && selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isBulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}</span>
+            </button>
+          )}
+
+          {/* Export CSV Button */}
+          <button
+            onClick={handleExportCsv}
+            disabled={isExporting || records.length === 0}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 border border-[#E2DEEC] text-[#1E182B] hover:bg-[#FAF9FD] text-xs font-semibold rounded-xl transition cursor-pointer shadow-xs disabled:opacity-50"
+            title="Export current CRM view as CSV"
+          >
+            <Download className="w-4 h-4 text-[#6B46C1]" />
+            <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+          </button>
+
           {/* Bulk Import Button */}
           <button
             onClick={() => {
@@ -451,6 +560,18 @@ export const BiddingCRMView = () => {
                   <th className="py-3 px-4">Last Updated</th>
                   <th className="py-3 px-4">Visibility</th>
                   <th className="py-3 px-4 text-right">Actions</th>
+                  {canDeleteRecords && (
+                    <th className="py-3 px-3 text-center w-10" title="Select all deletable records">
+                      <input
+                        type="checkbox"
+                        checked={allDeletableSelected}
+                        onChange={toggleSelectAll}
+                        disabled={deletableRecords.length === 0}
+                        className="w-3.5 h-3.5 rounded border-[#D8BFD8] text-[#6B46C1] focus:ring-[#6B46C1] cursor-pointer disabled:opacity-40"
+                        aria-label="Select all records for deletion"
+                      />
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2DEEC]">
@@ -662,7 +783,7 @@ export const BiddingCRMView = () => {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        {canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id) && (
+                        {canDeleteRecord(rec) && (
                           <button
                             onClick={() => handleDelete(rec.id)}
                             className="text-[#584E6B] hover:text-red-600 p-1 transition cursor-pointer"
@@ -672,6 +793,21 @@ export const BiddingCRMView = () => {
                           </button>
                         )}
                       </td>
+                      {canDeleteRecords && (
+                        <td className="py-3.5 px-3 text-center">
+                          {canDeleteRecord(rec) ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(rec.id)}
+                              onChange={() => toggleSelectOne(rec.id)}
+                              className="w-3.5 h-3.5 rounded border-[#D8BFD8] text-[#6B46C1] focus:ring-[#6B46C1] cursor-pointer"
+                              aria-label={`Select ${rec.company_name} for deletion`}
+                            />
+                          ) : (
+                            <span className="text-[#8C82A0] text-[10px]" title="Not permitted to delete">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

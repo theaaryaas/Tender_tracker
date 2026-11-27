@@ -55,6 +55,10 @@ def run_migrations():
             conn.execute(text("ALTER TABLE crm_records ADD COLUMN IF NOT EXISTS bidding_status VARCHAR(30) DEFAULT 'Reviewing';"))
             conn.execute(text("ALTER TABLE crm_records ADD COLUMN IF NOT EXISTS tender_end_date VARCHAR(60);"))
             conn.execute(text("ALTER TABLE crm_records ADD COLUMN IF NOT EXISTS linkedin_url VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE crm_records ALTER COLUMN client_phone TYPE VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE crm_records ALTER COLUMN client_email TYPE VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE crm_records ALTER COLUMN client_name TYPE VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE crm_records ALTER COLUMN client_designation TYPE VARCHAR(255);"))
     except Exception as e:
         print(f"Defensive schema check note: {e}")
 

@@ -74,3 +74,5 @@ class CRMRecordListResponse(BaseModel):
     limit: int
     items: List[CRMRecordResponse]
 
+class CRMBulkDeleteRequest(BaseModel):
+    ids: List[int] = Field(..., min_length=1)
