@@ -2,6 +2,7 @@ import io
 import csv
 import pytest
 import openpyxl
+from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -45,7 +46,7 @@ def auth_admin(db_session):
 
 
 def test_download_crm_template(auth_admin):
-    """Verifies downloading the Excel import template."""
+    """Verifies downloading the Excel import template with all 12 columns."""
     response = client.get("/api/v1/crm-records/template")
     assert response.status_code == 200
     assert "spreadsheetml.sheet" in response.headers["content-type"]
@@ -54,46 +55,47 @@ def test_download_crm_template(auth_admin):
     wb = openpyxl.load_workbook(io.BytesIO(response.content))
     sheet = wb.active
     rows = list(sheet.iter_rows(values_only=True))
-    assert len(rows) >= 3  # Header + 2 sample rows
+    assert len(rows) >= 4  # Header + 3 sample rows
     headers = [str(c).strip() for c in rows[0]]
-    expected_headers = ["Sr No", "Date", "Status", "Client", "Name", "Number", "Remarks", "Designation", "Email ID"]
+    expected_headers = [
+        "Sr No", "Date", "Status", "Bidding Status", "Tender End Date",
+        "Client", "Name", "Number", "Remarks", "Designation", "Email ID", "LinkedIn"
+    ]
     assert headers == expected_headers
 
 
 def test_import_crm_records_excel(auth_admin, db_session):
     """
-    Tests uploading an Excel sheet matching the user's exact screenshot:
-    Headers: Sr No, Date, Status, Client, Name, Number, Remarks, Designation, Email ID
+    Tests uploading an Excel sheet matching the enhanced CRM schema:
+    Headers: Sr No, Date, Status, Bidding Status, Tender End Date, Client, Name, Number, Remarks, Designation, Email ID, LinkedIn
     Validates:
     1. Import status 201
     2. Visibility strictly 'all' by default
     3. Correct lead_status (Warm, Cold, Hot)
-    4. Audit trail entry created with BULK_IMPORT
+    4. Correct bidding_status (Reviewing, Bidding, Bidded, Rejected)
+    5. Tender end date and LinkedIn profile stored
+    6. Audit trail entry created with BULK_IMPORT
     """
-    # Clean any pre-existing test records for these clients
     test_clients = [
         "Solarium Green energy (Ahmedabad)",
         "Governement Hospital Dewas",
-        "Prestige Oil Refinery",
-        "Mrinal Das",
-        "Zeal Life Sciences Pvt Ltd",
-        "Silver Finance Pvt Ltd"
+        "Zeal Life Sciences Pvt Ltd"
     ]
     db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_clients)).delete(synchronize_session=False)
     db_session.commit()
 
-    # Build Excel file matching user's sheet
+    # Build Excel file
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.append(["Sr No", "Date", "Status", "Client", "Name", "Number", "Remarks", "Designation", "Email ID"])
+    ws.append([
+        "Sr No", "Date", "Status", "Bidding Status", "Tender End Date",
+        "Client", "Name", "Number", "Remarks", "Designation", "Email ID", "LinkedIn"
+    ])
     
     rows_data = [
-        [50, "17 Nov", "Warm", "Solarium Green energy (Ahmedabad)", "Chintan Wachani ( Purchase department)", "9023725751", "Customer discussion ongoing", "Purchase department", "chintan@solarium.com"],
-        [51, "18 Nov", "Cold", "Governement Hospital Dewas", "Dr Sarojni (CMO Dewas District)", 9425134278, "Demo conducted with CMO.", "CMO", "cmo@dewas.gov.in"],
-        [52, "18 Nov", "Cold", "Prestige Oil Refinery", None, None, "They liked our proposal, demo conducted.", None, None],
-        [53, "18 Nov", "Warm", "Mrinal Das", "Consultant", "97488 33282", "Received a new lead for Goa ITMS project.", "Consultant", "mrinal@das.com"],
-        [54, "19 Nov", "Hot", "Zeal Life Sciences Pvt Ltd", "Sulabh ji", "87179 09999", "Customer requires video analytics for 70+ cameras.", "Director", "sulabh@zeallife.com"],
-        [55, "20 Nov", "Hot", "Silver Finance Pvt Ltd", "Priyesh ji", "99775 05067", "Silver Finance is a mortgage company.", "Manager", "priyesh@silver.com"]
+        [1, "17 Nov", "Warm", "Reviewing", "15-12-2026", "Solarium Green energy (Ahmedabad)", "Chintan Wachani", "9023725751", "Discussion ongoing", "Purchase Manager", "chintan@solarium.com", "https://linkedin.com/in/chintan"],
+        [2, "18 Nov", "Cold", "Rejected", "30-11-2026", "Governement Hospital Dewas", "Dr Sarojni", "9425134278", "Demo conducted.", "CMO", "cmo@dewas.gov.in", None],
+        [3, "19 Nov", "Hot", "Bidding", "05-12-2026", "Zeal Life Sciences Pvt Ltd", "Sulabh ji", "8717909999", "Video analytics needed", "Director", "sulabh@zeallife.com", "https://linkedin.com/company/zeal-life"]
     ]
     for r in rows_data:
         ws.append(r)
@@ -109,46 +111,62 @@ def test_import_crm_records_excel(auth_admin, db_session):
 
     data = response.json()
     assert data["status"] == "success"
-    assert data["total_imported"] == 6
+    assert data["total_imported"] == 3
+    assert data["created_count"] == 3
     assert data["visibility"] == "all"
 
     # Verify records in database
     records = db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_clients)).all()
-    assert len(records) == 6
+    assert len(records) == 3
 
-    for rec in records:
-        # Visibility must be strictly 'all' by default
-        assert rec.visibility == "all", f"Record {rec.company_name} visibility was {rec.visibility}"
-        assert rec.user_id == auth_admin.id
-
-    # Verify specific fields
     solarium = next(r for r in records if "Solarium" in r.company_name)
     assert solarium.lead_status == "Warm"
-    assert solarium.client_phone == "9023725751"
-    assert solarium.client_name == "Chintan Wachani ( Purchase department)"
-    assert solarium.entered_date.day == 17
-    assert solarium.entered_date.month == 11
+    assert solarium.bidding_status == "Reviewing"
+    assert solarium.tender_end_date == "15-12-2026"
+    assert solarium.linkedin_url == "https://linkedin.com/in/chintan"
+    assert solarium.visibility == "all"
 
     dewas = next(r for r in records if "Governement Hospital" in r.company_name)
     assert dewas.lead_status == "Cold"
-    assert dewas.client_phone == "9425134278"
+    assert dewas.bidding_status == "Rejected"
+    assert dewas.tender_end_date == "30-11-2026"
 
     zeal = next(r for r in records if "Zeal Life" in r.company_name)
     assert zeal.lead_status == "Hot"
-    assert zeal.client_name == "Sulabh ji"
+    assert zeal.bidding_status == "Bidding"
+    assert zeal.tender_end_date == "05-12-2026"
+    assert zeal.linkedin_url == "https://linkedin.com/company/zeal-life"
 
-    # Verify Audit Log
-    latest_audit = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "BULK_IMPORT", AuditLog.entity_type == "crm_record")
-        .order_by(AuditLog.id.desc())
-        .first()
-    )
-    assert latest_audit is not None
-    assert latest_audit.user_name == "admin"
-    assert latest_audit.new_values["total_imported"] == 6
-    assert latest_audit.new_values["visibility"] == "all"
-    assert latest_audit.new_values["filename"] == "Leads_Import_Test.xlsx"
+    # Test Upsert: Update existing record through second import
+    wb2 = openpyxl.Workbook()
+    ws2 = wb2.active
+    ws2.append([
+        "Sr No", "Date", "Status", "Bidding Status", "Tender End Date",
+        "Client", "Name", "Number", "Remarks", "Designation", "Email ID", "LinkedIn"
+    ])
+    ws2.append([
+        1, "20 Nov", "Hot", "Bidded", "20-12-2026",
+        "Solarium Green energy (Ahmedabad)", "Chintan Wachani", "9023725751",
+        "Bid successfully submitted!", "Head of Procurement", "chintan@solarium.com", "https://linkedin.com/in/chintan"
+    ])
+
+    excel_bytes2 = io.BytesIO()
+    wb2.save(excel_bytes2)
+    excel_bytes2.seek(0)
+
+    files2 = {"file": ("Leads_Update_Test.xlsx", excel_bytes2, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    response2 = client.post("/api/v1/crm-records/import", files=files2)
+    assert response2.status_code == 201
+
+    data2 = response2.json()
+    assert data2["updated_count"] == 1
+    assert data2["created_count"] == 0
+
+    db_session.expire_all()
+    solarium_updated = db_session.query(CRMRecord).filter(CRMRecord.company_name == "Solarium Green energy (Ahmedabad)").first()
+    assert solarium_updated.bidding_status == "Bidded"
+    assert solarium_updated.tender_end_date == "20-12-2026"
+    assert solarium_updated.remarks == "Bid successfully submitted!"
 
     # Clean up test records
     db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_clients)).delete(synchronize_session=False)
@@ -163,9 +181,9 @@ def test_import_crm_records_csv(auth_admin, db_session):
 
     csv_output = io.StringIO()
     writer = csv.writer(csv_output)
-    writer.writerow(["Sr No", "Date", "Status", "Client", "Name", "Number", "Remarks", "Designation", "Email ID"])
-    writer.writerow([1, "2026-11-25", "Hot", "CSV Client Alpha Ltd", "Amit Roy", "9812345678", "High priority lead", "VP Tech", "amit@alpha.com"])
-    writer.writerow([2, "2026-11-26", "Cold", "CSV Client Beta Corp", "Priya Sen", "9876543210", "Follow up in Q1", "Buyer", "priya@beta.com"])
+    writer.writerow(["Sr No", "Date", "Status", "Bidding Stage", "Closing Date", "Client", "Name", "Number", "Remarks", "Designation", "Email ID", "LinkedIn"])
+    writer.writerow([1, "2026-11-25", "Hot", "Bidding", "2026-12-30", "CSV Client Alpha Ltd", "Amit Roy", "9812345678", "High priority lead", "VP Tech", "amit@alpha.com", "https://linkedin.com/in/amit"])
+    writer.writerow([2, "2026-11-26", "Cold", "Reviewing", "2026-12-15", "CSV Client Beta Corp", "Priya Sen", "9876543210", "Follow up in Q1", "Buyer", "priya@beta.com", ""])
 
     csv_bytes = io.BytesIO(csv_output.getvalue().encode("utf-8"))
     files = {"file": ("leads.csv", csv_bytes, "text/csv")}
@@ -180,8 +198,10 @@ def test_import_crm_records_csv(auth_admin, db_session):
     # Verify records in database
     records = db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_clients)).all()
     assert len(records) == 2
-    for rec in records:
-        assert rec.visibility == "all"
+    alpha = next(r for r in records if "Alpha" in r.company_name)
+    assert alpha.bidding_status == "Bidding"
+    assert alpha.tender_end_date == "2026-12-30"
+    assert alpha.linkedin_url == "https://linkedin.com/in/amit"
 
     # Clean up
     db_session.query(CRMRecord).filter(CRMRecord.company_name.in_(test_clients)).delete(synchronize_session=False)

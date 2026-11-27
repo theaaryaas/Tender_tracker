@@ -47,11 +47,14 @@ def run_migrations():
         print(f"Migration note/warning: {e}")
         Base.metadata.create_all(bind=engine)
 
-    # Defensive check: Ensure recently added JSON columns exist in PostgreSQL
+    # Defensive check: Ensure recently added columns exist in PostgreSQL
     try:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS documents JSON;"))
             conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS deep_analysis JSON;"))
+            conn.execute(text("ALTER TABLE crm_records ADD COLUMN IF NOT EXISTS bidding_status VARCHAR(30) DEFAULT 'Reviewing';"))
+            conn.execute(text("ALTER TABLE crm_records ADD COLUMN IF NOT EXISTS tender_end_date VARCHAR(60);"))
+            conn.execute(text("ALTER TABLE crm_records ADD COLUMN IF NOT EXISTS linkedin_url VARCHAR(255);"))
     except Exception as e:
         print(f"Defensive schema check note: {e}")
 

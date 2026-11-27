@@ -25,7 +25,10 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  History,
+  Linkedin
 } from 'lucide-react';
 
 export const BiddingCRMView = () => {
@@ -36,7 +39,8 @@ export const BiddingCRMView = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [leadStatusFilter, setLeadStatusFilter] = useState(''); // '' | 'Warm' | 'Cold'
+  const [leadStatusFilter, setLeadStatusFilter] = useState(''); // '' | 'Hot' | 'Warm' | 'Cold'
+  const [biddingStatusFilter, setBiddingStatusFilter] = useState(''); // '' | 'Reviewing' | 'Bidding' | 'Bidded' | 'Rejected'
   const [myRecordsOnly, setMyRecordsOnly] = useState(false);
 
   // Modal State for Manual Entry / Edit
@@ -48,6 +52,9 @@ export const BiddingCRMView = () => {
     client_designation: '',
     client_phone: '',
     client_email: '',
+    linkedin_url: '',
+    bidding_status: 'Reviewing',
+    tender_end_date: '',
     remarks: '',
     lead_status: 'Warm',
     visibility: 'all'
@@ -65,12 +72,14 @@ export const BiddingCRMView = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState(null);
 
+  // Fetch CRM Records
   const fetchRecords = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const res = await crmApi.getRecords({
         search: search.trim() || undefined,
         lead_status: leadStatusFilter || undefined,
+        bidding_status: biddingStatusFilter || undefined,
         my_records: myRecordsOnly,
         limit: 100
       });
@@ -85,19 +94,43 @@ export const BiddingCRMView = () => {
 
   useEffect(() => {
     fetchRecords();
-  }, [search, leadStatusFilter, myRecordsOnly]);
+  }, [search, leadStatusFilter, biddingStatusFilter, myRecordsOnly]);
+
+  // Format Date-Time helper
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const isRecordUpdated = (rec) => {
+    if (!rec?.updated_at || !rec?.created_at) return false;
+    const created = new Date(rec.created_at).getTime();
+    const updated = new Date(rec.updated_at).getTime();
+    return updated - created > 2000;
+  };
 
   // 1-Click Cycle Status (Hot -> Warm -> Cold -> Hot)
   const handleToggleStatus = async (record) => {
-    let nextStatus = 'Warm';
-    if (record.lead_status === 'Hot') nextStatus = 'Warm';
-    else if (record.lead_status === 'Warm') nextStatus = 'Cold';
-    else if (record.lead_status === 'Cold') nextStatus = 'Hot';
+    const order = ['Warm', 'Hot', 'Cold'];
+    const currentIndex = order.indexOf(record.lead_status);
+    const nextStatus = order[(currentIndex + 1) % order.length];
 
     try {
       await crmApi.updateRecord(record.id, { lead_status: nextStatus });
       setRecords((prev) =>
-        prev.map((r) => (r.id === record.id ? { ...r, lead_status: nextStatus } : r))
+        prev.map((r) => (r.id === record.id ? { ...r, lead_status: nextStatus, updated_at: new Date().toISOString() } : r))
       );
       showNotification(`Record updated to ${nextStatus}`, 'success');
     } catch (err) {
@@ -105,26 +138,40 @@ export const BiddingCRMView = () => {
     }
   };
 
+  // Toggle Bidding Stage
+  const handleToggleBiddingStatus = async (record, nextStatus) => {
+    try {
+      await crmApi.updateRecord(record.id, { bidding_status: nextStatus });
+      setRecords((prev) =>
+        prev.map((r) => (r.id === record.id ? { ...r, bidding_status: nextStatus, updated_at: new Date().toISOString() } : r))
+      );
+      showNotification(`Bidding stage updated to ${nextStatus}`, 'success');
+    } catch (err) {
+      showNotification('Failed to update bidding stage', 'error');
+    }
+  };
+
   // Handle Bulk Import
   const handleImportSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
-      showNotification('Please choose an Excel or CSV file to upload', 'error');
+      setImportFeedback({ type: 'error', message: 'Please select a file to import.' });
       return;
     }
+
+    setIsImporting(true);
+    setImportFeedback(null);
 
     const uploadData = new FormData();
     uploadData.append('file', selectedFile);
 
-    setIsImporting(true);
-    setImportFeedback(null);
     try {
       const res = await crmApi.importRecords(uploadData);
       setImportFeedback({
         type: 'success',
-        message: res.data.message || `Successfully imported ${res.data.total_imported} records.`
+        message: res.data.message || `Successfully processed ${res.data.total_imported} records.`
       });
-      showNotification(`Imported ${res.data.total_imported} leads with visibility 'all'`, 'success');
+      showNotification(res.data.message || `Imported ${res.data.total_imported} leads`, 'success');
       fetchRecords();
       setTimeout(() => {
         setIsImportModalOpen(false);
@@ -149,6 +196,9 @@ export const BiddingCRMView = () => {
       client_designation: '',
       client_phone: '',
       client_email: '',
+      linkedin_url: '',
+      bidding_status: 'Reviewing',
+      tender_end_date: '',
       remarks: '',
       lead_status: 'Warm',
       visibility: 'all'
@@ -165,6 +215,9 @@ export const BiddingCRMView = () => {
       client_designation: rec.client_designation || '',
       client_phone: rec.client_phone || '',
       client_email: rec.client_email || '',
+      linkedin_url: rec.linkedin_url || '',
+      bidding_status: rec.bidding_status || 'Reviewing',
+      tender_end_date: rec.tender_end_date || rec.tender?.closing_date || '',
       remarks: rec.remarks || '',
       lead_status: rec.lead_status || 'Warm',
       visibility: rec.visibility || 'all'
@@ -204,7 +257,7 @@ export const BiddingCRMView = () => {
     try {
       await crmApi.updateRecord(remarksRecord.id, { remarks: remarksText });
       setRecords((prev) =>
-        prev.map((r) => (r.id === remarksRecord.id ? { ...r, remarks: remarksText } : r))
+        prev.map((r) => (r.id === remarksRecord.id ? { ...r, remarks: remarksText, updated_at: new Date().toISOString() } : r))
       );
       showNotification('Remarks updated', 'success');
       setIsRemarksModalOpen(false);
@@ -243,30 +296,34 @@ export const BiddingCRMView = () => {
             <h1 className="text-xl font-bold text-[#1E182B] tracking-tight">
               Bidding CRM & Outreach
             </h1>
-            <span className="bg-[#EFEBF8] text-[#6B46C1] text-xs font-bold px-2.5 py-0.5 rounded-full border border-[#D8BFD8]/50">
-              {total} Active Engagements
+            <span className="bg-[#EFEBF8] text-[#6B46C1] text-xs font-bold px-2.5 py-0.5 rounded-full border border-[#D8BFD8]">
+              {total} Opportunities
             </span>
           </div>
           <p className="text-xs text-[#584E6B] mt-1">
-            Track customer communications, pre-bid meetings, client nodal officers, and bid interest levels.
+            Track client interactions, bidding stages, tender deadlines, and outreach across all opportunities.
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2.5">
+          {/* Bulk Import Button */}
           <button
             onClick={() => {
               setSelectedFile(null);
               setImportFeedback(null);
               setIsImportModalOpen(true);
             }}
-            className="inline-flex items-center justify-center space-x-1.5 bg-white hover:bg-[#FAF9FD] text-[#6B46C1] border border-[#D8BFD8] text-xs sm:text-sm font-semibold px-3.5 py-2.5 rounded-xl shadow-xs transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-3.5 py-2 border border-[#6B46C1]/40 text-[#6B46C1] hover:bg-[#FAF9FD] text-xs font-semibold rounded-xl transition cursor-pointer shadow-xs"
+            title="Import Excel (.xlsx) or CSV"
           >
-            <Upload className="w-4 h-4" />
+            <FileSpreadsheet className="w-4 h-4 text-[#6B46C1]" />
             <span>Import Leads</span>
           </button>
+
+          {/* Add Record Button */}
           <button
             onClick={handleOpenCreate}
-            className="inline-flex items-center justify-center space-x-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-purple-900/10 transition cursor-pointer"
+            className="inline-flex items-center space-x-1.5 px-4 py-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>Add New Record</span>
@@ -275,7 +332,7 @@ export const BiddingCRMView = () => {
       </div>
 
       {/* 2. FILTER & SEARCH BAR */}
-      <div className="bg-white p-4 rounded-xl border border-[#E2DEEC] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white p-4 rounded-xl border border-[#E2DEEC] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-[#8C82A0] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -292,7 +349,7 @@ export const BiddingCRMView = () => {
           <div className="flex bg-[#FAF9FD] p-1 border border-[#E2DEEC] rounded-lg text-xs font-semibold">
             <button
               onClick={() => setLeadStatusFilter('')}
-              className={`px-3 py-1 rounded-md transition ${!leadStatusFilter ? 'bg-white shadow-xs text-[#6B46C1]' : 'text-[#584E6B]'}`}
+              className={`px-3 py-1 rounded-md transition ${!leadStatusFilter ? 'bg-white shadow-xs text-[#6B46C1] font-bold' : 'text-[#584E6B]'}`}
             >
               All Status
             </button>
@@ -316,6 +373,40 @@ export const BiddingCRMView = () => {
             >
               <Snowflake className="w-3.5 h-3.5 text-[#0284C7]" />
               <span>Cold</span>
+            </button>
+          </div>
+
+          {/* Bidding Stage Filter */}
+          <div className="flex bg-[#FAF9FD] p-1 border border-[#E2DEEC] rounded-lg text-xs font-semibold">
+            <button
+              onClick={() => setBiddingStatusFilter('')}
+              className={`px-3 py-1 rounded-md transition ${!biddingStatusFilter ? 'bg-white shadow-xs text-[#6B46C1] font-bold' : 'text-[#584E6B]'}`}
+            >
+              All Stages
+            </button>
+            <button
+              onClick={() => setBiddingStatusFilter('Reviewing')}
+              className={`px-2.5 py-1 rounded-md transition ${biddingStatusFilter === 'Reviewing' ? 'bg-[#FEF3C7] text-[#B45309] font-bold shadow-xs' : 'text-[#584E6B]'}`}
+            >
+              Reviewing
+            </button>
+            <button
+              onClick={() => setBiddingStatusFilter('Bidding')}
+              className={`px-2.5 py-1 rounded-md transition ${biddingStatusFilter === 'Bidding' ? 'bg-[#E0E7FF] text-[#4338CA] font-bold shadow-xs' : 'text-[#584E6B]'}`}
+            >
+              Bidding
+            </button>
+            <button
+              onClick={() => setBiddingStatusFilter('Bidded')}
+              className={`px-2.5 py-1 rounded-md transition ${biddingStatusFilter === 'Bidded' ? 'bg-[#D1FAE5] text-[#065F46] font-bold shadow-xs' : 'text-[#584E6B]'}`}
+            >
+              Bidded
+            </button>
+            <button
+              onClick={() => setBiddingStatusFilter('Rejected')}
+              className={`px-2.5 py-1 rounded-md transition ${biddingStatusFilter === 'Rejected' ? 'bg-[#FFE4E6] text-[#BE123C] font-bold shadow-xs' : 'text-[#584E6B]'}`}
+            >
+              Rejected
             </button>
           </div>
 
@@ -350,11 +441,14 @@ export const BiddingCRMView = () => {
               <thead>
                 <tr className="bg-[#FAF9FD] border-b border-[#E2DEEC] text-[#584E6B] font-bold uppercase text-[10px] tracking-wider">
                   <th className="py-3 px-4">Date Entered</th>
-                  <th className="py-3 px-4">Status (1-Click)</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Bidding Stage</th>
+                  <th className="py-3 px-4">Tender End Date</th>
                   <th className="py-3 px-4">Company Name</th>
                   <th className="py-3 px-4">Client Contact</th>
                   <th className="py-3 px-4">Phone & Email</th>
-                  <th className="py-3 px-4">Remarks / Discussion</th>
+                  <th className="py-3 px-4">Remarks</th>
+                  <th className="py-3 px-4">Last Updated</th>
                   <th className="py-3 px-4">Visibility</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -363,7 +457,7 @@ export const BiddingCRMView = () => {
                 {records.map((rec) => {
                   const isHot = rec.lead_status === 'Hot';
                   const isCold = rec.lead_status === 'Cold';
-                  const isWarm = !isHot && !isCold;
+
                   return (
                     <tr key={rec.id} className="hover:bg-[#FAF9FD]/80 transition">
 
@@ -385,12 +479,13 @@ export const BiddingCRMView = () => {
                         <button
                           onClick={() => handleToggleStatus(rec)}
                           title="Click to cycle status: Hot -> Warm -> Cold"
-                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] transition cursor-pointer shadow-xs border ${isHot
+                          className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] transition cursor-pointer shadow-xs border ${
+                            isHot
                               ? 'bg-[#FFF0F0] text-[#DC2626] border-[#FECACA] hover:bg-[#FFE2E2]'
                               : isCold
                                 ? 'bg-[#EDF8FD] text-[#0284C7] border-[#BAE6FD] hover:bg-[#E0F2FE]'
                                 : 'bg-[#FFF2E5] text-[#EA580C] border-[#FED7AA] hover:bg-[#FFE4D0]'
-                            }`}
+                          }`}
                         >
                           {isHot ? (
                             <>
@@ -411,6 +506,40 @@ export const BiddingCRMView = () => {
                         </button>
                       </td>
 
+                      {/* Bidding Stage Dropdown */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <select
+                          value={rec.bidding_status || 'Reviewing'}
+                          onChange={(e) => handleToggleBiddingStatus(rec, e.target.value)}
+                          className={`text-[11px] font-bold py-1 px-2.5 rounded-full border cursor-pointer outline-none transition shadow-2xs ${
+                            rec.bidding_status === 'Bidded'
+                              ? 'bg-[#ECFDF5] text-[#047857] border-[#A7F3D0] hover:bg-[#D1FAE5]'
+                              : rec.bidding_status === 'Bidding'
+                                ? 'bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE] hover:bg-[#E0E7FF]'
+                                : rec.bidding_status === 'Rejected'
+                                  ? 'bg-[#FFF1F2] text-[#BE123C] border-[#FECDD3] hover:bg-[#FFE4E6]'
+                                  : 'bg-[#FFFBEB] text-[#B45309] border-[#FDE68A] hover:bg-[#FEF3C7]'
+                          }`}
+                        >
+                          <option value="Reviewing">📋 Reviewing</option>
+                          <option value="Bidding">⚡ Bidding</option>
+                          <option value="Bidded">✅ Bidded</option>
+                          <option value="Rejected">❌ Rejected</option>
+                        </select>
+                      </td>
+
+                      {/* Tender End Date */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {rec.tender_end_date || rec.tender?.closing_date ? (
+                          <div className="flex items-center space-x-1.5 font-medium text-[#1E182B]">
+                            <Clock className="w-3.5 h-3.5 text-[#8C82A0]" />
+                            <span>{rec.tender_end_date || rec.tender?.closing_date}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[#8C82A0] text-[11px] italic">—</span>
+                        )}
+                      </td>
+
                       {/* Company Name & Linked Tender */}
                       <td className="py-3.5 px-4 max-w-[200px]">
                         <div className="font-bold text-[#1E182B] truncate" title={rec.company_name}>
@@ -429,10 +558,23 @@ export const BiddingCRMView = () => {
                         )}
                       </td>
 
-                      {/* Client Name & Designation */}
+                      {/* Client Name, Designation & LinkedIn */}
                       <td className="py-3.5 px-4 max-w-[180px]">
-                        <div className="font-semibold text-[#1E182B] truncate">
-                          {rec.client_name || <span className="text-[#8C82A0] italic">Not entered</span>}
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-semibold text-[#1E182B] truncate">
+                            {rec.client_name || <span className="text-[#8C82A0] italic">Not entered</span>}
+                          </span>
+                          {rec.linkedin_url && (
+                            <a
+                              href={rec.linkedin_url.startsWith('http') ? rec.linkedin_url : `https://${rec.linkedin_url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#0A66C2] hover:text-[#004182] inline-flex items-center shrink-0"
+                              title="Open LinkedIn Profile"
+                            >
+                              <Linkedin className="w-3.5 h-3.5" />
+                            </a>
+                          )}
                         </div>
                         <div className="text-[10px] text-[#584E6B] truncate">
                           {rec.client_designation || <span className="text-[#8C82A0] italic">—</span>}
@@ -482,14 +624,28 @@ export const BiddingCRMView = () => {
                         </div>
                       </td>
 
+                      {/* Last Updated Column */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-1.5 text-[11px] text-[#584E6B]">
+                          <History className="w-3.5 h-3.5 text-[#8C82A0]" />
+                          <span>{formatDateTime(rec.updated_at || rec.created_at)}</span>
+                        </div>
+                        {isRecordUpdated(rec) && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 text-[9px] font-bold bg-[#EFEBF8] text-[#6B46C1] rounded border border-[#D8BFD8]">
+                            Updated
+                          </span>
+                        )}
+                      </td>
+
                       {/* Visibility Badge */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.visibility === 'me'
+                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          rec.visibility === 'me'
                             ? 'bg-amber-50 text-amber-800 border border-amber-200'
                             : rec.visibility === 'manager'
                               ? 'bg-blue-50 text-blue-800 border border-blue-200'
                               : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          }`}>
+                        }`}>
                           {rec.visibility === 'me' && <Lock className="w-2.5 h-2.5" />}
                           {rec.visibility === 'manager' && <Users className="w-2.5 h-2.5" />}
                           {rec.visibility === 'all' && <Globe className="w-2.5 h-2.5" />}
@@ -509,14 +665,13 @@ export const BiddingCRMView = () => {
                         {canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id) && (
                           <button
                             onClick={() => handleDelete(rec.id)}
-                            className="text-[#8C82A0] hover:text-red-600 p-1 transition cursor-pointer"
-                            title="Delete record"
+                            className="text-[#584E6B] hover:text-red-600 p-1 transition cursor-pointer"
+                            title="Delete CRM record"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </td>
-
                     </tr>
                   );
                 })}
@@ -526,14 +681,17 @@ export const BiddingCRMView = () => {
         )}
       </div>
 
-      {/* 4. MODAL FOR CREATE / EDIT RECORD */}
+      {/* 4. CREATE / EDIT RECORD MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2DEEC] relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2DEEC]">
-              <h3 className="text-base font-bold text-[#1E182B]">
-                {editingRecord ? 'Edit Bidding Record' : 'Create Bidding Engagement Record'}
-              </h3>
+              <div className="flex items-center space-x-2">
+                <Building2 className="w-5 h-5 text-[#6B46C1]" />
+                <h3 className="text-base font-bold text-[#1E182B]">
+                  {editingRecord ? 'Edit CRM Record' : 'Add New CRM Record'}
+                </h3>
+              </div>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
@@ -555,17 +713,31 @@ export const BiddingCRMView = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#1E182B] mb-1">Status (Hot / Warm / Cold)</label>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Bidding Stage</label>
+                  <select
+                    value={formData.bidding_status}
+                    onChange={(e) => setFormData({ ...formData, bidding_status: e.target.value })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    <option value="Reviewing">📋 Reviewing</option>
+                    <option value="Bidding">⚡ Bidding</option>
+                    <option value="Bidded">✅ Bidded</option>
+                    <option value="Rejected">❌ Rejected</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Status (Interest)</label>
                   <select
                     value={formData.lead_status}
                     onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
                     className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
                   >
-                    <option value="Hot">🔥 Hot (High Interest / Urgent)</option>
-                    <option value="Warm">⚡ Warm (Active Discussion)</option>
-                    <option value="Cold">❄️ Cold (Delayed / Low Interest)</option>
+                    <option value="Hot">🔥 Hot (High Interest)</option>
+                    <option value="Warm">⚡ Warm (Discussion)</option>
+                    <option value="Cold">❄️ Cold (Delayed)</option>
                   </select>
                 </div>
 
@@ -578,8 +750,32 @@ export const BiddingCRMView = () => {
                   >
                     <option value="all">🌐 All Members</option>
                     <option value="manager">👥 Managers & Admin</option>
-                    <option value="me">🔒 Private (Only Me & Admin)</option>
+                    <option value="me">🔒 Private (Only Me)</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Tender End Date</label>
+                  <input
+                    type="text"
+                    value={formData.tender_end_date}
+                    onChange={(e) => setFormData({ ...formData, tender_end_date: e.target.value })}
+                    placeholder="e.g. 15-12-2026 or 15 Dec"
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">LinkedIn Profile URL</label>
+                  <input
+                    type="url"
+                    value={formData.linkedin_url}
+                    onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
+                    placeholder="e.g. https://linkedin.com/in/..."
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                  />
                 </div>
               </div>
 
@@ -713,15 +909,15 @@ export const BiddingCRMView = () => {
         </div>
       )}
 
-      {/* 6. MODAL FOR BULK IMPORT */}
+      {/* 6. BULK IMPORT MODAL */}
       {isImportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2DEEC] relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[#E2DEEC] relative">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2DEEC]">
               <div className="flex items-center space-x-2">
                 <FileSpreadsheet className="w-5 h-5 text-[#6B46C1]" />
                 <h3 className="text-base font-bold text-[#1E182B]">
-                  Import CRM Leads (Excel / CSV)
+                  Bulk Import Leads from Excel / CSV
                 </h3>
               </div>
               <button
@@ -736,7 +932,7 @@ export const BiddingCRMView = () => {
               </button>
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="space-y-4 mt-4">
               {/* Info banner about visibility and audit */}
               <div className="bg-[#FAF9FD] p-3.5 rounded-xl border border-[#E2DEEC] text-xs space-y-2">
                 <div className="flex items-start space-x-2 text-[#1E182B] font-semibold">
@@ -752,7 +948,7 @@ export const BiddingCRMView = () => {
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] text-[#584E6B]">
                 <div className="font-semibold text-[#1E182B] mb-1.5">Expected Spreadsheet Headers:</div>
                 <div className="flex flex-wrap gap-1 font-mono text-[10px] text-slate-700">
-                  {['Sr No', 'Date', 'Status', 'Client', 'Name', 'Number', 'Remarks', 'Designation', 'Email ID'].map((col) => (
+                  {['Sr No', 'Date', 'Status', 'Bidding Status', 'Tender End Date', 'Client', 'Name', 'Number', 'Remarks', 'Designation', 'Email ID', 'LinkedIn'].map((col) => (
                     <span key={col} className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-semibold">
                       {col}
                     </span>
@@ -805,10 +1001,11 @@ export const BiddingCRMView = () => {
 
                 {/* Feedback */}
                 {importFeedback && (
-                  <div className={`p-3 rounded-xl border text-xs flex items-start space-x-2 ${importFeedback.type === 'success'
+                  <div className={`p-3 rounded-xl border text-xs flex items-start space-x-2 ${
+                    importFeedback.type === 'success'
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                       : 'bg-red-50 border-red-200 text-red-800'
-                    }`}>
+                  }`}>
                     {importFeedback.type === 'success' ? (
                       <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
                     ) : (
@@ -858,4 +1055,3 @@ export const BiddingCRMView = () => {
     </div>
   );
 };
-
