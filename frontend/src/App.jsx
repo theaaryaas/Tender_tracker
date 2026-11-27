@@ -76,11 +76,11 @@ export const App = () => {
       <Navbar />
 
       {/* Main Container */}
-      <div className="flex flex-1 relative items-start">
+      <div className="flex flex-1 relative items-stretch">
         <Sidebar />
 
         {/* Content Area with Blueprint Truss & Contract Background */}
-        <div className="flex-1 relative overflow-hidden flex flex-col min-w-0">
+        <div className="flex-1 relative overflow-hidden flex flex-col min-w-0 min-h-full">
           <TenderBackground />
 
           <main className="flex-1 px-3 sm:px-6 py-4 sm:py-5 w-full relative z-10 pb-24 sm:pb-20 md:pb-6">

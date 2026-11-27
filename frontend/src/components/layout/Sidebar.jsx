@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 const SidebarPillarsGraphic = () => (
-  <div className="relative w-full h-56 mt-auto shrink-0 overflow-hidden pointer-events-none select-none z-0">
+  <div className="relative w-full h-36 xl:h-44 mt-auto shrink-0 overflow-hidden pointer-events-none select-none z-0">
     <svg viewBox="0 0 240 220" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
         {/* Gradients in Lavender Dream */}
@@ -203,7 +203,7 @@ export const Sidebar = () => {
           <button
             key={item.id}
             onClick={() => handleNavClick(item.id)}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
               active 
                 ? 'bg-[#6B46C1] border border-[#D8BFD8]/50 text-white shadow-lg shadow-purple-950/40' 
                 : 'text-[#C3C1CD] hover:bg-white/5 hover:text-white border border-transparent'
@@ -232,7 +232,7 @@ export const Sidebar = () => {
     <>
       {/* Desktop Sticky Sidebar */}
       <aside className="hidden md:flex w-64 bg-[#141021] text-[#C3C1CD] flex-col shrink-0 h-[calc(100vh-5.5rem)] sticky top-[4.75rem] rounded-2xl border border-[#26203B] shadow-2xl relative overflow-hidden my-3 ml-3 z-20 self-start justify-between">
-        <div className="p-4 space-y-1 relative z-10 overflow-y-auto">
+        <div className="p-3.5 space-y-1 relative z-10 flex-1 min-h-0 overflow-y-auto">
           {renderNavButtons()}
         </div>
         <SidebarPillarsGraphic />
@@ -248,7 +248,7 @@ export const Sidebar = () => {
             className="w-72 max-w-[85vw] bg-[#141021] text-[#C3C1CD] h-full flex flex-col justify-between border-r border-[#26203B] shadow-2xl relative overflow-hidden animate-in slide-in-from-left duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 space-y-2 relative z-10 overflow-y-auto">
+            <div className="p-4 space-y-2 relative z-10 flex-1 min-h-0 overflow-y-auto">
               <div className="flex items-center justify-between px-2 py-1 mb-2 border-b border-white/10 pb-3">
                 <div 
                   onClick={() => {
