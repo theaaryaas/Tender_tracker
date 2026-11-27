@@ -21,6 +21,9 @@ import {
   RefreshCw,
   X,
   CheckCircle2,
+  XCircle,
+  Clock,
+  Kanban,
   MessageSquare,
   Upload,
   Download,
@@ -28,8 +31,77 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+const APPROVAL_OPTIONS = [
+  {
+    value: 'Pending',
+    label: 'Pending',
+    pillClass: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100',
+  },
+  {
+    value: 'Accepted',
+    label: 'Accepted',
+    pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+  },
+  {
+    value: 'Rejected',
+    label: 'Rejected',
+    pillClass: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+  },
+];
+
+const PIPELINE_STAGE_OPTIONS = [
+  {
+    value: 'New',
+    label: 'New Opportunities',
+    shortLabel: 'New',
+    pillClass: 'bg-[#F3EFF8] text-[#6B46C1] border-[#D8BFD8] hover:bg-[#EAE3F6]',
+  },
+  {
+    value: 'Reviewing',
+    label: 'Under BD Review',
+    shortLabel: 'Reviewing',
+    pillClass: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100',
+  },
+  {
+    value: 'Bid Ready',
+    label: 'Bid Decided (Go)',
+    shortLabel: 'Bid Ready',
+    pillClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100',
+  },
+  {
+    value: 'Submitted',
+    label: 'Bid Submitted',
+    shortLabel: 'Submitted',
+    pillClass: 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100',
+  },
+  {
+    value: 'Won',
+    label: 'Awarded / Won',
+    shortLabel: 'Won',
+    pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+  },
+  {
+    value: 'Lost',
+    label: 'Lost',
+    shortLabel: 'Lost',
+    pillClass: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+  },
+  {
+    value: 'Archived',
+    label: 'Archived (No-Go)',
+    shortLabel: 'Archived',
+    pillClass: 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200',
+  },
+];
+
+const normalizePipelineStage = (stage) => {
+  if (!stage) return 'New';
+  if (stage === 'Under Review') return 'Reviewing';
+  return stage;
+};
+
 export const BiddingCRMView = () => {
-  const { user, isSuperAdmin, isManager, showNotification, openTenderDrawer } = useApp();
+  const { user, isSuperAdmin, isManager, showNotification, openTenderDrawer, refreshStats } = useApp();
   const canDeleteRecords = isSuperAdmin || (user?.permissions || []).includes('can_delete_tenders');
 
   const [records, setRecords] = useState([]);
@@ -37,6 +109,8 @@ export const BiddingCRMView = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState(''); // '' | 'Warm' | 'Cold'
+  const [approvalFilter, setApprovalFilter] = useState(''); // '' | 'Pending' | 'Accepted' | 'Rejected'
+  const [pipelineFilter, setPipelineFilter] = useState(''); // '' | stage
   const [myRecordsOnly, setMyRecordsOnly] = useState(false);
 
   // Modal State for Manual Entry / Edit
@@ -50,6 +124,8 @@ export const BiddingCRMView = () => {
     client_email: '',
     remarks: '',
     lead_status: 'Warm',
+    approval_status: 'Pending',
+    pipeline_stage: 'New',
     visibility: 'all'
   });
   const [modalSubmitting, setModalSubmitting] = useState(false);
@@ -69,6 +145,9 @@ export const BiddingCRMView = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const selectAllCheckboxRef = useRef(null);
+
+  const canEditRecord = (rec) =>
+    isSuperAdmin || isManager || rec.user_id === user?.id;
 
   const canDeleteRecord = (rec) =>
     canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id);
@@ -91,6 +170,8 @@ export const BiddingCRMView = () => {
       const res = await crmApi.getRecords({
         search: search.trim() || undefined,
         lead_status: leadStatusFilter || undefined,
+        approval_status: approvalFilter || undefined,
+        pipeline_stage: pipelineFilter || undefined,
         my_records: myRecordsOnly,
         limit: 100
       });
@@ -107,7 +188,29 @@ export const BiddingCRMView = () => {
 
   useEffect(() => {
     fetchRecords();
-  }, [search, leadStatusFilter, myRecordsOnly]);
+  }, [search, leadStatusFilter, approvalFilter, pipelineFilter, myRecordsOnly]);
+
+  // Keep linked CRM records synced when a tender's pipeline stage changes in TenderDrawer
+  useEffect(() => {
+    const handleTenderUpdated = (e) => {
+      const updated = e.detail;
+      if (!updated?.id || !updated?.status) return;
+      const normalized = normalizePipelineStage(updated.status);
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.tender_id === updated.id
+            ? {
+                ...r,
+                pipeline_stage: normalized,
+                tender: r.tender ? { ...r.tender, status: updated.status } : r.tender
+              }
+            : r
+        )
+      );
+    };
+    window.addEventListener('tender:updated', handleTenderUpdated);
+    return () => window.removeEventListener('tender:updated', handleTenderUpdated);
+  }, []);
 
   // 1-Click Cycle Status (Hot -> Warm -> Cold -> Hot)
   const handleToggleStatus = async (record) => {
@@ -123,7 +226,39 @@ export const BiddingCRMView = () => {
       );
       showNotification(`Record updated to ${nextStatus}`, 'success');
     } catch (err) {
-      showNotification('Failed to update status', 'error');
+      showNotification(err.response?.data?.detail || 'Failed to update status', 'error');
+    }
+  };
+
+  const handleChangeApprovalStatus = async (record, nextApproval) => {
+    try {
+      const res = await crmApi.updateRecord(record.id, { approval_status: nextApproval });
+      const updated = res.data;
+      setRecords((prev) =>
+        prev.map((r) => (r.id === record.id ? { ...r, ...updated } : r))
+      );
+      showNotification(`Decision updated to ${nextApproval}`, 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to update decision', 'error');
+    }
+  };
+
+  const handleChangePipelineStage = async (record, nextStage) => {
+    try {
+      const res = await crmApi.updateRecord(record.id, { pipeline_stage: nextStage });
+      const updated = res.data;
+      setRecords((prev) =>
+        prev.map((r) => (r.id === record.id ? { ...r, ...updated } : r))
+      );
+      if (record.tender_id) {
+        window.dispatchEvent(
+          new CustomEvent('tender:updated', { detail: { id: record.tender_id, status: nextStage } })
+        );
+        if (refreshStats) refreshStats();
+      }
+      showNotification(`Bid Pipeline moved to ${nextStage}`, 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to update Bid Pipeline stage', 'error');
     }
   };
 
@@ -173,6 +308,8 @@ export const BiddingCRMView = () => {
       client_email: '',
       remarks: '',
       lead_status: 'Warm',
+      approval_status: 'Pending',
+      pipeline_stage: 'New',
       visibility: 'all'
     });
     setIsModalOpen(true);
@@ -189,6 +326,8 @@ export const BiddingCRMView = () => {
       client_email: rec.client_email || '',
       remarks: rec.remarks || '',
       lead_status: rec.lead_status || 'Warm',
+      approval_status: rec.approval_status || 'Pending',
+      pipeline_stage: normalizePipelineStage(rec.pipeline_stage || rec.tender?.status || 'New'),
       visibility: rec.visibility || 'all'
     });
     setIsModalOpen(true);
@@ -206,6 +345,14 @@ export const BiddingCRMView = () => {
     try {
       if (editingRecord) {
         await crmApi.updateRecord(editingRecord.id, formData);
+        if (editingRecord.tender_id && formData.pipeline_stage) {
+          window.dispatchEvent(
+            new CustomEvent('tender:updated', {
+              detail: { id: editingRecord.tender_id, status: formData.pipeline_stage }
+            })
+          );
+          if (refreshStats) refreshStats();
+        }
         showNotification('CRM record updated successfully', 'success');
       } else {
         await crmApi.createManual(formData);
@@ -214,7 +361,7 @@ export const BiddingCRMView = () => {
       setIsModalOpen(false);
       fetchRecords();
     } catch (err) {
-      showNotification('Error saving CRM record', 'error');
+      showNotification(err.response?.data?.detail || 'Error saving CRM record', 'error');
     } finally {
       setModalSubmitting(false);
     }
@@ -393,6 +540,34 @@ export const BiddingCRMView = () => {
             </button>
           </div>
 
+          {/* Accepted / Rejected Filter */}
+          <select
+            value={approvalFilter}
+            onChange={(e) => setApprovalFilter(e.target.value)}
+            aria-label="Filter by Accepted or Rejected"
+            className="bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-semibold text-[#584E6B] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6B46C1] focus:bg-white cursor-pointer"
+          >
+            <option value="">All Decisions</option>
+            <option value="Pending">Pending</option>
+            <option value="Accepted">Accepted</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+
+          {/* Bid Pipeline Filter */}
+          <select
+            value={pipelineFilter}
+            onChange={(e) => setPipelineFilter(e.target.value)}
+            aria-label="Filter by Bid Pipeline stage"
+            className="bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-semibold text-[#584E6B] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6B46C1] focus:bg-white cursor-pointer"
+          >
+            <option value="">All Pipeline Stages</option>
+            {PIPELINE_STAGE_OPTIONS.map((stage) => (
+              <option key={stage.value} value={stage.value}>
+                {stage.label}
+              </option>
+            ))}
+          </select>
+
           {/* My Records Toggle */}
           <button
             onClick={() => setMyRecordsOnly(!myRecordsOnly)}
@@ -468,6 +643,8 @@ export const BiddingCRMView = () => {
                   <th className="py-3 px-4">Client Contact</th>
                   <th className="py-3 px-4">Phone & Email</th>
                   <th className="py-3 px-4">Remarks / Discussion</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Accepted / Rejected</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Bid Pipeline</th>
                   <th className="py-3 px-4">Visibility</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -477,8 +654,18 @@ export const BiddingCRMView = () => {
                   const isHot = rec.lead_status === 'Hot';
                   const isCold = rec.lead_status === 'Cold';
                   const isWarm = !isHot && !isCold;
+                  const rowEditable = canEditRecord(rec);
                   const rowDeletable = canDeleteRecord(rec);
                   const isSelected = selectedIds.includes(rec.id);
+                  const currentApproval = rec.approval_status || 'Pending';
+                  const approvalMeta =
+                    APPROVAL_OPTIONS.find((opt) => opt.value === currentApproval) || APPROVAL_OPTIONS[0];
+                  const currentPipelineStage = normalizePipelineStage(
+                    rec.pipeline_stage || rec.tender?.status || 'New'
+                  );
+                  const pipelineMeta =
+                    PIPELINE_STAGE_OPTIONS.find((opt) => opt.value === currentPipelineStage) ||
+                    PIPELINE_STAGE_OPTIONS[0];
                   return (
                     <tr
                       key={rec.id}
@@ -619,6 +806,65 @@ export const BiddingCRMView = () => {
                         </div>
                       </td>
 
+                      {/* Accepted / Rejected */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="inline-flex items-center space-x-1.5">
+                          {currentApproval === 'Accepted' && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          )}
+                          {currentApproval === 'Rejected' && (
+                            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          )}
+                          {currentApproval === 'Pending' && (
+                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          )}
+                          <select
+                            value={currentApproval}
+                            disabled={!rowEditable}
+                            onChange={(e) => handleChangeApprovalStatus(rec, e.target.value)}
+                            aria-label={`Accepted or Rejected status for ${rec.company_name}`}
+                            className={`px-2 py-1 rounded-full text-[11px] font-bold border outline-none transition ${approvalMeta.pillClass} ${
+                              rowEditable ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
+                            }`}
+                          >
+                            {APPROVAL_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </td>
+
+                      {/* Bid Pipeline Stage */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex flex-col items-start space-y-0.5">
+                          <div className="inline-flex items-center space-x-1.5">
+                            <Kanban className="w-3.5 h-3.5 text-[#6B46C1] shrink-0" />
+                            <select
+                              value={currentPipelineStage}
+                              disabled={!rowEditable}
+                              onChange={(e) => handleChangePipelineStage(rec, e.target.value)}
+                              aria-label={`Bid Pipeline stage for ${rec.company_name}`}
+                              className={`px-2 py-1 rounded-full text-[11px] font-bold border outline-none transition ${pipelineMeta.pillClass} ${
+                                rowEditable ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
+                              }`}
+                            >
+                              {PIPELINE_STAGE_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.shortLabel}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {rec.tender && (
+                            <span className="text-[9.5px] text-[#8C82A0] pl-5">
+                              Synced with pipeline
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
                       {/* Visibility Badge */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${rec.visibility === 'me'
@@ -716,6 +962,38 @@ export const BiddingCRMView = () => {
                     <option value="all">🌐 All Members</option>
                     <option value="manager">👥 Managers & Admin</option>
                     <option value="me">🔒 Private (Only Me & Admin)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Accepted / Rejected</label>
+                  <select
+                    value={formData.approval_status}
+                    onChange={(e) => setFormData({ ...formData, approval_status: e.target.value })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    {APPROVAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Bid Pipeline Stage</label>
+                  <select
+                    value={formData.pipeline_stage}
+                    onChange={(e) => setFormData({ ...formData, pipeline_stage: e.target.value })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    {PIPELINE_STAGE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

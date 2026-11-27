@@ -26,6 +26,63 @@ from backend.schemas.crm import (
 
 router = APIRouter(prefix="/crm-records", tags=["CRM & Bidding Records"])
 
+APPROVAL_STATUS_MAP = {
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+}
+
+PIPELINE_STAGE_MAP = {
+    "new": "New",
+    "reviewing": "Reviewing",
+    "under review": "Reviewing",
+    "under bd review": "Reviewing",
+    "bid ready": "Bid Ready",
+    "bid decided": "Bid Ready",
+    "bid decided (go)": "Bid Ready",
+    "submitted": "Submitted",
+    "bid submitted": "Submitted",
+    "won": "Won",
+    "awarded": "Won",
+    "awarded / won": "Won",
+    "lost": "Lost",
+    "archived": "Archived",
+    "archived (no-go)": "Archived",
+}
+
+def _normalize_approval_status(val: Optional[str], strict: bool = True) -> str:
+    if val is None or not str(val).strip():
+        return "Pending"
+    normalized = APPROVAL_STATUS_MAP.get(str(val).strip().lower())
+    if not normalized:
+        if strict:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid approval_status. Must be Pending, Accepted, or Rejected."
+            )
+        return "Pending"
+    return normalized
+
+def _normalize_pipeline_stage(val: Optional[str], strict: bool = True) -> str:
+    if val is None or not str(val).strip():
+        return "New"
+    normalized = PIPELINE_STAGE_MAP.get(str(val).strip().lower())
+    if not normalized:
+        if strict:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid pipeline_stage. Must be New, Reviewing, Bid Ready, Submitted, Won, Lost, or Archived."
+            )
+        return "New"
+    return normalized
+
+def _effective_pipeline_stage(record: CRMRecord, tender: Optional[Tender]) -> str:
+    if tender and tender.status:
+        return PIPELINE_STAGE_MAP.get(tender.status.strip().lower(), tender.status)
+    if record.pipeline_stage:
+        return PIPELINE_STAGE_MAP.get(record.pipeline_stage.strip().lower(), record.pipeline_stage)
+    return "New"
+
 def _build_response_item(record: CRMRecord, user: Optional[User], tender: Optional[Tender]) -> CRMRecordResponse:
     tender_info = None
     if tender:
@@ -34,6 +91,7 @@ def _build_response_item(record: CRMRecord, user: Optional[User], tender: Option
             tender_id=tender.tender_id,
             title=tender.title,
             portal=tender.portal,
+            status=tender.status,
             closing_date=tender.closing_date,
             estimated_value=tender.estimated_value,
             emd_amount=tender.emd_amount,
@@ -47,6 +105,8 @@ def _build_response_item(record: CRMRecord, user: Optional[User], tender: Option
         user_name=user.username if user else None,
         entered_date=record.entered_date,
         lead_status=record.lead_status,
+        approval_status=record.approval_status or "Pending",
+        pipeline_stage=_effective_pipeline_stage(record, tender),
         company_name=record.company_name,
         client_name=record.client_name,
         client_designation=record.client_designation,
@@ -64,6 +124,8 @@ def get_crm_records(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     lead_status: Optional[str] = Query(None, description="Filter by Warm or Cold"),
+    approval_status: Optional[str] = Query(None, description="Filter by Pending, Accepted, or Rejected"),
+    pipeline_stage: Optional[str] = Query(None, description="Filter by Bid Pipeline stage"),
     my_records: bool = Query(False, description="Filter only records owned by me"),
     search: Optional[str] = Query(None, description="Search company, client, or remarks"),
     db: Session = Depends(get_db),
@@ -101,6 +163,22 @@ def get_crm_records(
 
     if lead_status:
         query = query.filter(CRMRecord.lead_status.ilike(lead_status))
+
+    if approval_status:
+        norm_approval = _normalize_approval_status(approval_status)
+        query = query.filter(CRMRecord.approval_status == norm_approval)
+
+    if pipeline_stage:
+        norm_stage = _normalize_pipeline_stage(pipeline_stage)
+        stage_matches = [norm_stage]
+        if norm_stage == "Reviewing":
+            stage_matches.append("Under Review")
+        query = query.filter(
+            or_(
+                and_(CRMRecord.tender_id.isnot(None), Tender.status.in_(stage_matches)),
+                and_(CRMRecord.tender_id.is_(None), CRMRecord.pipeline_stage.in_(stage_matches)),
+            )
+        )
 
     if search:
         search_filter = f"%{search}%"
@@ -160,6 +238,8 @@ def pick_tender(
         company_name=tender.organisation or tender.title[:50],
         entered_date=date.today(),
         lead_status="Warm",
+        approval_status="Pending",
+        pipeline_stage=_normalize_pipeline_stage(tender.status, strict=False),
         visibility="all",
         remarks=f"Picked from portal ({tender.portal}) on {date.today()}."
     )
@@ -200,12 +280,22 @@ def create_manual_crm_record(
     if payload.tender_id:
         tender = db.query(Tender).filter(Tender.id == payload.tender_id).first()
 
+    approval_status = _normalize_approval_status(payload.approval_status)
+    if tender and "pipeline_stage" not in payload.model_fields_set:
+        pipeline_stage = _normalize_pipeline_stage(tender.status, strict=False)
+    else:
+        pipeline_stage = _normalize_pipeline_stage(payload.pipeline_stage)
+        if tender:
+            tender.status = pipeline_stage
+
     crm_record = CRMRecord(
         tender_id=payload.tender_id,
         user_id=current_user.id,
         company_name=payload.company_name,
         entered_date=payload.entered_date or date.today(),
         lead_status=payload.lead_status or "Warm",
+        approval_status=approval_status,
+        pipeline_stage=pipeline_stage,
         client_name=payload.client_name,
         client_designation=payload.client_designation,
         client_phone=payload.client_phone,
@@ -227,6 +317,8 @@ def create_manual_crm_record(
         new_values={
             "company_name": crm_record.company_name,
             "lead_status": crm_record.lead_status,
+            "approval_status": crm_record.approval_status,
+            "pipeline_stage": crm_record.pipeline_stage,
             "client_name": crm_record.client_name,
             "visibility": crm_record.visibility
         },
@@ -244,7 +336,8 @@ def update_crm_record(
     current_user: User = Depends(AuthService.get_current_user)
 ):
     """
-    Updates CRM engagement details (Warm/Cold toggle, remarks, contact info, visibility).
+    Updates CRM engagement details (Warm/Cold toggle, approval status, pipeline stage, remarks, contact info, visibility).
+    Syncs pipeline_stage changes back to any linked tender's status.
     Logs previous vs new values to audit trail.
     """
     record = db.query(CRMRecord).filter(CRMRecord.id == id).first()
@@ -256,9 +349,13 @@ def update_crm_record(
         if current_user.role != "manager":
             raise HTTPException(status_code=403, detail="You do not have permission to edit this record")
 
+    tender = db.query(Tender).filter(Tender.id == record.tender_id).first() if record.tender_id else None
+
     # Snapshot old values for audit
     old_values = {
         "lead_status": record.lead_status,
+        "approval_status": record.approval_status or "Pending",
+        "pipeline_stage": _effective_pipeline_stage(record, tender),
         "company_name": record.company_name,
         "client_name": record.client_name,
         "client_phone": record.client_phone,
@@ -271,13 +368,30 @@ def update_crm_record(
     update_data = payload.model_dump(exclude_unset=True)
     new_values = {}
     for key, value in update_data.items():
-        if value is not None and getattr(record, key) != value:
+        if value is None:
+            continue
+        if key == "approval_status":
+            normalized_val = _normalize_approval_status(value)
+            if (record.approval_status or "Pending") != normalized_val:
+                new_values["approval_status"] = normalized_val
+                record.approval_status = normalized_val
+        elif key == "pipeline_stage":
+            normalized_stage = _normalize_pipeline_stage(value)
+            current_effective_stage = _effective_pipeline_stage(record, tender)
+            if current_effective_stage != normalized_stage or record.pipeline_stage != normalized_stage:
+                new_values["pipeline_stage"] = normalized_stage
+                record.pipeline_stage = normalized_stage
+            if tender and tender.status != normalized_stage:
+                tender.status = normalized_stage
+        elif getattr(record, key) != value:
             new_values[key] = value
             setattr(record, key, value)
 
     if new_values:
         db.commit()
         db.refresh(record)
+        if tender:
+            db.refresh(tender)
 
         client_ip = request.client.host if request.client else None
         AuditService.log(
@@ -292,7 +406,6 @@ def update_crm_record(
         )
 
     owner = db.query(User).filter(User.id == record.user_id).first()
-    tender = db.query(Tender).filter(Tender.id == record.tender_id).first() if record.tender_id else None
     return _build_response_item(record, owner, tender)
 
 @router.post("/unpick/{tender_id}")
@@ -536,6 +649,8 @@ HEADER_SYNONYMS = {
     "company_name": ["client", "clientname", "company", "companyname", "organisation", "organization", "customer"],
     "entered_date": ["date", "dateentered", "entrydate"],
     "lead_status": ["status", "leadstatus"],
+    "approval_status": ["acceptedrejected", "approvalstatus", "decision", "accepted", "approval"],
+    "pipeline_stage": ["bidpipeline", "pipelinestage", "stage", "pipeline"],
     "client_name": ["name", "contactperson", "person", "contactname"],
     "client_phone": ["number", "phone", "phonenumber", "mobile", "mobilenumber", "contactno", "contactnumber"],
     "remarks": ["remarks", "remark", "notes", "comments", "discussion"],
@@ -735,6 +850,8 @@ async def import_crm_records(
 
         entered_dt = _parse_flexible_date(row_dict.get("entered_date"))
         lead_st = _parse_lead_status(row_dict.get("lead_status"))
+        approval_st = _normalize_approval_status(row_dict.get("approval_status"), strict=False)
+        pipe_stage = _normalize_pipeline_stage(row_dict.get("pipeline_stage"), strict=False)
         c_name = _clean_str(row_dict.get("client_name"))
         c_phone = _clean_phone(row_dict.get("client_phone"))
         c_email = _clean_str(row_dict.get("client_email"))
@@ -746,6 +863,8 @@ async def import_crm_records(
             company_name=company,
             entered_date=entered_dt,
             lead_status=lead_st,
+            approval_status=approval_st,
+            pipeline_stage=pipe_stage,
             client_name=c_name,
             client_phone=c_phone,
             client_email=c_email,

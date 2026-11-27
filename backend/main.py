@@ -9,7 +9,7 @@ if str(ROOT_DIR) not in sys.path:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlalchemy import text
+from sqlalchemy import text, inspect as sa_inspect
 from backend.core.config import settings
 from backend.core.db import engine, Base
 from backend.routes import (
@@ -47,13 +47,25 @@ def run_migrations():
         print(f"Migration note/warning: {e}")
         Base.metadata.create_all(bind=engine)
 
-    # Defensive check: Ensure recently added JSON columns exist in PostgreSQL
+    # Defensive check: Ensure recently added columns exist in PostgreSQL / SQLite
     try:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS documents JSON;"))
             conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS deep_analysis JSON;"))
     except Exception as e:
         print(f"Defensive schema check note: {e}")
+
+    try:
+        inspector = sa_inspect(engine)
+        if "crm_records" in inspector.get_table_names():
+            crm_cols = {c["name"] for c in inspector.get_columns("crm_records")}
+            with engine.begin() as conn:
+                if "approval_status" not in crm_cols:
+                    conn.execute(text("ALTER TABLE crm_records ADD COLUMN approval_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"))
+                if "pipeline_stage" not in crm_cols:
+                    conn.execute(text("ALTER TABLE crm_records ADD COLUMN pipeline_stage VARCHAR(50) NOT NULL DEFAULT 'New'"))
+    except Exception as e:
+        print(f"Defensive CRM schema check note: {e}")
 
 def migrate_from_sqlite_if_empty():
     """If Postgres is brand new and SQLite database exists, migrate tenders & settings seamlessly."""

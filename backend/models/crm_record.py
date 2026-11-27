@@ -12,6 +12,8 @@ class CRMRecord(Base):
     # Bidding engagement details
     entered_date = Column(Date, nullable=False, default=func.current_date, index=True)
     lead_status = Column(String(20), nullable=False, default="Warm", index=True) # 'Warm' | 'Cold'
+    approval_status = Column(String(20), nullable=False, default="Pending", index=True) # 'Pending' | 'Accepted' | 'Rejected'
+    pipeline_stage = Column(String(50), nullable=False, default="New", index=True) # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Lost' | 'Archived'
     company_name = Column(String(255), nullable=False, index=True)
     client_name = Column(String(150), nullable=True)
     client_designation = Column(String(100), nullable=True)

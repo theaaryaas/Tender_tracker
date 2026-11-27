@@ -7,6 +7,7 @@ class LinkedTenderInfo(BaseModel):
     tender_id: str
     title: str
     portal: str
+    status: Optional[str] = None
     closing_date: Optional[str] = None
     estimated_value: Optional[str] = None
     emd_amount: Optional[str] = None
@@ -21,6 +22,8 @@ class CRMRecordCreate(BaseModel):
     company_name: str = Field(..., min_length=2, max_length=255)
     entered_date: Optional[date] = None
     lead_status: str = Field(default="Warm") # 'Warm' | 'Cold'
+    approval_status: str = Field(default="Pending") # 'Pending' | 'Accepted' | 'Rejected'
+    pipeline_stage: str = Field(default="New") # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Lost' | 'Archived'
     client_name: Optional[str] = None
     client_designation: Optional[str] = None
     client_phone: Optional[str] = None
@@ -31,6 +34,8 @@ class CRMRecordCreate(BaseModel):
 class CRMRecordUpdate(BaseModel):
     company_name: Optional[str] = None
     lead_status: Optional[str] = None # 'Warm' | 'Cold'
+    approval_status: Optional[str] = None # 'Pending' | 'Accepted' | 'Rejected'
+    pipeline_stage: Optional[str] = None # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Lost' | 'Archived'
     client_name: Optional[str] = None
     client_designation: Optional[str] = None
     client_phone: Optional[str] = None
@@ -45,6 +50,8 @@ class CRMRecordResponse(BaseModel):
     user_name: Optional[str] = None
     entered_date: date
     lead_status: str
+    approval_status: str = "Pending"
+    pipeline_stage: str = "New"
     company_name: str
     client_name: Optional[str] = None
     client_designation: Optional[str] = None
