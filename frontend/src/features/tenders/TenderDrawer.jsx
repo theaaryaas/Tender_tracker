@@ -113,6 +113,9 @@ export const TenderDrawer = () => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('New');
   const [priority, setPriority] = useState('Normal');
+  const [assignedTo, setAssignedTo] = useState('');
+  const [bidProgress, setBidProgress] = useState('');
+  const [bidDate, setBidDate] = useState('');
   const [parsingPdf, setParsingPdf] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showExcerpt, setShowExcerpt] = useState(true);
@@ -151,8 +154,11 @@ export const TenderDrawer = () => {
     if (selectedTender) {
       setTender(selectedTender);
       setNotes(selectedTender.user_notes || '');
-      setStatus(selectedTender.status || 'New');
+      setStatus(selectedTender.status === 'Under Review' ? 'Reviewing' : (selectedTender.status || 'New'));
       setPriority(selectedTender.priority || 'Normal');
+      setAssignedTo(selectedTender.assigned_to || '');
+      setBidProgress(selectedTender.bid_progress || '');
+      setBidDate(selectedTender.bid_date || '');
       setIsChatOpen(false);
     }
   }, [selectedTender]);
@@ -191,7 +197,10 @@ export const TenderDrawer = () => {
       const res = await tenderApi.updateTender(tender.id, {
         user_notes: notes,
         status,
-        priority
+        priority,
+        assigned_to: assignedTo.trim() || null,
+        bid_progress: bidProgress.trim() || null,
+        bid_date: bidDate.trim() || null,
       });
       setTender(res.data);
       window.dispatchEvent(new CustomEvent('tender:updated', { detail: res.data }));
@@ -271,42 +280,42 @@ export const TenderDrawer = () => {
   const getMseStatus = () => {
     const raw = (tender.mse_relaxation || '').toLowerCase();
     if (raw.startsWith('yes')) {
-      return { 
-        label: 'Exemption Granted', 
-        badge: 'emerald', 
+      return {
+        label: 'Exemption Granted',
+        badge: 'emerald',
         detail: 'Exemption on turnover & past experience applicable for Udyam entities',
         subtext: 'Eligible for MSE concessions'
       };
     }
     if (raw.startsWith('no')) {
-      return { 
-        label: 'Strict (No Exemption)', 
-        badge: 'rose', 
+      return {
+        label: 'Strict (No Exemption)',
+        badge: 'rose',
         detail: 'Udyam entities must meet full turnover & past experience criteria',
         subtext: 'Full commercial qualifications mandatory'
       };
     }
     if (tender.extracted_pdf_text) {
       if (/MSE\s+Relaxation[\s\S]{1,80}?\n\s*No/i.test(tender.extracted_pdf_text)) {
-        return { 
-          label: 'Strict (No Exemption)', 
-          badge: 'rose', 
+        return {
+          label: 'Strict (No Exemption)',
+          badge: 'rose',
           detail: 'Udyam entities must meet full turnover & past experience criteria',
           subtext: 'Full commercial qualifications mandatory'
         };
       }
       if (/MSE\s+Relaxation[\s\S]{1,80}?\n\s*Yes/i.test(tender.extracted_pdf_text)) {
-        return { 
-          label: 'Exemption Granted', 
-          badge: 'emerald', 
+        return {
+          label: 'Exemption Granted',
+          badge: 'emerald',
           detail: 'Exemption on turnover & past experience applicable for Udyam entities',
           subtext: 'Eligible for MSE concessions'
         };
       }
     }
-    return { 
-      label: 'Check ATC Rules', 
-      badge: 'slate', 
+    return {
+      label: 'Check ATC Rules',
+      badge: 'slate',
       detail: 'Verify exact MSE exemptions in buyer ATC clauses',
       subtext: 'Review Buyer ATC specification'
     };
@@ -315,42 +324,42 @@ export const TenderDrawer = () => {
   const getStartupStatus = () => {
     const raw = (tender.startup_relaxation || '').toLowerCase();
     if (raw.startsWith('yes')) {
-      return { 
-        label: 'Exemption Granted', 
-        badge: 'emerald', 
+      return {
+        label: 'Exemption Granted',
+        badge: 'emerald',
         detail: 'DPIIT startups exempt from past experience & turnover criteria',
         subtext: 'Eligible for DPIIT startup concessions'
       };
     }
     if (raw.startsWith('no')) {
-      return { 
-        label: 'Strict (No Exemption)', 
-        badge: 'rose', 
+      return {
+        label: 'Strict (No Exemption)',
+        badge: 'rose',
         detail: 'DPIIT startups must meet standard baseline criteria',
         subtext: 'No startup concessions provided'
       };
     }
     if (tender.extracted_pdf_text) {
       if (/Startup\s+Relaxation[\s\S]{1,80}?\n\s*No/i.test(tender.extracted_pdf_text)) {
-        return { 
-          label: 'Strict (No Exemption)', 
-          badge: 'rose', 
+        return {
+          label: 'Strict (No Exemption)',
+          badge: 'rose',
           detail: 'DPIIT startups must meet standard baseline criteria',
           subtext: 'No startup concessions provided'
         };
       }
       if (/Startup\s+Relaxation[\s\S]{1,80}?\n\s*Yes/i.test(tender.extracted_pdf_text)) {
-        return { 
-          label: 'Exemption Granted', 
-          badge: 'emerald', 
+        return {
+          label: 'Exemption Granted',
+          badge: 'emerald',
           detail: 'DPIIT startups exempt from past experience & turnover criteria',
           subtext: 'Eligible for DPIIT startup concessions'
         };
       }
     }
-    return { 
-      label: 'Check ATC Rules', 
-      badge: 'slate', 
+    return {
+      label: 'Check ATC Rules',
+      badge: 'slate',
       detail: 'Verify DPIIT startup rules in buyer ATC clauses',
       subtext: 'Review Buyer ATC specification'
     };
@@ -424,7 +433,7 @@ export const TenderDrawer = () => {
     const department = getMatch(/Department\s+Name:\s*([^\n]+)/i);
     let organization = getMatch(/Organisation\s+Name:\s*([^\n]+)/i);
     if (!organization || organization.toLowerCase() === 'n/a') organization = tender.organisation;
-    
+
     let office = getMatch(/Office\s+Name:\s*([^\n]+)/i);
     if (!office || office.toLowerCase().includes('contact details')) office = tender.office_location || office;
 
@@ -794,24 +803,24 @@ export const TenderDrawer = () => {
   const emdExemptVal = (tender.emd_exemption || '').toLowerCase();
   const mseRelaxVal = (tender.mse_relaxation || '').toLowerCase();
 
-  const isEmdNil = !tender.emd_amount || 
-    emdVal === 'nil' || 
-    emdVal.includes('nil / not required') || 
-    emdVal.includes('not required') || 
-    emdVal === '0' || 
+  const isEmdNil = !tender.emd_amount ||
+    emdVal === 'nil' ||
+    emdVal.includes('nil / not required') ||
+    emdVal.includes('not required') ||
+    emdVal === '0' ||
     emdVal === '₹ 0';
 
   const isEmdToVerify = emdVal.includes('check tender') || (!tender.emd_amount && !isEmdNil);
 
-  const isEmdExemptionDenied = 
-    emdExemptVal === 'no' || 
-    emdExemptVal.startsWith('no') || 
+  const isEmdExemptionDenied =
+    emdExemptVal === 'no' ||
+    emdExemptVal.startsWith('no') ||
     emdExemptVal.includes('not allowed') ||
     emdExemptVal.includes('denied');
 
   const hasEmdExemption = !isEmdExemptionDenied && (
-    emdExemptVal === 'yes' || 
-    emdExemptVal.startsWith('yes') || 
+    emdExemptVal === 'yes' ||
+    emdExemptVal.startsWith('yes') ||
     emdExemptVal.includes('allowed') ||
     (emdExemptVal.includes('exempt') && !emdExemptVal.includes('not'))
   );
@@ -819,11 +828,11 @@ export const TenderDrawer = () => {
   const isEmdExempt = isEmdNil || hasEmdExemption;
 
   const epbgVal = (tender.epbg_required || '').toLowerCase();
-  const isEpbgExempt = !tender.epbg_required || 
-    epbgVal.includes('not required') || 
-    epbgVal.includes('nil') || 
-    epbgVal.includes('check tender') || 
-    epbgVal === '0' || 
+  const isEpbgExempt = !tender.epbg_required ||
+    epbgVal.includes('not required') ||
+    epbgVal.includes('nil') ||
+    epbgVal.includes('check tender') ||
+    epbgVal === '0' ||
     epbgVal === 'no';
 
   // Refined Technical Assessment Notes
@@ -908,13 +917,12 @@ export const TenderDrawer = () => {
                 {tender.portal}
               </span>
               <span
-                className={`text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center space-x-1 ${
-                  (tender.fit_score || 0) >= 75
-                    ? 'bg-[#E8F5E9] text-[#2E7D32] border-[#C8D8C4]'
-                    : (tender.fit_score || 0) >= 50
-                      ? 'bg-[#FFF2E5] text-[#9A3412] border-[#FFDAB9]'
-                      : 'bg-[#F1F0F5] text-[#584E6B] border-[#E2DEEC]'
-                }`}
+                className={`text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center space-x-1 ${(tender.fit_score || 0) >= 75
+                  ? 'bg-[#E8F5E9] text-[#2E7D32] border-[#C8D8C4]'
+                  : (tender.fit_score || 0) >= 50
+                    ? 'bg-[#FFF2E5] text-[#9A3412] border-[#FFDAB9]'
+                    : 'bg-[#F1F0F5] text-[#584E6B] border-[#E2DEEC]'
+                  }`}
               >
                 <CheckCircle2 className="w-3 h-3" />
                 <span>{tender.fit_score}% Fit</span>
@@ -1167,39 +1175,38 @@ export const TenderDrawer = () => {
               <div className="p-3.5 rounded-xl border border-[#E2DEEC] bg-white space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[#8C82A0] font-semibold">EMD Amount</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
-                    isEmdNil 
-                      ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' 
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${isEmdNil
+                    ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
+                    : (isEmdExemptionDenied
+                      ? 'text-[#C53030] bg-[#FFF5F5] border-[#FEB2B2]'
+                      : (hasEmdExemption
+                        ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
+                        : (isEmdToVerify
+                          ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
+                          : 'text-[#C53030] bg-[#FFF5F5] border-[#FEB2B2]')))
+                    }`}>
+                    {isEmdNil
+                      ? 'Exempt / Nil'
                       : (isEmdExemptionDenied
-                          ? 'text-[#C53030] bg-[#FFF5F5] border-[#FEB2B2]'
-                          : (hasEmdExemption
-                              ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
-                              : (isEmdToVerify 
-                                  ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
-                                  : 'text-[#C53030] bg-[#FFF5F5] border-[#FEB2B2]')))
-                  }`}>
-                    {isEmdNil 
-                      ? 'Exempt / Nil' 
-                      : (isEmdExemptionDenied
-                          ? 'Strict (No Exemption)'
-                          : (hasEmdExemption 
-                              ? 'MSE / Startup Exempt' 
-                              : (isEmdToVerify ? 'To Verify' : 'Mandatory')))}
+                        ? 'Strict (No Exemption)'
+                        : (hasEmdExemption
+                          ? 'MSE / Startup Exempt'
+                          : (isEmdToVerify ? 'To Verify' : 'Mandatory')))}
                   </span>
                 </div>
                 <p className="font-bold text-[#1E182B] text-sm">
                   {dossier?.financials?.totalEmd || tender.emd_amount || 'Nil / Not Required'}
                 </p>
                 <span className="text-[10px] text-[#584E6B] block leading-tight">
-                  {isEmdNil 
-                    ? 'Zero earnest money required; no capital lock-in.' 
+                  {isEmdNil
+                    ? 'Zero earnest money required; no capital lock-in.'
                     : (isEmdExemptionDenied
-                        ? 'EMD exemption disallowed by buyer. Full EMD payment mandatory.'
-                        : (hasEmdExemption
-                            ? 'Exemption allowed for registered MSEs & Startups; payable for others.'
-                            : (isEmdToVerify 
-                                ? 'Verify exact EMD in tender document or ATC.'
-                                : `Advisory Bank: ${dossier?.financials?.emdBank || 'Buyer Designated'}. EMD mandatory.`)))}
+                      ? 'EMD exemption disallowed by buyer. Full EMD payment mandatory.'
+                      : (hasEmdExemption
+                        ? 'Exemption allowed for registered MSEs & Startups; payable for others.'
+                        : (isEmdToVerify
+                          ? 'Verify exact EMD in tender document or ATC.'
+                          : `Advisory Bank: ${dossier?.financials?.emdBank || 'Buyer Designated'}. EMD mandatory.`)))}
                 </span>
               </div>
 
@@ -1207,9 +1214,8 @@ export const TenderDrawer = () => {
               <div className="p-3.5 rounded-xl border border-[#E2DEEC] bg-white space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[#8C82A0] font-semibold">ePBG Security Deposit</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
-                    isEpbgExempt ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#4A337A] bg-[#E6E6FA] border-[#D8BFD8]'
-                  }`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${isEpbgExempt ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#4A337A] bg-[#E6E6FA] border-[#D8BFD8]'
+                    }`}>
                     {isEpbgExempt ? 'Not Required' : 'Required'}
                   </span>
                 </div>
@@ -1225,9 +1231,8 @@ export const TenderDrawer = () => {
               <div className="p-3.5 rounded-xl border border-[#E2DEEC] bg-white space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[#8C82A0] font-semibold">MSE Concession</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
-                    mse.badge === 'emerald' ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
-                  }`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${mse.badge === 'emerald' ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
+                    }`}>
                     {mse.label}
                   </span>
                 </div>
@@ -1243,9 +1248,8 @@ export const TenderDrawer = () => {
               <div className="p-3.5 rounded-xl border border-[#E2DEEC] bg-white space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-[#8C82A0] font-semibold">Startup Concession</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
-                    startup.badge === 'emerald' ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
-                  }`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${startup.badge === 'emerald' ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]' : 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
+                    }`}>
                     {startup.label}
                   </span>
                 </div>
@@ -1451,11 +1455,10 @@ export const TenderDrawer = () => {
                           setDocTab('structured');
                           if (!showExcerpt) setShowExcerpt(true);
                         }}
-                        className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
-                          docTab === 'structured'
-                            ? 'bg-white text-[#6B46C1] shadow-2xs border border-[#E2DEEC]'
-                            : 'text-[#8C82A0] hover:text-[#1E182B]'
-                        }`}
+                        className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${docTab === 'structured'
+                          ? 'bg-white text-[#6B46C1] shadow-2xs border border-[#E2DEEC]'
+                          : 'text-[#8C82A0] hover:text-[#1E182B]'
+                          }`}
                       >
                         <LayoutGrid className="w-3 h-3" />
                         <span>Structured</span>
@@ -1467,11 +1470,10 @@ export const TenderDrawer = () => {
                           setDocTab('stream');
                           if (!showExcerpt) setShowExcerpt(true);
                         }}
-                        className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${
-                          docTab === 'stream'
-                            ? 'bg-white text-[#6B46C1] shadow-2xs border border-[#E2DEEC]'
-                            : 'text-[#8C82A0] hover:text-[#1E182B]'
-                        }`}
+                        className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition cursor-pointer ${docTab === 'stream'
+                          ? 'bg-white text-[#6B46C1] shadow-2xs border border-[#E2DEEC]'
+                          : 'text-[#8C82A0] hover:text-[#1E182B]'
+                          }`}
                       >
                         <AlignLeft className="w-3 h-3" />
                         <span>Text Stream</span>
@@ -1712,8 +1714,8 @@ export const TenderDrawer = () => {
                       {(() => {
                         const filteredLines = docSearchQuery
                           ? docDetails.lines.filter((l) =>
-                              l.toLowerCase().includes(docSearchQuery.toLowerCase())
-                            )
+                            l.toLowerCase().includes(docSearchQuery.toLowerCase())
+                          )
                           : docDetails.lines;
 
                         if (filteredLines.length === 0) {
@@ -1819,13 +1821,12 @@ export const TenderDrawer = () => {
               <h3 className="font-bold text-[#1E182B] uppercase tracking-wider text-[11px]">
                 BitVivid Technical Fit Assessment
               </h3>
-              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                (tender.fit_score || 0) >= 75
-                  ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
-                  : (tender.fit_score || 0) >= 50
-                    ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
-                    : 'text-[#584E6B] bg-[#F1F0F5] border-[#E2DEEC]'
-              }`}>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${(tender.fit_score || 0) >= 75
+                ? 'text-[#2E7D32] bg-[#E8F5E9] border-[#C8D8C4]'
+                : (tender.fit_score || 0) >= 50
+                  ? 'text-[#9A3412] bg-[#FFF2E5] border-[#FFDAB9]'
+                  : 'text-[#584E6B] bg-[#F1F0F5] border-[#E2DEEC]'
+                }`}>
                 {tender.fit_score}% Capability Match
               </span>
             </div>
@@ -1878,13 +1879,12 @@ export const TenderDrawer = () => {
                   onChange={(e) => setStatus(e.target.value)}
                   className="w-full p-2.5 rounded-lg border border-[#E2DEEC] bg-[#FAF9FD] focus:bg-white text-[#1E182B] font-medium text-xs focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] outline-none transition"
                 >
-                  <option value="New">New</option>
-                  <option value="Reviewing">Reviewing</option>
-                  <option value="Bid Ready">Bid Ready (Go)</option>
+                  <option value="New">New Opportunities</option>
+                  <option value="Reviewing">Under BD Review</option>
+                  <option value="Bid Ready">Bid Decided (Go)</option>
                   <option value="Submitted">Bid Submitted</option>
                   <option value="Won">Awarded / Won</option>
-                  <option value="Lost">Lost</option>
-                  <option value="Archived">Archived (No-Go)</option>
+                  <option value="Rejected">Rejected</option>
                 </select>
               </div>
 
@@ -1899,6 +1899,49 @@ export const TenderDrawer = () => {
                   <option value="Normal">Normal</option>
                   <option value="Low">Low</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-[#1E182B] mb-1">Assigned To (Name)</label>
+                <input
+                  type="text"
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  placeholder="e.g. Ritwik, Rahi, Manisha"
+                  className="w-full p-2.5 rounded-lg border border-[#E2DEEC] bg-[#FAF9FD] focus:bg-white text-[#1E182B] font-medium text-xs focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] outline-none transition placeholder:text-[#8C82A0]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#1E182B] mb-1">Progress</label>
+                <input
+                  type="text"
+                  list="bid-progress-suggestions"
+                  value={bidProgress}
+                  onChange={(e) => setBidProgress(e.target.value)}
+                  placeholder="e.g. Docs Preparing, Bid Placed"
+                  className="w-full p-2.5 rounded-lg border border-[#E2DEEC] bg-[#FAF9FD] focus:bg-white text-[#1E182B] font-medium text-xs focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] outline-none transition placeholder:text-[#8C82A0]"
+                />
+                <datalist id="bid-progress-suggestions">
+                  <option value="Docs Preparing" />
+                  <option value="Bid Placed" />
+                  <option value="Under Evaluation" />
+                  <option value="Technical Qualified" />
+                  <option value="Awarded" />
+                </datalist>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#1E182B] mb-1">Bid Date</label>
+                <input
+                  type="text"
+                  value={bidDate}
+                  onChange={(e) => setBidDate(e.target.value)}
+                  placeholder="e.g. 25/11/2026"
+                  className="w-full p-2.5 rounded-lg border border-[#E2DEEC] bg-[#FAF9FD] focus:bg-white text-[#1E182B] font-medium text-xs focus:ring-2 focus:ring-[#D8BFD8]/50 focus:border-[#6B46C1] outline-none transition placeholder:text-[#8C82A0]"
+                />
               </div>
             </div>
 

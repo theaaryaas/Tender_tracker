@@ -10,6 +10,15 @@ DATE_FORMATS = [
     "%d-%b-%Y %I:%M%p",
     "%d-%b-%Y %H:%M",
     "%d-%b-%Y",
+    "%d %b %Y %I:%M %p",
+    "%d %b %Y %H:%M",
+    "%d %b %Y",
+    "%d-%B-%Y %I:%M %p",
+    "%d-%B-%Y %H:%M",
+    "%d-%B-%Y",
+    "%d %B %Y %I:%M %p",
+    "%d %B %Y %H:%M",
+    "%d %B %Y",
     "%d/%m/%Y %I:%M %p",
     "%d/%m/%Y %I:%M%p",
     "%d/%m/%Y %H:%M",
@@ -30,12 +39,14 @@ def parse_closing_datetime(closing_str: Optional[str]) -> Optional[datetime]:
     - '02-Nov-2026 03:00 PM'
     - '01-Dec-2026 04:30 PM'
     - '01 Dec 2026 12:30 AM'
+    - '02 December 2026, 16:00'
     - '2026-11-02 15:00:00'
     - '02/11/2026 15:00'
     """
     if not closing_str:
         return None
-    s = str(closing_str).strip()
+    s = re.sub(r"\s*,\s*", " ", str(closing_str).strip())
+    s = re.sub(r"\s+", " ", s)
     if not s or s.lower().startswith("check") or s.lower().startswith("not"):
         return None
 

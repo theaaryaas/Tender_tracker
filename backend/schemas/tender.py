@@ -36,6 +36,8 @@ class TenderBase(BaseModel):
     fit_score: Optional[int] = 70
     status: Optional[str] = "New"
     priority: Optional[str] = "Normal"
+    bid_date: Optional[str] = None
+    bid_progress: Optional[str] = None
     user_notes: Optional[str] = ""
     assigned_to: Optional[str] = None
     assigned_to_id: Optional[int] = None
@@ -49,6 +51,8 @@ class TenderCreate(TenderBase):
 class TenderUpdate(BaseModel):
     status: Optional[str] = None
     priority: Optional[str] = None
+    bid_date: Optional[str] = None
+    bid_progress: Optional[str] = None
     user_notes: Optional[str] = None
     assigned_to: Optional[str] = None
     is_starred: Optional[bool] = None

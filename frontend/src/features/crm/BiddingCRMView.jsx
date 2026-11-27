@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { crmApi } from '../../utils/api';
+import { formatIndianDateTime } from '../../utils/dateUtils';
 import {
   Users,
   Search,
@@ -21,76 +22,52 @@ import {
   RefreshCw,
   X,
   CheckCircle2,
-  XCircle,
-  Clock,
   Kanban,
   MessageSquare,
   Upload,
   Download,
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  UserCheck
 } from 'lucide-react';
-
-const APPROVAL_OPTIONS = [
-  {
-    value: 'Pending',
-    label: 'Pending',
-    pillClass: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100',
-  },
-  {
-    value: 'Accepted',
-    label: 'Accepted',
-    pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
-  },
-  {
-    value: 'Rejected',
-    label: 'Rejected',
-    pillClass: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
-  },
-];
 
 const PIPELINE_STAGE_OPTIONS = [
   {
     value: 'New',
     label: 'New Opportunities',
-    shortLabel: 'New',
+    shortLabel: 'New Opportunities',
     pillClass: 'bg-[#F3EFF8] text-[#6B46C1] border-[#D8BFD8] hover:bg-[#EAE3F6]',
   },
   {
     value: 'Reviewing',
     label: 'Under BD Review',
-    shortLabel: 'Reviewing',
+    shortLabel: 'Under BD Review',
     pillClass: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100',
   },
   {
     value: 'Bid Ready',
     label: 'Bid Decided (Go)',
-    shortLabel: 'Bid Ready',
+    shortLabel: 'Bid Decided (Go)',
     pillClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100',
   },
   {
     value: 'Submitted',
     label: 'Bid Submitted',
-    shortLabel: 'Submitted',
+    shortLabel: 'Bid Submitted',
     pillClass: 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100',
   },
   {
     value: 'Won',
     label: 'Awarded / Won',
-    shortLabel: 'Won',
+    shortLabel: 'Awarded / Won',
     pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
   },
   {
-    value: 'Lost',
-    label: 'Lost',
-    shortLabel: 'Lost',
-    pillClass: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
-  },
-  {
-    value: 'Archived',
-    label: 'Archived (No-Go)',
-    shortLabel: 'Archived',
-    pillClass: 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200',
+    value: 'Rejected',
+    label: 'Rejected',
+    shortLabel: 'Rejected',
+    pillClass: 'bg-rose-100 text-rose-800 border-rose-300 hover:bg-rose-200',
   },
 ];
 
@@ -109,7 +86,6 @@ export const BiddingCRMView = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [leadStatusFilter, setLeadStatusFilter] = useState(''); // '' | 'Warm' | 'Cold'
-  const [approvalFilter, setApprovalFilter] = useState(''); // '' | 'Pending' | 'Accepted' | 'Rejected'
   const [pipelineFilter, setPipelineFilter] = useState(''); // '' | stage
   const [myRecordsOnly, setMyRecordsOnly] = useState(false);
 
@@ -124,7 +100,6 @@ export const BiddingCRMView = () => {
     client_email: '',
     remarks: '',
     lead_status: 'Warm',
-    approval_status: 'Pending',
     pipeline_stage: 'New',
     visibility: 'all'
   });
@@ -170,7 +145,6 @@ export const BiddingCRMView = () => {
       const res = await crmApi.getRecords({
         search: search.trim() || undefined,
         lead_status: leadStatusFilter || undefined,
-        approval_status: approvalFilter || undefined,
         pipeline_stage: pipelineFilter || undefined,
         my_records: myRecordsOnly,
         limit: 100
@@ -188,7 +162,7 @@ export const BiddingCRMView = () => {
 
   useEffect(() => {
     fetchRecords();
-  }, [search, leadStatusFilter, approvalFilter, pipelineFilter, myRecordsOnly]);
+  }, [search, leadStatusFilter, pipelineFilter, myRecordsOnly]);
 
   // Keep linked CRM records synced when a tender's pipeline stage changes in TenderDrawer
   useEffect(() => {
@@ -220,9 +194,10 @@ export const BiddingCRMView = () => {
     else if (record.lead_status === 'Cold') nextStatus = 'Hot';
 
     try {
-      await crmApi.updateRecord(record.id, { lead_status: nextStatus });
+      const res = await crmApi.updateRecord(record.id, { lead_status: nextStatus });
+      const updated = res.data;
       setRecords((prev) =>
-        prev.map((r) => (r.id === record.id ? { ...r, lead_status: nextStatus } : r))
+        prev.map((r) => (r.id === record.id ? { ...r, ...updated, lead_status: nextStatus } : r))
       );
       showNotification(`Record updated to ${nextStatus}`, 'success');
     } catch (err) {
@@ -230,23 +205,12 @@ export const BiddingCRMView = () => {
     }
   };
 
-  const handleChangeApprovalStatus = async (record, nextApproval) => {
-    try {
-      const res = await crmApi.updateRecord(record.id, { approval_status: nextApproval });
-      const updated = res.data;
-      setRecords((prev) =>
-        prev.map((r) => (r.id === record.id ? { ...r, ...updated } : r))
-      );
-      showNotification(`Decision updated to ${nextApproval}`, 'success');
-    } catch (err) {
-      showNotification(err.response?.data?.detail || 'Failed to update decision', 'error');
-    }
-  };
-
   const handleChangePipelineStage = async (record, nextStage) => {
     try {
       const res = await crmApi.updateRecord(record.id, { pipeline_stage: nextStage });
       const updated = res.data;
+      const stageLabel =
+        PIPELINE_STAGE_OPTIONS.find((opt) => opt.value === nextStage)?.label || nextStage;
       setRecords((prev) =>
         prev.map((r) => (r.id === record.id ? { ...r, ...updated } : r))
       );
@@ -256,7 +220,7 @@ export const BiddingCRMView = () => {
         );
         if (refreshStats) refreshStats();
       }
-      showNotification(`Bid Pipeline moved to ${nextStage}`, 'success');
+      showNotification(`Bid Pipeline moved to ${stageLabel}`, 'success');
     } catch (err) {
       showNotification(err.response?.data?.detail || 'Failed to update Bid Pipeline stage', 'error');
     }
@@ -308,7 +272,6 @@ export const BiddingCRMView = () => {
       client_email: '',
       remarks: '',
       lead_status: 'Warm',
-      approval_status: 'Pending',
       pipeline_stage: 'New',
       visibility: 'all'
     });
@@ -326,7 +289,6 @@ export const BiddingCRMView = () => {
       client_email: rec.client_email || '',
       remarks: rec.remarks || '',
       lead_status: rec.lead_status || 'Warm',
-      approval_status: rec.approval_status || 'Pending',
       pipeline_stage: normalizePipelineStage(rec.pipeline_stage || rec.tender?.status || 'New'),
       visibility: rec.visibility || 'all'
     });
@@ -371,9 +333,10 @@ export const BiddingCRMView = () => {
   const handleSaveRemarks = async () => {
     if (!remarksRecord) return;
     try {
-      await crmApi.updateRecord(remarksRecord.id, { remarks: remarksText });
+      const res = await crmApi.updateRecord(remarksRecord.id, { remarks: remarksText });
+      const updated = res.data;
       setRecords((prev) =>
-        prev.map((r) => (r.id === remarksRecord.id ? { ...r, remarks: remarksText } : r))
+        prev.map((r) => (r.id === remarksRecord.id ? { ...r, ...updated, remarks: remarksText } : r))
       );
       showNotification('Remarks updated', 'success');
       setIsRemarksModalOpen(false);
@@ -540,19 +503,6 @@ export const BiddingCRMView = () => {
             </button>
           </div>
 
-          {/* Accepted / Rejected Filter */}
-          <select
-            value={approvalFilter}
-            onChange={(e) => setApprovalFilter(e.target.value)}
-            aria-label="Filter by Accepted or Rejected"
-            className="bg-[#FAF9FD] border border-[#E2DEEC] text-xs font-semibold text-[#584E6B] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6B46C1] focus:bg-white cursor-pointer"
-          >
-            <option value="">All Decisions</option>
-            <option value="Pending">Pending</option>
-            <option value="Accepted">Accepted</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-
           {/* Bid Pipeline Filter */}
           <select
             value={pipelineFilter}
@@ -643,9 +593,9 @@ export const BiddingCRMView = () => {
                   <th className="py-3 px-4">Client Contact</th>
                   <th className="py-3 px-4">Phone & Email</th>
                   <th className="py-3 px-4">Remarks / Discussion</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Accepted / Rejected</th>
                   <th className="py-3 px-4 whitespace-nowrap">Bid Pipeline</th>
                   <th className="py-3 px-4">Visibility</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Last Changed By</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -657,9 +607,6 @@ export const BiddingCRMView = () => {
                   const rowEditable = canEditRecord(rec);
                   const rowDeletable = canDeleteRecord(rec);
                   const isSelected = selectedIds.includes(rec.id);
-                  const currentApproval = rec.approval_status || 'Pending';
-                  const approvalMeta =
-                    APPROVAL_OPTIONS.find((opt) => opt.value === currentApproval) || APPROVAL_OPTIONS[0];
                   const currentPipelineStage = normalizePipelineStage(
                     rec.pipeline_stage || rec.tender?.status || 'New'
                   );
@@ -806,36 +753,6 @@ export const BiddingCRMView = () => {
                         </div>
                       </td>
 
-                      {/* Accepted / Rejected */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="inline-flex items-center space-x-1.5">
-                          {currentApproval === 'Accepted' && (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          )}
-                          {currentApproval === 'Rejected' && (
-                            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                          )}
-                          {currentApproval === 'Pending' && (
-                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          )}
-                          <select
-                            value={currentApproval}
-                            disabled={!rowEditable}
-                            onChange={(e) => handleChangeApprovalStatus(rec, e.target.value)}
-                            aria-label={`Accepted or Rejected status for ${rec.company_name}`}
-                            className={`px-2 py-1 rounded-full text-[11px] font-bold border outline-none transition ${approvalMeta.pillClass} ${
-                              rowEditable ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'
-                            }`}
-                          >
-                            {APPROVAL_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-
                       {/* Bid Pipeline Stage */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex flex-col items-start space-y-0.5">
@@ -852,7 +769,7 @@ export const BiddingCRMView = () => {
                             >
                               {PIPELINE_STAGE_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
-                                  {opt.shortLabel}
+                                  {opt.label}
                                 </option>
                               ))}
                             </select>
@@ -878,6 +795,33 @@ export const BiddingCRMView = () => {
                           {rec.visibility === 'all' && <Globe className="w-2.5 h-2.5" />}
                           <span className="capitalize">{rec.visibility === 'me' ? 'Private' : rec.visibility}</span>
                         </span>
+                      </td>
+
+                      {/* Last Changed By & Date */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {rec.updated_by_name ? (
+                          <div className="space-y-0.5">
+                            <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-[#F3EFF8] text-[#4A337A] border border-[#D8BFD8] font-bold text-[10.5px]">
+                              <UserCheck className="w-3 h-3 text-[#6B46C1]" />
+                              <span>{rec.updated_by_name}</span>
+                            </div>
+                            <div className="flex items-center space-x-1 text-[10px] text-[#584E6B]">
+                              <Clock className="w-2.5 h-2.5 text-[#8C82A0] shrink-0" />
+                              <span>{formatIndianDateTime(rec.updated_at || rec.created_at)}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center space-x-1 text-[10.5px] text-[#584E6B] font-semibold">
+                              <UserCheck className="w-3 h-3 text-[#8C82A0]" />
+                              <span>{rec.user_name || 'System'} (Created)</span>
+                            </span>
+                            <div className="flex items-center space-x-1 text-[10px] text-[#8C82A0]">
+                              <Clock className="w-2.5 h-2.5 shrink-0" />
+                              <span>{formatIndianDateTime(rec.created_at || rec.entered_date)}</span>
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -966,36 +910,19 @@ export const BiddingCRMView = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#1E182B] mb-1">Accepted / Rejected</label>
-                  <select
-                    value={formData.approval_status}
-                    onChange={(e) => setFormData({ ...formData, approval_status: e.target.value })}
-                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
-                  >
-                    {APPROVAL_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-[#1E182B] mb-1">Bid Pipeline Stage</label>
-                  <select
-                    value={formData.pipeline_stage}
-                    onChange={(e) => setFormData({ ...formData, pipeline_stage: e.target.value })}
-                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
-                  >
-                    {PIPELINE_STAGE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1">Bid Pipeline Stage</label>
+                <select
+                  value={formData.pipeline_stage}
+                  onChange={(e) => setFormData({ ...formData, pipeline_stage: e.target.value })}
+                  className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                >
+                  {PIPELINE_STAGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

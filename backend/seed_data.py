@@ -110,8 +110,185 @@ def seed_database():
         else:
             print(f"Database already contains {tender_count} tenders. Skipping seed.")
 
+        # 4. Seed / backfill active Bid Pipeline records once
+        _seed_active_pipeline_records(db)
+
     finally:
         db.close()
+
+
+ACTIVE_PIPELINE_RECORDS = [
+    {
+        "tender_id": "2026_UDSCL_1198543_1",
+        "portal": "Central eProcurement",
+        "site_key": "central",
+        "title": "Startup empanelment for application software/web/ITeS/scanning",
+        "organisation": "UDSCL",
+        "closing_date": "20 Nov 2026 15:00",
+        "bid_date": "18/11/2026",
+        "bid_progress": "Bid Placed",
+        "assigned_to": "Ritwik",
+        "status": "Submitted",
+        "priority": "High",
+        "fit_score": 85,
+        "eligibility_assessment": "Direct Technical Alignment — Software / Web / ITeS",
+        "matched_keywords": "software, web, ites, scanning",
+    },
+    {
+        "tender_id": "2026_MPP_543016_1",
+        "portal": "Central eProcurement",
+        "site_key": "central",
+        "title": "Image and Video Enhancement Software",
+        "organisation": "MPP",
+        "closing_date": "30 Nov 2026 16:00",
+        "bid_date": "24/11/2026",
+        "bid_progress": "Bid Placed",
+        "assigned_to": "Rahi",
+        "status": "Submitted",
+        "priority": "High",
+        "fit_score": 90,
+        "eligibility_assessment": "Direct Technical Alignment — Video & Image Analytics",
+        "matched_keywords": "image, video enhancement, software",
+    },
+    {
+        "tender_id": "GEM/2026/B/8196370",
+        "portal": "GeM BidPlus",
+        "site_key": "gem",
+        "title": "Mumbai Indian Railways",
+        "organisation": "Mumbai Indian Railways",
+        "closing_date": "15 December 2026",
+        "bid_date": "25/11/2026",
+        "bid_progress": "Bid Placed",
+        "assigned_to": "Ritwik",
+        "status": "Submitted",
+        "priority": "High",
+        "fit_score": 85,
+        "eligibility_assessment": "Direct Technical Alignment — CCTV & Surveillance",
+        "matched_keywords": "cctv, surveillance, railways",
+        "update_org_if_existing": True,
+    },
+    {
+        "tender_id": "AI-GOV-FWK-001",
+        "portal": "Gov Framework",
+        "site_key": "gov",
+        "title": "AI partnership with Digital India",
+        "organisation": "Digital India",
+        "closing_date": "",
+        "bid_date": "25/11/2026",
+        "bid_progress": "Bid Placed",
+        "assigned_to": "Ritwik",
+        "status": "Submitted",
+        "priority": "High",
+        "fit_score": 88,
+        "eligibility_assessment": "Direct Technical Alignment — AI Partnership",
+        "matched_keywords": "ai, partnership, digital india",
+    },
+    {
+        "tender_id": "GEM/2026/B/8297786",
+        "portal": "GeM BidPlus",
+        "site_key": "gem",
+        "title": "Kendriya Vidyalaya",
+        "organisation": "Kendriya Vidyalaya Sangathan",
+        "closing_date": "30 Nov 2026 16:00",
+        "bid_date": None,
+        "bid_progress": "Docs Preparing",
+        "assigned_to": "Rahi",
+        "status": "Bid Ready",
+        "priority": "High",
+        "fit_score": 82,
+        "eligibility_assessment": "Direct Technical Alignment — Active Bid Preparation",
+        "matched_keywords": "kendriya vidyalaya",
+    },
+    {
+        "tender_id": "GEM/2026/B/8218669",
+        "portal": "GeM BidPlus",
+        "site_key": "gem",
+        "title": "Bid for IAF",
+        "organisation": "Indian Air Force (IAF)",
+        "closing_date": "27 November 2026",
+        "bid_date": None,
+        "bid_progress": "Docs Preparing",
+        "assigned_to": "Ritwik",
+        "status": "Bid Ready",
+        "priority": "High",
+        "fit_score": 82,
+        "eligibility_assessment": "Direct Technical Alignment — Active Bid Preparation",
+        "matched_keywords": "iaf",
+    },
+    {
+        "tender_id": "GEM/2026/B/8263224",
+        "portal": "GeM BidPlus",
+        "site_key": "gem",
+        "title": "Supply, Installation, Testing and Commissioning (SITC) and Annual Maintenance Contract (AMC) of CCTV Surveillance System at FCI Staff Quarters/Guest",
+        "organisation": "Department of Food and Public Distribution (FCI)",
+        "closing_date": "02 December 2026, 16:00",
+        "bid_date": None,
+        "bid_progress": "Docs Preparing",
+        "assigned_to": "Manisha",
+        "status": "Bid Ready",
+        "priority": "High",
+        "fit_score": 85,
+        "eligibility_assessment": "Direct Technical Alignment — CCTV Surveillance SITC & AMC",
+        "matched_keywords": "cctv, surveillance, sitc, amc",
+        "update_title_if_existing": True,
+        "update_closing_if_existing": True,
+    },
+]
+
+
+def _seed_active_pipeline_records(db):
+    seed_flag_key = "seed_active_pipeline_v1"
+    already_seeded = db.query(Setting).filter(Setting.key == seed_flag_key).first()
+    if already_seeded:
+        return
+
+    for item in ACTIVE_PIPELINE_RECORDS:
+        existing = db.query(Tender).filter(Tender.tender_id == item["tender_id"]).first()
+        if existing:
+            if existing.status in (None, "", "New"):
+                existing.status = item["status"]
+            if not existing.assigned_to:
+                existing.assigned_to = item["assigned_to"]
+            if not existing.bid_date and item.get("bid_date"):
+                existing.bid_date = item["bid_date"]
+            if not existing.bid_progress and item.get("bid_progress"):
+                existing.bid_progress = item["bid_progress"]
+            if item.get("update_org_if_existing") and item.get("organisation"):
+                existing.organisation = item["organisation"]
+            if item.get("update_title_if_existing") and item.get("title"):
+                existing.title = item["title"]
+            if item.get("update_closing_if_existing") and item.get("closing_date"):
+                existing.closing_date = item["closing_date"]
+            existing.priority = item.get("priority", existing.priority)
+        else:
+            tender = Tender(
+                tender_id=item["tender_id"],
+                reference=item["tender_id"],
+                portal=item["portal"],
+                site_key=item["site_key"],
+                title=item["title"],
+                organisation=item.get("organisation"),
+                closing_date=item.get("closing_date") or "",
+                bid_date=item.get("bid_date"),
+                bid_progress=item.get("bid_progress"),
+                assigned_to=item.get("assigned_to"),
+                status=item["status"],
+                priority=item.get("priority", "High"),
+                fit_score=item.get("fit_score", 80),
+                eligibility_assessment=item.get("eligibility_assessment"),
+                matched_keywords=item.get("matched_keywords"),
+            )
+            db.add(tender)
+
+    db.add(
+        Setting(
+            key=seed_flag_key,
+            value_json=json.dumps({"seeded": True, "count": len(ACTIVE_PIPELINE_RECORDS)}),
+            description="Initial active bid pipeline records seeded",
+        )
+    )
+    db.commit()
+    print(f"Seeded/updated {len(ACTIVE_PIPELINE_RECORDS)} active Bid Pipeline records.")
 
 if __name__ == "__main__":
     seed_database()

@@ -30,7 +30,9 @@ class TenderRepository:
                     Tender.tender_id.ilike(term),
                     Tender.organisation.ilike(term),
                     Tender.matched_keywords.ilike(term),
-                    Tender.user_notes.ilike(term)
+                    Tender.user_notes.ilike(term),
+                    Tender.assigned_to.ilike(term),
+                    Tender.bid_progress.ilike(term),
                 )
             )
 
@@ -124,7 +126,7 @@ class TenderRepository:
         if existing:
             # Update fields if new data came in, but preserve user workflow state
             for key, val in data.items():
-                if key in ["status", "priority", "user_notes", "assigned_to", "is_starred"]:
+                if key in ["status", "priority", "user_notes", "assigned_to", "is_starred", "bid_date", "bid_progress"]:
                     continue # Preserve user annotations
                 if key in ["scope_summary", "extracted_pdf_text", "bidder_turnover", "oem_turnover", "mse_relaxation", "startup_relaxation"] and not val:
                     continue # Preserve rich PDF extracted data

@@ -49,9 +49,18 @@ def run_migrations():
 
     # Defensive check: Ensure recently added columns exist in PostgreSQL / SQLite
     try:
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS documents JSON;"))
-            conn.execute(text("ALTER TABLE tenders ADD COLUMN IF NOT EXISTS deep_analysis JSON;"))
+        inspector = sa_inspect(engine)
+        if "tenders" in inspector.get_table_names():
+            tender_cols = {c["name"] for c in inspector.get_columns("tenders")}
+            with engine.begin() as conn:
+                if "documents" not in tender_cols:
+                    conn.execute(text("ALTER TABLE tenders ADD COLUMN documents JSON"))
+                if "deep_analysis" not in tender_cols:
+                    conn.execute(text("ALTER TABLE tenders ADD COLUMN deep_analysis JSON"))
+                if "bid_date" not in tender_cols:
+                    conn.execute(text("ALTER TABLE tenders ADD COLUMN bid_date VARCHAR(60)"))
+                if "bid_progress" not in tender_cols:
+                    conn.execute(text("ALTER TABLE tenders ADD COLUMN bid_progress VARCHAR(80)"))
     except Exception as e:
         print(f"Defensive schema check note: {e}")
 
@@ -64,6 +73,10 @@ def run_migrations():
                     conn.execute(text("ALTER TABLE crm_records ADD COLUMN approval_status VARCHAR(20) NOT NULL DEFAULT 'Pending'"))
                 if "pipeline_stage" not in crm_cols:
                     conn.execute(text("ALTER TABLE crm_records ADD COLUMN pipeline_stage VARCHAR(50) NOT NULL DEFAULT 'New'"))
+                if "updated_by_id" not in crm_cols:
+                    conn.execute(text("ALTER TABLE crm_records ADD COLUMN updated_by_id INTEGER"))
+                if "updated_by_name" not in crm_cols:
+                    conn.execute(text("ALTER TABLE crm_records ADD COLUMN updated_by_name VARCHAR(100)"))
     except Exception as e:
         print(f"Defensive CRM schema check note: {e}")
 

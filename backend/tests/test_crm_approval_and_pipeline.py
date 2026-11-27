@@ -93,20 +93,23 @@ def test_crm_approval_and_pipeline_create_update_filter(db_session):
         assert linked_data["approval_status"] == "Pending"
         assert linked_data["pipeline_stage"] == "New"
 
-        # Patch approval_status to Rejected and pipeline_stage to Submitted
+        # Patch approval_status to Rejected and pipeline_stage to Rejected
         res_patch = client.patch(
             f"/api/v1/crm-records/{linked_data['id']}",
-            json={"approval_status": "Rejected", "pipeline_stage": "Submitted"},
+            json={"approval_status": "Rejected", "pipeline_stage": "Rejected"},
         )
         assert res_patch.status_code == 200, res_patch.text
         patched = res_patch.json()
         assert patched["approval_status"] == "Rejected"
-        assert patched["pipeline_stage"] == "Submitted"
-        assert patched["tender"]["status"] == "Submitted"
+        assert patched["pipeline_stage"] == "Rejected"
+        assert patched["tender"]["status"] == "Rejected"
+        assert patched["updated_by_id"] == admin.id
+        assert patched["updated_by_name"] == admin.username
+        assert patched["updated_at"] is not None
 
         db_session.expire_all()
         refreshed_tender = db_session.query(Tender).filter(Tender.id == tender.id).first()
-        assert refreshed_tender.status == "Submitted"
+        assert refreshed_tender.status == "Rejected"
 
         # 3. Filter by approval_status and pipeline_stage
         res_filter_acc = client.get(
@@ -118,7 +121,7 @@ def test_crm_approval_and_pipeline_create_update_filter(db_session):
 
         res_filter_pipe = client.get(
             "/api/v1/crm-records",
-            params={"search": suffix, "pipeline_stage": "Submitted"},
+            params={"search": suffix, "pipeline_stage": "Rejected"},
         )
         assert res_filter_pipe.status_code == 200
         assert [item["id"] for item in res_filter_pipe.json()["items"]] == [linked_data["id"]]

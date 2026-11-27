@@ -23,8 +23,9 @@ export const parseTenderDate = (dateStr) => {
     return null;
   }
 
-  // Check for "DD-MMM-YYYY HH:MM AM/PM" or "DD MMM YYYY HH:MM AM/PM"
-  const dmyMatch = s.match(
+  // Check for "DD-MMM-YYYY HH:MM AM/PM", "DD MMM YYYY HH:MM", or "DD Month YYYY, HH:MM"
+  const normalizedStr = s.replace(/\s*,\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const dmyMatch = normalizedStr.match(
     /^(\d{1,2})[-/ ]([A-Za-z]{3,9}|\d{1,2})[-/ ](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM|am|pm))?)?/
   );
 

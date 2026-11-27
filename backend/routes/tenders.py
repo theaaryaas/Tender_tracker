@@ -10,7 +10,9 @@ from backend.models.tender import Tender
 from backend.models.user import User
 from backend.models.crm_record import CRMRecord
 from backend.models.sync_log import SyncLog
-from backend.services.auth_service import AuthService
+from backend.services.auth_service import AuthService, oauth2_scheme
+from backend.core.security import decode_access_token
+from backend.repositories.user_repository import UserRepository
 from backend.services.audit_service import AuditService
 from backend.schemas.tender import (
     TenderResponse,
@@ -928,10 +930,37 @@ def get_tender(tender_id: str, db: Session = Depends(get_db)):
     return tender
 
 @router.patch("/{tender_id}", response_model=TenderResponse)
-def update_tender(tender_id: int, updates: TenderUpdate, db: Session = Depends(get_db)):
+def update_tender(
+    tender_id: int,
+    updates: TenderUpdate,
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(oauth2_scheme)
+):
     tender = TenderRepository.update(db, tender_id, updates)
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
+
+    if updates.status is not None:
+        actor = None
+        if token:
+            payload = decode_access_token(token)
+            if payload and payload.get("sub"):
+                try:
+                    actor = UserRepository.get_by_id(db, int(payload["sub"]))
+                except (TypeError, ValueError):
+                    actor = None
+
+        stage = "Reviewing" if tender.status == "Under Review" else tender.status
+        linked_records = db.query(CRMRecord).filter(CRMRecord.tender_id == tender.id).all()
+        for rec in linked_records:
+            rec.pipeline_stage = stage
+            if actor:
+                rec.updated_by_id = actor.id
+                rec.updated_by_name = actor.username
+            rec.updated_at = datetime.now(timezone.utc)
+        if linked_records:
+            db.commit()
+
     return tender
 
 @router.delete("/{tender_id}")

@@ -23,7 +23,7 @@ class CRMRecordCreate(BaseModel):
     entered_date: Optional[date] = None
     lead_status: str = Field(default="Warm") # 'Warm' | 'Cold'
     approval_status: str = Field(default="Pending") # 'Pending' | 'Accepted' | 'Rejected'
-    pipeline_stage: str = Field(default="New") # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Lost' | 'Archived'
+    pipeline_stage: str = Field(default="New") # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Rejected' | 'Lost' | 'Archived'
     client_name: Optional[str] = None
     client_designation: Optional[str] = None
     client_phone: Optional[str] = None
@@ -35,7 +35,7 @@ class CRMRecordUpdate(BaseModel):
     company_name: Optional[str] = None
     lead_status: Optional[str] = None # 'Warm' | 'Cold'
     approval_status: Optional[str] = None # 'Pending' | 'Accepted' | 'Rejected'
-    pipeline_stage: Optional[str] = None # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Lost' | 'Archived'
+    pipeline_stage: Optional[str] = None # 'New' | 'Reviewing' | 'Bid Ready' | 'Submitted' | 'Won' | 'Rejected' | 'Lost' | 'Archived'
     client_name: Optional[str] = None
     client_designation: Optional[str] = None
     client_phone: Optional[str] = None
@@ -59,6 +59,8 @@ class CRMRecordResponse(BaseModel):
     client_email: Optional[str] = None
     remarks: Optional[str] = None
     visibility: str
+    updated_by_id: Optional[int] = None
+    updated_by_name: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     tender: Optional[LinkedTenderInfo] = None

@@ -45,8 +45,10 @@ class Tender(Base):
     fit_score = Column(Integer, default=70) # 0 to 100
     
     # User Workflow & Lifecycle State
-    status = Column(String(50), index=True, default="New") # New, Reviewing, Bid Ready, Submitted, Won, Lost, Archived
+    status = Column(String(50), index=True, default="New") # New, Reviewing, Bid Ready, Submitted, Won, Rejected, Lost, Archived
     priority = Column(String(20), index=True, default="Normal") # High, Normal, Low
+    bid_date = Column(String(60), nullable=True)
+    bid_progress = Column(String(80), nullable=True)
     user_notes = Column(Text, default="")
     assigned_to = Column(String(100), nullable=True)
     assigned_to_id = Column(Integer, nullable=True, index=True)

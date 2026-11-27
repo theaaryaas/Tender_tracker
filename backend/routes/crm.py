@@ -34,6 +34,7 @@ APPROVAL_STATUS_MAP = {
 
 PIPELINE_STAGE_MAP = {
     "new": "New",
+    "new opportunities": "New",
     "reviewing": "Reviewing",
     "under review": "Reviewing",
     "under bd review": "Reviewing",
@@ -45,6 +46,7 @@ PIPELINE_STAGE_MAP = {
     "won": "Won",
     "awarded": "Won",
     "awarded / won": "Won",
+    "rejected": "Rejected",
     "lost": "Lost",
     "archived": "Archived",
     "archived (no-go)": "Archived",
@@ -71,7 +73,7 @@ def _normalize_pipeline_stage(val: Optional[str], strict: bool = True) -> str:
         if strict:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid pipeline_stage. Must be New, Reviewing, Bid Ready, Submitted, Won, Lost, or Archived."
+                detail="Invalid pipeline_stage. Must be New, Reviewing, Bid Ready, Submitted, Won, Rejected, Lost, or Archived."
             )
         return "New"
     return normalized
@@ -114,6 +116,8 @@ def _build_response_item(record: CRMRecord, user: Optional[User], tender: Option
         client_email=record.client_email,
         remarks=record.remarks,
         visibility=record.visibility,
+        updated_by_id=record.updated_by_id,
+        updated_by_name=record.updated_by_name,
         created_at=record.created_at,
         updated_at=record.updated_at,
         tender=tender_info
@@ -187,6 +191,7 @@ def get_crm_records(
                 CRMRecord.company_name.ilike(search_filter),
                 CRMRecord.client_name.ilike(search_filter),
                 CRMRecord.remarks.ilike(search_filter),
+                CRMRecord.updated_by_name.ilike(search_filter),
                 Tender.tender_id.ilike(search_filter),
                 Tender.title.ilike(search_filter)
             )
@@ -223,10 +228,11 @@ def pick_tender(
     if not tender:
         raise HTTPException(status_code=404, detail="Tender not found")
 
-    # Update tender claimed status
+    # Update tender claimed status (preserve explicit owner name if already assigned)
     tender.is_claimed = True
     tender.assigned_to_id = current_user.id
-    tender.assigned_to = current_user.username
+    if not tender.assigned_to:
+        tender.assigned_to = current_user.username
     tender.claimed_at = datetime.now(timezone.utc)
     if tender.status == "New":
         tender.status = "Under Review"
@@ -388,6 +394,9 @@ def update_crm_record(
             setattr(record, key, value)
 
     if new_values:
+        record.updated_by_id = current_user.id
+        record.updated_by_name = current_user.username
+        record.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(record)
         if tender:
@@ -401,7 +410,7 @@ def update_crm_record(
             entity_type="crm_record",
             entity_id=str(record.id),
             old_values=old_values,
-            new_values=new_values,
+            new_values={**new_values, "updated_by": current_user.username},
             ip_address=client_ip
         )
 
