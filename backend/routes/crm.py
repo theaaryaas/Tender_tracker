@@ -20,6 +20,7 @@ from backend.schemas.crm import (
     CRMRecordUpdate,
     CRMRecordResponse,
     CRMRecordListResponse,
+    CRMRecordBulkDeleteRequest,
     LinkedTenderInfo
 )
 
@@ -349,6 +350,119 @@ def unpick_tender(
 
     return {"status": "success", "message": f"Tender {tender.tender_id} released and unpicked"}
 
+def _ensure_delete_permission(current_user: User) -> None:
+    """Requires Super Admin or explicit 'can_delete_tenders' permission."""
+    user_perms = current_user.permissions or []
+    if current_user.role != "super_admin" and "can_delete_tenders" not in user_perms:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete records. Contact your manager or administrator."
+        )
+
+
+def _can_delete_record(record: CRMRecord, current_user: User) -> bool:
+    """Super Admin and Managers can delete team records; Executives only their own."""
+    return current_user.role in ("super_admin", "manager") or record.user_id == current_user.id
+
+
+def _release_unreferenced_tenders(db: Session, tender_ids: set[int], deleting_ids: set[int]) -> List[Tender]:
+    """Unclaims any linked tender that has no remaining CRM records after deletion."""
+    released_tenders: List[Tender] = []
+    for tid in tender_ids:
+        other_records_exist = db.query(CRMRecord).filter(
+            CRMRecord.tender_id == tid,
+            ~CRMRecord.id.in_(deleting_ids)
+        ).first() is not None
+        if not other_records_exist:
+            linked_tender = db.query(Tender).filter(Tender.id == tid).first()
+            if linked_tender:
+                linked_tender.is_claimed = False
+                linked_tender.assigned_to_id = None
+                linked_tender.assigned_to = None
+                linked_tender.claimed_at = None
+                if linked_tender.status == "Under Review":
+                    linked_tender.status = "New"
+                released_tenders.append(linked_tender)
+    return released_tenders
+
+
+@router.post("/bulk-delete")
+def bulk_delete_crm_records(
+    payload: CRMRecordBulkDeleteRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.get_current_user)
+):
+    """
+    Bulk deletes selected CRM records.
+    Requires Super Admin or 'can_delete_tenders' permission, plus ownership/manager scope.
+    Unclaims any linked tenders that have no remaining CRM records.
+    """
+    _ensure_delete_permission(current_user)
+
+    unique_ids = list(dict.fromkeys(payload.ids))
+    records = db.query(CRMRecord).filter(CRMRecord.id.in_(unique_ids)).all()
+    if not records:
+        raise HTTPException(status_code=404, detail="No matching CRM records found")
+
+    for rec in records:
+        if not _can_delete_record(rec, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: you can only delete your own CRM records"
+            )
+
+    deleting_ids = {rec.id for rec in records}
+    tender_ids = {rec.tender_id for rec in records if rec.tender_id is not None}
+    deleted_items = [
+        {"id": rec.id, "company_name": rec.company_name, "tender_id": rec.tender_id}
+        for rec in records
+    ]
+
+    released_tenders = _release_unreferenced_tenders(db, tender_ids, deleting_ids)
+    for rec in records:
+        db.delete(rec)
+    db.commit()
+
+    client_ip = request.client.host if request.client else None
+    AuditService.log(
+        db=db,
+        user=current_user,
+        action="BULK_DELETE",
+        entity_type="crm_record",
+        entity_id=f"bulk_delete_{len(records)}",
+        old_values={
+            "deleted_count": len(records),
+            "deleted_ids": [item["id"] for item in deleted_items],
+            "records": deleted_items[:10],
+            "deleted_by": current_user.username
+        },
+        ip_address=client_ip
+    )
+
+    for linked_tender in released_tenders:
+        AuditService.log(
+            db=db,
+            user=current_user,
+            action="RELEASE",
+            entity_type="tender",
+            entity_id=linked_tender.tender_id,
+            new_values={
+                "released_by": current_user.username,
+                "reason": "Bulk CRM record deletion"
+            },
+            ip_address=client_ip
+        )
+
+    return {
+        "status": "success",
+        "deleted_count": len(records),
+        "deleted_ids": [item["id"] for item in deleted_items],
+        "released_tender_ids": [t.id for t in released_tenders],
+        "message": f"Deleted {len(records)} CRM record(s)"
+    }
+
+
 @router.delete("/{id}")
 def delete_crm_record(
     id: int,
@@ -367,17 +481,10 @@ def delete_crm_record(
     if not record:
         raise HTTPException(status_code=404, detail="CRM Record not found")
 
-    # Enforce granular delete permission
-    user_perms = current_user.permissions or []
-    if current_user.role != "super_admin" and "can_delete_tenders" not in user_perms:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to delete records. Contact your manager or administrator."
-        )
+    _ensure_delete_permission(current_user)
 
-    if current_user.role != "super_admin" and record.user_id != current_user.id:
-        if current_user.role != "manager":
-            raise HTTPException(status_code=403, detail="Permission denied")
+    if not _can_delete_record(record, current_user):
+        raise HTTPException(status_code=403, detail="Permission denied")
 
     tender_id = record.tender_id
     old_info = {
@@ -387,23 +494,8 @@ def delete_crm_record(
         "deleted_by": current_user.username
     }
 
-    linked_tender = None
-    if tender_id:
-        # Check if any other CRM record is linked to this tender
-        other_records_exist = db.query(CRMRecord).filter(
-            CRMRecord.tender_id == tender_id,
-            CRMRecord.id != record.id
-        ).first() is not None
-
-        if not other_records_exist:
-            linked_tender = db.query(Tender).filter(Tender.id == tender_id).first()
-            if linked_tender:
-                linked_tender.is_claimed = False
-                linked_tender.assigned_to_id = None
-                linked_tender.assigned_to = None
-                linked_tender.claimed_at = None
-                if linked_tender.status == "Under Review":
-                    linked_tender.status = "New"
+    tender_ids = {tender_id} if tender_id else set()
+    released_tenders = _release_unreferenced_tenders(db, tender_ids, {record.id})
 
     db.delete(record)
     db.commit()
@@ -419,7 +511,7 @@ def delete_crm_record(
         ip_address=client_ip
     )
 
-    if linked_tender:
+    for linked_tender in released_tenders:
         AuditService.log(
             db=db,
             user=current_user,

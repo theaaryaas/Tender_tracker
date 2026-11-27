@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { crmApi } from '../../utils/api';
 import {
@@ -65,6 +65,26 @@ export const BiddingCRMView = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importFeedback, setImportFeedback] = useState(null);
 
+  // Multi-select & Bulk Delete State
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const selectAllCheckboxRef = useRef(null);
+
+  const canDeleteRecord = (rec) =>
+    canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id);
+
+  const deletableRecords = records.filter(canDeleteRecord);
+  const allDeletableSelected =
+    deletableRecords.length > 0 && deletableRecords.every((r) => selectedIds.includes(r.id));
+  const someDeletableSelected =
+    deletableRecords.some((r) => selectedIds.includes(r.id)) && !allDeletableSelected;
+
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = someDeletableSelected;
+    }
+  }, [someDeletableSelected]);
+
   const fetchRecords = async () => {
     setLoading(true);
     try {
@@ -74,8 +94,10 @@ export const BiddingCRMView = () => {
         my_records: myRecordsOnly,
         limit: 100
       });
-      setRecords(res.data.items || []);
+      const items = res.data.items || [];
+      setRecords(items);
       setTotal(res.data.total || 0);
+      setSelectedIds((prev) => prev.filter((id) => items.some((r) => r.id === id)));
     } catch (err) {
       showNotification('Failed to load CRM records', 'error');
     } finally {
@@ -220,6 +242,8 @@ export const BiddingCRMView = () => {
     try {
       await crmApi.deleteRecord(id);
       setRecords((prev) => prev.filter((r) => r.id !== id));
+      setTotal((prev) => Math.max(0, prev - 1));
+      setSelectedIds((prev) => prev.filter((itemId) => itemId !== id));
       if (rec?.tender_id) {
         window.dispatchEvent(
           new CustomEvent('tender:updated', {
@@ -229,7 +253,57 @@ export const BiddingCRMView = () => {
       }
       showNotification('CRM record deleted and tender released', 'info');
     } catch (err) {
-      showNotification('Failed to delete record', 'error');
+      showNotification(err.response?.data?.detail || 'Failed to delete record', 'error');
+    }
+  };
+
+  // Toggle single row selection
+  const handleToggleRow = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
+  };
+
+  // Select / Untick all deletable rows
+  const handleToggleSelectAll = () => {
+    if (allDeletableSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(deletableRecords.map((r) => r.id));
+    }
+  };
+
+  // Bulk Delete Selected Records
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || bulkDeleting) return;
+    const count = selectedIds.length;
+    if (!window.confirm(`Are you sure you want to delete ${count} selected CRM record(s)?`)) {
+      return;
+    }
+
+    setBulkDeleting(true);
+    try {
+      const res = await crmApi.bulkDeleteRecords(selectedIds);
+      const deletedSet = new Set(res.data?.deleted_ids || selectedIds);
+      const releasedTenderIds = res.data?.released_tender_ids || [];
+
+      setRecords((prev) => prev.filter((r) => !deletedSet.has(r.id)));
+      setTotal((prev) => Math.max(0, prev - deletedSet.size));
+      setSelectedIds([]);
+
+      releasedTenderIds.forEach((tenderId) => {
+        window.dispatchEvent(
+          new CustomEvent('tender:updated', {
+            detail: { id: tenderId, is_claimed: false, assigned_to: null, status: 'New' }
+          })
+        );
+      });
+
+      showNotification(`Deleted ${deletedSet.size} CRM record(s)`, 'info');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to delete selected records', 'error');
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -331,6 +405,31 @@ export const BiddingCRMView = () => {
 
       {/* 3. DATA TABLE */}
       <div className="bg-white rounded-xl border border-[#E2DEEC] shadow-xs overflow-hidden">
+        {canDeleteRecords && selectedIds.length > 0 && (
+          <div className="px-4 py-2.5 bg-rose-50/90 border-b border-rose-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center space-x-3 text-xs">
+              <span className="font-bold text-rose-900">
+                {selectedIds.length} record{selectedIds.length === 1 ? '' : 's'} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="text-rose-700 hover:text-rose-900 underline font-semibold cursor-pointer"
+              >
+                Untick all
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-xs transition cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}</span>
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-3">
             <RefreshCw className="w-6 h-6 animate-spin text-[#6B46C1]" />
@@ -349,6 +448,20 @@ export const BiddingCRMView = () => {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#FAF9FD] border-b border-[#E2DEEC] text-[#584E6B] font-bold uppercase text-[10px] tracking-wider">
+                  {canDeleteRecords && (
+                    <th className="py-3 pl-4 pr-2 w-10">
+                      <input
+                        ref={selectAllCheckboxRef}
+                        type="checkbox"
+                        checked={allDeletableSelected}
+                        disabled={deletableRecords.length === 0}
+                        onChange={handleToggleSelectAll}
+                        aria-label="Select all records"
+                        title={allDeletableSelected ? 'Untick all records' : 'Select all records'}
+                        className="w-4 h-4 rounded border-[#D8BFD8] text-[#6B46C1] focus:ring-[#6B46C1] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      />
+                    </th>
+                  )}
                   <th className="py-3 px-4">Date Entered</th>
                   <th className="py-3 px-4">Status (1-Click)</th>
                   <th className="py-3 px-4">Company Name</th>
@@ -364,8 +477,32 @@ export const BiddingCRMView = () => {
                   const isHot = rec.lead_status === 'Hot';
                   const isCold = rec.lead_status === 'Cold';
                   const isWarm = !isHot && !isCold;
+                  const rowDeletable = canDeleteRecord(rec);
+                  const isSelected = selectedIds.includes(rec.id);
                   return (
-                    <tr key={rec.id} className="hover:bg-[#FAF9FD]/80 transition">
+                    <tr
+                      key={rec.id}
+                      className={`transition ${isSelected ? 'bg-rose-50/50 hover:bg-rose-50/70' : 'hover:bg-[#FAF9FD]/80'}`}
+                    >
+                      {canDeleteRecords && (
+                        <td className="py-3.5 pl-4 pr-2 w-10">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!rowDeletable}
+                            onChange={() => handleToggleRow(rec.id)}
+                            aria-label={`Select ${rec.company_name}`}
+                            title={
+                              rowDeletable
+                                ? isSelected
+                                  ? 'Untick record'
+                                  : 'Tick record for delete'
+                                : 'You can only delete records you created'
+                            }
+                            className="w-4 h-4 rounded border-[#D8BFD8] text-[#6B46C1] focus:ring-[#6B46C1] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          />
+                        </td>
+                      )}
 
                       {/* Date Entered */}
                       <td className="py-3.5 px-4 font-semibold text-[#1E182B] whitespace-nowrap">
@@ -506,7 +643,7 @@ export const BiddingCRMView = () => {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        {canDeleteRecords && (isSuperAdmin || isManager || rec.user_id === user?.id) && (
+                        {rowDeletable && (
                           <button
                             onClick={() => handleDelete(rec.id)}
                             className="text-[#8C82A0] hover:text-red-600 p-1 transition cursor-pointer"
