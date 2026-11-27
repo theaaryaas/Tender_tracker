@@ -9,6 +9,14 @@ class UserCreateRequest(BaseModel):
     role: str = Field(default="executive") # 'manager' | 'executive' | 'super_admin'
     permissions: List[str] = Field(default_factory=list)
 
+class UserUpdateRequest(BaseModel):
+    username: Optional[str] = Field(None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_.-]+$")
+    email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=6, max_length=128)
+    role: Optional[str] = None # 'manager' | 'executive' | 'super_admin'
+    permissions: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
 class UserPermissionsUpdateRequest(BaseModel):
     permissions: List[str]
 

@@ -16,7 +16,8 @@ import {
   RefreshCw,
   X,
   AlertCircle,
-  Trash2
+  Trash2,
+  Edit2
 } from 'lucide-react';
 
 const AVAILABLE_PERMISSIONS = [
@@ -34,6 +35,16 @@ export const UserManagementView = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    role: 'executive',
+    permissions: [],
+    is_active: true
+  });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -120,6 +131,67 @@ export const UserManagementView = () => {
       showNotification(`User ${targetUser.username} ${nextStatus ? 'activated' : 'deactivated'}`, 'info');
     } catch (err) {
       showNotification(err.response?.data?.detail || 'Failed to change status', 'error');
+    }
+  };
+
+  // Inline Role Change (Super Admin only)
+  const handleRoleChange = async (targetUser, newRole) => {
+    if (targetUser.id === user?.id) {
+      showNotification('You cannot change your own Super Admin role', 'error');
+      return;
+    }
+    if (newRole === targetUser.role) return;
+
+    try {
+      const res = await usersApi.updateUser(targetUser.id, { role: newRole });
+      setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? res.data : u)));
+      showNotification(`Updated ${targetUser.username}'s role to ${newRole.replace('_', ' ')}`, 'success');
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to update user role', 'error');
+    }
+  };
+
+  // Open Edit User Modal (Super Admin only)
+  const handleOpenEditModal = (targetUser) => {
+    setEditingUser(targetUser);
+    setEditFormData({
+      username: targetUser.username || '',
+      email: targetUser.email || '',
+      password: '',
+      role: targetUser.role || 'executive',
+      permissions: targetUser.permissions || [],
+      is_active: targetUser.is_active
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Submit Edit User Modal (Super Admin only)
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    const payload = {
+      username: editFormData.username.trim(),
+      email: editFormData.email.trim(),
+      role: editFormData.role,
+      permissions: editFormData.permissions,
+      is_active: editFormData.is_active
+    };
+    if (editFormData.password.trim()) {
+      payload.password = editFormData.password.trim();
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await usersApi.updateUser(editingUser.id, payload);
+      setUsers((prev) => prev.map((u) => (u.id === editingUser.id ? res.data : u)));
+      showNotification(`User '${res.data.username}' updated successfully`, 'success');
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+    } catch (err) {
+      showNotification(err.response?.data?.detail || 'Failed to update user', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -228,18 +300,37 @@ export const UserManagementView = () => {
                         </div>
                       </td>
 
-                      {/* Role Badge */}
+                      {/* Role Badge / Inline Role Selector (Super Admin) */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                          u.role === 'super_admin'
-                            ? 'bg-purple-50 text-purple-800 border-purple-200'
-                            : u.role === 'manager'
-                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        }`}>
-                          <ShieldCheck className="w-3 h-3" />
-                          <span className="capitalize">{u.role.replace('_', ' ')}</span>
-                        </span>
+                        {isSuperAdmin && !isCurrent ? (
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u, e.target.value)}
+                            className={`text-[11px] font-bold py-1 px-2.5 rounded-full border cursor-pointer outline-none transition ${
+                              u.role === 'super_admin'
+                                ? 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
+                                : u.role === 'manager'
+                                ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                            title="Change user role"
+                          >
+                            <option value="executive">Executive</option>
+                            <option value="manager">Manager</option>
+                            <option value="super_admin">Super Admin</option>
+                          </select>
+                        ) : (
+                          <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            u.role === 'super_admin'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : u.role === 'manager'
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          }`}>
+                            <ShieldCheck className="w-3 h-3" />
+                            <span className="capitalize">{u.role.replace('_', ' ')}</span>
+                          </span>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -297,14 +388,24 @@ export const UserManagementView = () => {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         {isSuperAdmin && !isCurrent ? (
-                          <button
-                            onClick={() => handleDeleteUser(u)}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
-                            title={`Permanently delete user ${u.username}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete</span>
-                          </button>
+                          <div className="inline-flex items-center space-x-1.5">
+                            <button
+                              onClick={() => handleOpenEditModal(u)}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#6B46C1] bg-[#EFEBF8] hover:bg-[#E2D9F3] border border-[#D8BFD8] transition cursor-pointer"
+                              title={`Edit user ${u.username}`}
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u)}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                              title={`Permanently delete user ${u.username}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          </div>
                         ) : isCurrent ? (
                           <span className="text-[11px] text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
                             Current User
@@ -418,7 +519,144 @@ export const UserManagementView = () => {
         </div>
       )}
 
+
+      {/* 4. MODAL: EDIT USER (SUPER ADMIN) */}
+      {isEditModalOpen && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2DEEC] relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2DEEC]">
+              <div className="flex items-center space-x-2">
+                <Edit2 className="w-5 h-5 text-[#6B46C1]" />
+                <h3 className="text-base font-bold text-[#1E182B]">
+                  Edit User: {editingUser.username}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingUser(null);
+                }}
+                className="text-[#8C82A0] hover:text-[#1E182B] p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4 mt-4 text-xs">
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1">Username *</label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.username}
+                  onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
+                  className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Role</label>
+                  <select
+                    value={editFormData.role}
+                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    <option value="executive">Executive</option>
+                    <option value="manager">Manager</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-[#1E182B] mb-1">Account Status</label>
+                  <select
+                    value={editFormData.is_active ? 'active' : 'disabled'}
+                    onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.value === 'active' })}
+                    className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white font-medium"
+                  >
+                    <option value="active">Active</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1">
+                  Reset Password <span className="text-[#8C82A0] font-normal">(leave blank to keep current)</span>
+                </label>
+                <input
+                  type="password"
+                  minLength={6}
+                  value={editFormData.password}
+                  onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                  placeholder="Enter new password (min 6 chars)"
+                  className="w-full bg-[#FAF9FD] border border-[#E2DEEC] rounded-lg px-3 py-2 text-[#1E182B] outline-none focus:border-[#6B46C1] focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#1E182B] mb-1.5">Granular Permissions</label>
+                <div className="space-y-1.5 bg-[#FAF9FD] p-3 rounded-xl border border-[#E2DEEC]">
+                  {AVAILABLE_PERMISSIONS.map((perm) => {
+                    const checked = editFormData.permissions.includes(perm.key);
+                    return (
+                      <label key={perm.key} className="flex items-start space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? editFormData.permissions.filter((p) => p !== perm.key)
+                              : [...editFormData.permissions, perm.key];
+                            setEditFormData({ ...editFormData, permissions: next });
+                          }}
+                          className="mt-0.5 w-3.5 h-3.5 rounded border-[#D8BFD8] text-[#6B46C1] focus:ring-[#6B46C1]"
+                        />
+                        <div>
+                          <div className="font-semibold text-[#1E182B]">{perm.label}</div>
+                          <div className="text-[10px] text-[#584E6B]">{perm.desc}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-[#E2DEEC]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingUser(null);
+                  }}
+                  className="px-4 py-2 border border-[#E2DEEC] rounded-lg text-[#584E6B] font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-[#6B46C1] hover:bg-[#553C9A] text-white font-semibold rounded-lg shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

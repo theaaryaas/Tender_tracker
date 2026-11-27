@@ -137,3 +137,61 @@ def test_super_admin_delete_user_success(super_admin_token, db_session):
         AuditLog.entity_id == str(test_user.id)
     ).first()
     assert audit_entry is not None
+
+def test_super_admin_update_user_role_and_details(super_admin_token, manager_token, db_session):
+    """Verifies Super Admin can update role, username, email, permissions, and password; Manager is forbidden; Super Admin cannot demote self."""
+    target = User(
+        username="editable_exec",
+        email="editable_exec@example.com",
+        hashed_password="dummy",
+        role="executive",
+        permissions=["can_export"],
+        is_active=True
+    )
+    db_session.add(target)
+    db_session.commit()
+    db_session.refresh(target)
+
+    try:
+        # 1. Manager cannot edit user role/details
+        mgr_resp = client.patch(
+            f"/api/v1/users/{target.id}",
+            json={"role": "manager"},
+            headers={"Authorization": f"Bearer {manager_token}"}
+        )
+        assert mgr_resp.status_code == 403
+
+        # 2. Super Admin cannot demote self
+        admin = db_session.query(User).filter(User.username == "admin").first()
+        self_resp = client.patch(
+            f"/api/v1/users/{admin.id}",
+            json={"role": "executive"},
+            headers={"Authorization": f"Bearer {super_admin_token}"}
+        )
+        assert self_resp.status_code == 400
+
+        # 3. Super Admin promotes executive to manager and updates details
+        ok_resp = client.patch(
+            f"/api/v1/users/{target.id}",
+            json={
+                "username": "promoted_mgr",
+                "email": "promoted_mgr@example.com",
+                "role": "manager",
+                "permissions": ["can_export", "can_view_audit", "can_delete_tenders"],
+                "password": "NewPassword123!"
+            },
+            headers={"Authorization": f"Bearer {super_admin_token}"}
+        )
+        assert ok_resp.status_code == 200
+        data = ok_resp.json()
+        assert data["username"] == "promoted_mgr"
+        assert data["email"] == "promoted_mgr@example.com"
+        assert data["role"] == "manager"
+        assert "can_delete_tenders" in data["permissions"]
+
+        db_session.expire_all()
+        updated = db_session.query(User).filter(User.id == target.id).first()
+        assert updated.hashed_password != "dummy"
+    finally:
+        db_session.query(User).filter(User.id == target.id).delete(synchronize_session=False)
+        db_session.commit()

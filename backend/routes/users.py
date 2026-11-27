@@ -12,6 +12,7 @@ from backend.services.auth_service import AuthService
 from backend.services.audit_service import AuditService
 from backend.schemas.user import (
     UserCreateRequest,
+    UserUpdateRequest,
     UserPermissionsUpdateRequest,
     UserStatusUpdateRequest,
     UserDetailResponse,
@@ -141,6 +142,100 @@ def create_user(
         created_by_name=current_user.username,
         is_active=new_user.is_active,
         created_at=new_user.created_at
+    )
+
+@router.patch("/{id}", response_model=UserDetailResponse)
+def update_user(
+    id: int,
+    payload: UserUpdateRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(AuthService.require_super_admin)
+):
+    """
+    Allows Super Admin to update a user's role, username, email, password, permissions, or status.
+    Prevents Super Admin from demoting or disabling their own account.
+    """
+    user = db.query(User).filter(User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    old_values = {
+        "username": user.username,
+        "email": user.email,
+        "role": user.role,
+        "permissions": user.permissions or [],
+        "is_active": user.is_active,
+    }
+    new_values = {}
+
+    if payload.username is not None and payload.username.strip() != user.username:
+        clean_username = payload.username.strip()
+        exists = db.query(User).filter(User.username.ilike(clean_username), User.id != id).first()
+        if exists:
+            raise HTTPException(status_code=400, detail=f"Username '{clean_username}' is already taken.")
+        user.username = clean_username
+        new_values["username"] = clean_username
+
+    if payload.email is not None and payload.email.lower() != user.email.lower():
+        clean_email = payload.email.lower()
+        exists = db.query(User).filter(User.email.ilike(clean_email), User.id != id).first()
+        if exists:
+            raise HTTPException(status_code=400, detail=f"Email '{clean_email}' is already registered.")
+        user.email = clean_email
+        new_values["email"] = clean_email
+
+    if payload.role is not None:
+        target_role = payload.role.lower().strip()
+        if target_role not in ("super_admin", "manager", "executive"):
+            raise HTTPException(status_code=400, detail="Invalid role specified.")
+        if id == current_user.id and target_role != user.role:
+            raise HTTPException(status_code=400, detail="Cannot change your own Super Admin role.")
+        if target_role != user.role:
+            user.role = target_role
+            new_values["role"] = target_role
+
+    if payload.is_active is not None:
+        if id == current_user.id and not payload.is_active:
+            raise HTTPException(status_code=400, detail="Cannot deactivate your own Super Admin account.")
+        if payload.is_active != user.is_active:
+            user.is_active = payload.is_active
+            new_values["is_active"] = payload.is_active
+
+    if payload.permissions is not None and payload.permissions != (user.permissions or []):
+        user.permissions = payload.permissions
+        new_values["permissions"] = payload.permissions
+
+    if payload.password:
+        user.hashed_password = get_password_hash(payload.password)
+        new_values["password_reset"] = True
+
+    if new_values:
+        db.commit()
+        db.refresh(user)
+        client_ip = request.client.host if request.client else None
+        AuditService.log(
+            db=db,
+            user=current_user,
+            action="ROLE_CHANGE" if "role" in new_values else "UPDATE",
+            entity_type="user",
+            entity_id=str(user.id),
+            old_values=old_values,
+            new_values=new_values,
+            ip_address=client_ip
+        )
+
+    creator = db.query(User).filter(User.id == user.created_by_id).first() if user.created_by_id else None
+    return UserDetailResponse(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        role=user.role,
+        permissions=user.permissions or [],
+        created_by_id=user.created_by_id,
+        created_by_name=creator.username if creator else None,
+        is_active=user.is_active,
+        created_at=user.created_at
     )
 
 @router.patch("/{id}/permissions", response_model=UserDetailResponse)
